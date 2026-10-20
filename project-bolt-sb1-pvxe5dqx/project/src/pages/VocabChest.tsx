@@ -21,7 +21,11 @@ import { useToast } from '@/components/Toast';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { AudioControl } from '@/components/AudioControl';
 import { DEFAULT_CHESTS, FALLBACK_CHEST_KEY } from '@/lib/categorizer';
-import { batchAuditVocabWithGemini, normalizeSelectedVocabs } from '@/services/geminiService';
+import {
+  batchAuditVocabWithGemini,
+  normalizeSelectedVocabs,
+  type BatchAuditProgress,
+} from '@/services/geminiService';
 import { isDueForReview, getSRSStage } from '@/lib/srs';
 import type { Vocabulary } from '@/lib/types';
 
@@ -39,9 +43,10 @@ export function VocabChest() {
   const [moveCategory, setMoveCategory] = useState('');
   const [deduplicating, setDeduplicating] = useState(false);
 
-  // Batch audit state
+  // Batch audit & normalize state with strict progress tracking
   const [auditing, setAuditing] = useState(false);
-  const [auditProgress, setAuditProgress] = useState<{ scanned: number; total: number } | null>(null);
+  const [auditProgress, setAuditProgress] = useState<BatchAuditProgress | null>(null);
+  const [auditAbortController, setAuditAbortController] = useState<AbortController | null>(null);
 
   // Selected normalization state
   const [normalizingSelected, setNormalizingSelected] = useState(false);
@@ -166,7 +171,13 @@ export function VocabChest() {
     }
   };
 
-  // ===== BATCH AUDIT VIA GEMINI (No Mocking) =====
+  const handleCancelAudit = () => {
+    if (auditAbortController) {
+      auditAbortController.abort();
+    }
+  };
+
+  // ===== BATCH AUDIT VIA GEMINI (No Mocking, CHUNK_SIZE = 15, Strict Progress & Error Handling) =====
   const handleBatchAudit = async () => {
     let wordsToAudit: Array<{ id: string; word: string; meaning: string; type: string }>;
     if (selected.size > 0) {
@@ -175,15 +186,31 @@ export function VocabChest() {
         .filter((v) => selectedIds.includes(v.id))
         .map((v) => ({ id: v.id, word: v.word, meaning: v.meaning, type: v.type }));
     } else {
-      wordsToAudit = vocabs.slice(0, 20).map((v) => ({ id: v.id, word: v.word, meaning: v.meaning, type: v.type }));
+      // Audit all currently filtered / chest words (e.g. all 738 words if on All)
+      wordsToAudit = filtered.map((v) => ({ id: v.id, word: v.word, meaning: v.meaning, type: v.type }));
     }
 
+    if (wordsToAudit.length === 0) {
+      show(lang === 'vi' ? 'Không có từ vựng nào để kiểm tra.' : 'No vocabulary words to audit.', 'info');
+      return;
+    }
+
+    const controller = new AbortController();
+    setAuditAbortController(controller);
     setAuditing(true);
-    setAuditProgress({ scanned: 0, total: wordsToAudit.length });
+    setAuditProgress({
+      scanned: 0,
+      total: wordsToAudit.length,
+      errorsFound: 0,
+      currentChunk: 1,
+      totalChunks: Math.ceil(wordsToAudit.length / 15),
+    });
 
     try {
-      const result = await batchAuditVocabWithGemini(wordsToAudit, (scanned, total) =>
-        setAuditProgress({ scanned, total })
+      const result = await batchAuditVocabWithGemini(
+        wordsToAudit,
+        (progress) => setAuditProgress(progress),
+        controller.signal
       );
 
       if (result.items.length === 0) {
@@ -207,10 +234,16 @@ export function VocabChest() {
       }
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      show(`Lỗi AI: ${errMsg}`, 'error');
+      if (errMsg.includes('Đã hủy')) {
+        show(lang === 'vi' ? 'Đã dừng quá trình kiểm tra từ vựng.' : 'Vocabulary audit stopped.', 'info');
+      } else {
+        // Red Toast for API / network / parsing errors (No silent catch)
+        show(`Lỗi kiểm tra AI: ${errMsg}`, 'error');
+      }
     } finally {
       setAuditing(false);
       setAuditProgress(null);
+      setAuditAbortController(null);
     }
   };
 
@@ -220,11 +253,22 @@ export function VocabChest() {
     if (selectedIds.length === 0) return;
 
     const selectedVocabs = vocabs.filter((v) => selectedIds.includes(v.id));
+    const controller = new AbortController();
+    setAuditAbortController(controller);
     setNormalizingSelected(true);
+    setAuditProgress({
+      scanned: 0,
+      total: selectedVocabs.length,
+      errorsFound: 0,
+      currentChunk: 1,
+      totalChunks: Math.ceil(selectedVocabs.length / 15),
+    });
 
     try {
       const results = await normalizeSelectedVocabs(
-        selectedVocabs.map((v) => ({ id: v.id, word: v.word, meaning: v.meaning, type: v.type }))
+        selectedVocabs.map((v) => ({ id: v.id, word: v.word, meaning: v.meaning, type: v.type })),
+        (progress) => setAuditProgress(progress),
+        controller.signal
       );
 
       let fixedCount = 0;
@@ -252,9 +296,15 @@ export function VocabChest() {
       setSelected(new Set());
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      show(`Lỗi AI: ${errMsg}`, 'error');
+      if (errMsg.includes('Đã hủy')) {
+        show(lang === 'vi' ? 'Đã dừng quá trình chuẩn hóa.' : 'Normalization stopped.', 'info');
+      } else {
+        show(`Lỗi chuẩn hóa AI: ${errMsg}`, 'error');
+      }
     } finally {
       setNormalizingSelected(false);
+      setAuditProgress(null);
+      setAuditAbortController(null);
     }
   };
 
@@ -358,6 +408,63 @@ export function VocabChest() {
         </div>
       )}
 
+      {/* Sticky / Prominent AI Progress Bar Banner */}
+      {(auditing || normalizingSelected) && auditProgress && (
+        <div className="mb-5 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border border-amber-200 shadow-md animate-slide-up">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-sm flex-shrink-0">
+                <Loader2 className="w-5 h-5 animate-spin" />
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-800 text-sm sm:text-base flex items-center gap-2">
+                  <span>
+                    {auditing
+                      ? (lang === 'vi' ? 'Đang dọn dẹp lỗi chính tả với AI...' : 'Cleaning spelling errors with AI...')
+                      : (lang === 'vi' ? 'Đang chuẩn hóa các từ đã chọn...' : 'Normalizing selected vocabulary...')}
+                  </span>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
+                    {Math.round((auditProgress.scanned / Math.max(1, auditProgress.total)) * 100)}%
+                  </span>
+                </h4>
+                <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+                  {lang === 'vi'
+                    ? `Đang kiểm tra từ ${auditProgress.scanned} / ${auditProgress.total}... (Cụm ${auditProgress.currentChunk}/${auditProgress.totalChunks} • 15 từ/lượt)`
+                    : `Checking word ${auditProgress.scanned} / ${auditProgress.total}... (Chunk ${auditProgress.currentChunk}/${auditProgress.totalChunks} • 15 words/batch)`}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 self-end sm:self-center">
+              {auditProgress.errorsFound > 0 && (
+                <span className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg">
+                  {lang === 'vi' ? `Đã phát hiện: ${auditProgress.errorsFound} lỗi` : `Found: ${auditProgress.errorsFound} issues`}
+                </span>
+              )}
+              {auditAbortController && (
+                <button
+                  type="button"
+                  onClick={handleCancelAudit}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 bg-white hover:bg-slate-100 hover:text-slate-900 transition-colors shadow-sm"
+                >
+                  {lang === 'vi' ? 'Dừng lại' : 'Stop'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Progress track */}
+          <div className="w-full bg-amber-200/60 rounded-full h-3 overflow-hidden shadow-inner p-0.5">
+            <div
+              className="bg-gradient-to-r from-amber-500 to-orange-500 h-full rounded-full transition-all duration-300 ease-out shadow-sm"
+              style={{
+                width: `${Math.min(100, Math.max(3, Math.round((auditProgress.scanned / Math.max(1, auditProgress.total)) * 100)))}%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Search, Deduplicate, AI Audit & Filter toolbar */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1">
@@ -386,16 +493,23 @@ export function VocabChest() {
           onClick={handleBatchAudit}
           disabled={auditing || vocabs.length === 0}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold text-sm hover:from-amber-600 hover:to-orange-600 transition-all shadow-sm disabled:opacity-50 whitespace-nowrap"
+          title={lang === 'vi' ? 'Quét chính tả và chuẩn hóa từ vựng với Gemini AI' : 'Scan and fix spelling with Gemini AI'}
         >
           {auditing ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              {auditProgress ? tFn2('aiCleanupProgress', auditProgress.scanned, auditProgress.total) : t('aiBatchAuditing')}
+              <span>
+                {auditProgress
+                  ? (lang === 'vi'
+                      ? `Đang kiểm tra từ ${auditProgress.scanned} / ${auditProgress.total}...`
+                      : `Checking ${auditProgress.scanned}/${auditProgress.total}...`)
+                  : t('aiBatchAuditing')}
+              </span>
             </>
           ) : (
             <>
               <Wand2 className="w-4 h-4" />
-              {t('aiCleanupSpellErrors')}
+              <span>{t('aiCleanupSpellErrors')}</span>
             </>
           )}
         </button>

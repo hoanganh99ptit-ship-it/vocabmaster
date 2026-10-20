@@ -6,13 +6,13 @@ import type { GrammarEvaluation, DetectedError, NativeAlternative, ErrorType } f
 // Target Model: Exclusively gemini-2.0-flash
 // Authentication: Exclusively via x-goog-api-key header (NO Bearer, NO query params)
 // Key Resolution: localStorage('vocabmaster_gemini_api_key') -> import.meta.env.VITE_GEMINI_API_KEY
-// Request Batching: Max 20 items per prompt
+// Request Batching: 15 items per prompt (CHUNK_SIZE = 15)
 // ============================================================================
 
 export const USER_KEY_STORAGE = 'vocabmaster_gemini_api_key';
 export const TARGET_MODEL = 'gemini-2.0-flash';
 export const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
-export const CHUNK_SIZE = 20; // Enforce max 20 items per prompt for batch operations
+export const CHUNK_SIZE = 15; // Enforce 15 items per prompt for strict batching & token safety
 
 /**
  * Resolves API Key following strict priority:
@@ -37,7 +37,6 @@ export function resolveApiKey(): string {
 
 export function isValidGeminiKey(key: string): boolean {
   const trimmed = key.trim();
-  // Valid keys start with "AQ." (Google AI Studio format) or "AIzaSy" (GCP format)
   return trimmed.startsWith('AQ.') || trimmed.startsWith('AIzaSy');
 }
 
@@ -63,12 +62,69 @@ export function isGeminiConfigured(): boolean {
 
 interface GeminiApiResponse {
   candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  error?: { message?: string; code?: number };
+  error?: { message?: string; code?: number; status?: string };
+}
+
+/**
+ * Robust JSON parser that handles:
+ * - Markdown code fences: ```json ... ``` or ``` ... ```
+ * - Preamble / trailing text from LLM
+ * - Trailing commas in arrays or objects
+ */
+export function cleanAndParseJSON<T = unknown>(rawText: string): T {
+  let cleaned = rawText.trim();
+
+  // If text contains markdown code fences anywhere (e.g. ```json ... ```), extract inner content
+  const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fenceMatch && fenceMatch[1]) {
+    cleaned = fenceMatch[1].trim();
+  } else {
+    // Strip leading and trailing fences if not caught by non-greedy match
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  }
+
+  // 1. Direct parse attempt
+  try {
+    return JSON.parse(cleaned) as T;
+  } catch {
+    // 2. Try regex extraction of array [...]
+    const arrayMatch = cleaned.match(/\[\s*\{[\s\S]*\}\s*\]/) || cleaned.match(/\[[\s\S]*\]/);
+    if (arrayMatch) {
+      try {
+        const sanitized = arrayMatch[0].replace(/,\s*([}\]])/g, '$1');
+        return JSON.parse(sanitized) as T;
+      } catch {
+        // continue
+      }
+    }
+
+    // 3. Try regex extraction of object {...}
+    const objMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (objMatch) {
+      try {
+        const sanitized = objMatch[0].replace(/,\s*([}\]])/g, '$1');
+        return JSON.parse(sanitized) as T;
+      } catch {
+        // continue
+      }
+    }
+
+    // 4. Try global trailing commas replacement on entire text
+    try {
+      const sanitized = cleaned.replace(/,\s*([}\]])/g, '$1');
+      return JSON.parse(sanitized) as T;
+    } catch {
+      // continue
+    }
+  }
+
+  throw new Error(`Không thể giải mã phản hồi JSON từ Gemini. Phản hồi: ${rawText.substring(0, 150)}...`);
 }
 
 /**
  * Low-level REST caller for Gemini API.
  * Strict protocol: Only x-goog-api-key header. Never query param. Never Bearer auth.
+ * Retries on transient 429/503 rate limits.
  */
 async function geminiGenerate(
   prompt: string,
@@ -76,14 +132,15 @@ async function geminiGenerate(
     temperature?: number;
     responseMimeType?: string;
     signal?: AbortSignal;
+    retries?: number;
   }
 ): Promise<string> {
   const apiKey = resolveApiKey();
   if (!apiKey) {
-    throw new Error('Gemini API key is missing. Please set your API key in Settings or .env file.');
+    throw new Error('Thiếu Gemini API key! Vui lòng cấu hình API key trong cài đặt hoặc file .env.');
   }
 
-  const { temperature = 0.2, responseMimeType = 'application/json' } = options || {};
+  const { temperature = 0.1, responseMimeType = 'application/json', retries = 2 } = options || {};
   const url = `${BASE_URL}/${TARGET_MODEL}:generateContent`;
 
   const body = {
@@ -94,59 +151,78 @@ async function geminiGenerate(
     },
   };
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 45000);
+  let lastError: Error | null = null;
 
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify(body),
-      signal: options?.signal || controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!res.ok) {
-      const errData = (await res.json().catch(() => null)) as GeminiApiResponse | null;
-      const msg = errData?.error?.message || `HTTP ${res.status}`;
-      console.error(`[GeminiService] Error (${res.status}):`, msg);
-      throw new Error(`Gemini API Error: ${msg}`);
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt > 0) {
+      // Exponential backoff: 1.5s, 3s
+      const delayMs = attempt * 1500;
+      console.warn(`[GeminiService] Thử lại lượt ${attempt} sau ${delayMs}ms...`);
+      await new Promise((r) => setTimeout(r, delayMs));
     }
 
-    const data = (await res.json()) as GeminiApiResponse;
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) {
-      throw new Error('Empty Gemini response received.');
-    }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
 
-    return text;
-  } catch (err) {
-    clearTimeout(timeoutId);
-    if (err instanceof Error) {
-      throw err;
-    }
-    throw new Error(String(err));
-  }
-}
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        body: JSON.stringify(body),
+        signal: options?.signal || controller.signal,
+      });
 
-function safeParseJSON(text: string): Record<string, unknown> {
-  try {
-    return JSON.parse(text);
-  } catch {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (match) {
-      try {
-        return JSON.parse(match[0]);
-      } catch {
-        // continue
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        const errData = (await res.json().catch(() => null)) as GeminiApiResponse | null;
+        const msg = errData?.error?.message || `HTTP ${res.status}`;
+        console.error(`[GeminiService] HTTP ${res.status}:`, msg);
+
+        // If rate limit (429) or transient server error (503), retry
+        if ((res.status === 429 || res.status === 503) && attempt < retries) {
+          lastError = new Error(`Quá giới hạn tần suất API (HTTP ${res.status}): ${msg}`);
+          continue;
+        }
+
+        // Fatal errors (401 Bad Key, 403 Forbidden, 404 Not Found)
+        if (res.status === 401 || res.status === 403) {
+          throw new Error(`Lỗi xác thực Gemini API (${res.status}): API Key không hợp lệ hoặc không có quyền truy cập.`);
+        }
+        if (res.status === 404) {
+          throw new Error(`Model ${TARGET_MODEL} không tồn tại hoặc không được hỗ trợ (${res.status}).`);
+        }
+
+        throw new Error(`Gemini API Error (${res.status}): ${msg}`);
+      }
+
+      const data = (await res.json()) as GeminiApiResponse;
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) {
+        throw new Error('Gemini trả về nội dung rỗng (empty candidate).');
+      }
+
+      return text;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err instanceof Error) {
+        lastError = err;
+        if (err.name === 'AbortError') {
+          throw new Error('Yêu cầu tới Gemini API đã bị quá thời gian chờ (timeout 45s).');
+        }
+        if (err.message.includes('xác thực') || err.message.includes('401') || err.message.includes('403')) {
+          throw err;
+        }
+      } else {
+        lastError = new Error(String(err));
       }
     }
-    throw new Error('Failed to parse Gemini JSON output');
   }
+
+  throw lastError || new Error('Không thể kết nối tới Gemini API sau nhiều lần thử.');
 }
 
 // ============================================================================
@@ -211,7 +287,7 @@ SCORING CRITERIA:
     responseMimeType: 'application/json',
   });
 
-  const parsed = safeParseJSON(text);
+  const parsed = cleanAndParseJSON<Record<string, unknown>>(text);
 
   const detectedErrorsRaw = (parsed.detectedErrors || []) as Array<{
     type?: string;
@@ -242,7 +318,14 @@ SCORING CRITERIA:
     .filter((s) => s.sentence.trim().length > 0);
 
   const accuracy = Math.max(0, Math.min(100, Number(parsed.accuracyScore) || 0));
-  const grammarScore = Math.max(0, Math.min(100, Number(parsed.grammarScore) || (detectedErrors.length === 0 ? 100 : Math.max(40, 100 - detectedErrors.length * 20))));
+  const grammarScore = Math.max(
+    0,
+    Math.min(
+      100,
+      Number(parsed.grammarScore) ||
+        (detectedErrors.length === 0 ? 100 : Math.max(40, 100 - detectedErrors.length * 20))
+    )
+  );
   const naturalnessScore = Math.max(0, Math.min(100, Number(parsed.naturalnessScore) || (parsed.isNatural ? 90 : 70)));
 
   const firstAlt = betterAlternatives[0];
@@ -273,7 +356,7 @@ SCORING CRITERIA:
 }
 
 // ============================================================================
-// 2. AUTO-NORMALIZE VOCAB BATCH (Chunks of max 20)
+// 2. AUTO-NORMALIZE VOCAB BATCH (Chunks of max 15)
 // ============================================================================
 
 export interface NormalizedVocabEntry {
@@ -293,9 +376,12 @@ export async function autoNormalizeVocabBatch(
 
   const results: NormalizedVocabEntry[] = [];
 
-  // Enforce max 20 items per prompt
   for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
     const chunk = entries.slice(i, i + CHUNK_SIZE);
+
+    if (i > 0) {
+      await new Promise((r) => setTimeout(r, 600));
+    }
 
     const entriesText = chunk
       .map(
@@ -313,7 +399,7 @@ Return a raw JSON array matching this exact schema:
 [
   {
     "originalWord": "raw user input",
-    "word": "Corrected English word in lowercase (e.g. 'protectt' -> 'protect')",
+    "word": "Corrected English word in lowercase (e.g. 'protectt' -> 'protect', 'protecttt' -> 'protect')",
     "meaning": "Accurate, natural Vietnamese translation",
     "partOfSpeech": "n | v | adj | adv | phr",
     "ipa": "Standard IPA phonetic transcription (e.g. /prəˈtɛkt/)",
@@ -327,57 +413,34 @@ CRITICAL RULES:
 - Standardize all English words in lowercase trimmed form.
 - If already correct, set wasAutoCorrected to false.`;
 
-    try {
-      const text = await geminiGenerate(prompt, {
-        temperature: 0.1,
-        responseMimeType: 'application/json',
-      });
+    const text = await geminiGenerate(prompt, {
+      temperature: 0.1,
+      responseMimeType: 'application/json',
+    });
 
-      let parsed: NormalizedVocabEntry[];
-      try {
-        parsed = JSON.parse(text);
-      } catch {
-        const match = text.match(/\[[\s\S]*\]/);
-        if (!match) throw new Error('No JSON array found in Gemini response');
-        parsed = JSON.parse(match[0]);
-      }
+    const parsed = cleanAndParseJSON<NormalizedVocabEntry[]>(text);
 
-      for (let j = 0; j < chunk.length; j++) {
-        const item = parsed[j];
-        if (!item) {
-          results.push({
-            originalWord: chunk[j].word,
-            word: chunk[j].word.trim().toLowerCase(),
-            meaning: chunk[j].meaning.trim(),
-            partOfSpeech: (chunk[j].type || '').trim().toLowerCase(),
-            ipa: '',
-            wasAutoCorrected: false,
-            correctionNote: '',
-          });
-        } else {
-          results.push({
-            originalWord: chunk[j].word,
-            word: (item.word || chunk[j].word).trim().toLowerCase(),
-            meaning: (item.meaning || chunk[j].meaning).trim(),
-            partOfSpeech: (item.partOfSpeech || chunk[j].type || '').trim().toLowerCase(),
-            ipa: item.ipa || '',
-            wasAutoCorrected: Boolean(item.wasAutoCorrected),
-            correctionNote: item.correctionNote || '',
-          });
-        }
-      }
-    } catch (err) {
-      console.warn('[GeminiService] autoNormalizeVocabBatch chunk failed, falling back:', err);
-      // Fallback with trimmed lowercase values
-      for (const entry of chunk) {
+    for (let j = 0; j < chunk.length; j++) {
+      const item = parsed[j];
+      if (!item) {
         results.push({
-          originalWord: entry.word,
-          word: entry.word.trim().toLowerCase(),
-          meaning: entry.meaning.trim(),
-          partOfSpeech: (entry.type || '').trim().toLowerCase(),
+          originalWord: chunk[j].word,
+          word: chunk[j].word.trim().toLowerCase(),
+          meaning: chunk[j].meaning.trim(),
+          partOfSpeech: (chunk[j].type || '').trim().toLowerCase(),
           ipa: '',
           wasAutoCorrected: false,
           correctionNote: '',
+        });
+      } else {
+        results.push({
+          originalWord: chunk[j].word,
+          word: (item.word || chunk[j].word).trim().toLowerCase(),
+          meaning: (item.meaning || chunk[j].meaning).trim(),
+          partOfSpeech: (item.partOfSpeech || chunk[j].type || '').trim().toLowerCase(),
+          ipa: item.ipa || '',
+          wasAutoCorrected: Boolean(item.wasAutoCorrected),
+          correctionNote: item.correctionNote || '',
         });
       }
     }
@@ -387,7 +450,7 @@ CRITICAL RULES:
 }
 
 // ============================================================================
-// 3. BATCH AUDIT & CLEANUP (Chunks of max 20)
+// 3. BATCH AUDIT & SPELLCHECK (Chunks of 15, Strict Error Propagation, Heuristic Check)
 // ============================================================================
 
 export interface BatchAuditItem {
@@ -403,99 +466,168 @@ export interface BatchAuditResult {
   totalErrors: number;
 }
 
+export interface BatchAuditProgress {
+  scanned: number;
+  total: number;
+  errorsFound: number;
+  currentChunk: number;
+  totalChunks: number;
+}
+
 export async function batchAuditVocabWithGemini(
   vocabs: Array<{ id: string; word: string; meaning: string; type: string }>,
-  onProgress?: (scanned: number, total: number) => void
+  onProgress?: (progress: BatchAuditProgress) => void,
+  signal?: AbortSignal
 ): Promise<BatchAuditResult> {
+  if (vocabs.length === 0) {
+    return { items: [], totalScanned: 0, totalErrors: 0 };
+  }
+
   const items: BatchAuditItem[] = [];
   let scanned = 0;
   const total = vocabs.length;
+  const totalChunks = Math.ceil(total / CHUNK_SIZE);
 
   for (let i = 0; i < vocabs.length; i += CHUNK_SIZE) {
+    if (signal?.aborted) {
+      throw new Error('Đã hủy quá trình kiểm tra.');
+    }
+
     const chunk = vocabs.slice(i, i + CHUNK_SIZE);
+    const chunkIndex = Math.floor(i / CHUNK_SIZE) + 1;
+
+    // Small delay between chunks to respect API rate limits (avoiding HTTP 429)
+    if (i > 0) {
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(resolve, 800);
+        if (signal) {
+          signal.addEventListener(
+            'abort',
+            () => {
+              clearTimeout(timeout);
+              reject(new Error('Đã hủy quá trình kiểm tra.'));
+            },
+            { once: true }
+          );
+        }
+      });
+    }
+
     const entriesText = chunk
-      .map((e, idx) => `${idx + 1}. id="${e.id}" English: "${e.word}", Vietnamese: "${e.meaning}", POS: "${e.type || ''}"`)
+      .map(
+        (e, idx) =>
+          `${idx + 1}. [id="${e.id}"] Word: "${e.word}", Meaning: "${e.meaning}", Type: "${e.type || ''}"`
+      )
       .join('\n');
 
-    const prompt = `Review these English-Vietnamese vocabulary pairs. Identify spelling errors, translation mismatches, or invalid parts of speech.
+    const prompt = `You are a strict English lexicographer and dictionary spellchecker.
+Analyze this list of English-Vietnamese vocabulary pairs. Identify any English spelling errors, non-existent words, typos, meaning mismatches, or invalid parts of speech.
 
 Input entries:
 ${entriesText}
 
+CRITICAL SPELLCHECK RULES:
+1. Scrutinize EVERY letter of every word for typos and extra characters:
+   - "protecttt" (extra 't's) -> MUST fix to "protect", set hasIssue: true
+   - "protectet" (misspelling) -> MUST fix to "protect", set hasIssue: true
+   - "enviroment" -> MUST fix to "environment", set hasIssue: true
+   - "definitiely" -> MUST fix to "definitely", set hasIssue: true
+   - "succesful" -> MUST fix to "successful", set hasIssue: true
+   - Any word with repeated characters, typos, or slang MUST be corrected to its canonical dictionary form.
+2. Meaning verification:
+   - If the Vietnamese translation does not match the English word (e.g., word "apple" but meaning "Bảo vệ"), correct meaning to "Quả táo" and set hasIssue: true.
+3. If an entry is already 100% correct in spelling, meaning, and part of speech, set hasIssue: false.
+4. Return exactly ${chunk.length} entries in the same order.
+5. All correctedWord values must be in lowercase and trimmed.
+
 Respond strictly in JSON array format:
 [
   {
-    "id": "the id from input",
+    "id": "the exact id from input",
     "originalWord": "the original English word",
-    "correctedWord": "corrected English spelling in lowercase",
+    "correctedWord": "corrected English spelling in lowercase (e.g. 'protect')",
     "correctedMeaning": "accurate Vietnamese meaning",
     "partOfSpeech": "n | v | adj | adv | phr",
-    "hasIssue": true,
-    "notes": ["Vietnamese note on what was fixed"]
+    "hasIssue": boolean,
+    "notes": ["Clear Vietnamese explanation of what was corrected"]
   }
-]
+]`;
 
-RULES:
-- Return exactly ${chunk.length} entries in the same order.
-- If an entry is correct, set hasIssue to false.
-- All corrected words must be lowercase and trimmed.`;
-
+    // DO NOT SILENTLY CATCH: propagate errors with context so caller can show red Toast
+    let text: string;
     try {
-      const text = await geminiGenerate(prompt, {
+      text = await geminiGenerate(prompt, {
         temperature: 0.1,
         responseMimeType: 'application/json',
+        signal,
       });
+    } catch (apiErr) {
+      const msg = apiErr instanceof Error ? apiErr.message : String(apiErr);
+      throw new Error(`Lỗi kết nối Gemini ở từ ${i + 1} - ${i + chunk.length} / ${total}: ${msg}`);
+    }
 
-      let parsed: Array<{
-        id: string;
-        originalWord: string;
-        correctedWord: string;
-        correctedMeaning: string;
-        partOfSpeech: string;
-        hasIssue: boolean;
-        notes: string[];
-      }>;
+    let parsed: Array<{
+      id: string;
+      originalWord: string;
+      correctedWord: string;
+      correctedMeaning: string;
+      partOfSpeech: string;
+      hasIssue: boolean;
+      notes?: string[];
+    }>;
 
-      try {
-        parsed = JSON.parse(text);
-      } catch {
-        const match = text.match(/\[[\s\S]*\]/);
-        if (!match) throw new Error('No JSON array found in audit response');
-        parsed = JSON.parse(match[0]);
+    try {
+      parsed = cleanAndParseJSON<typeof parsed>(text);
+    } catch (parseErr) {
+      const msg = parseErr instanceof Error ? parseErr.message : String(parseErr);
+      throw new Error(`Lỗi phân tích JSON ở từ ${i + 1} - ${i + chunk.length}: ${msg}`);
+    }
+
+    for (let j = 0; j < chunk.length; j++) {
+      const orig = chunk[j];
+      const item = parsed.find((p) => p.id === orig.id) || parsed[j];
+      if (!item) continue;
+
+      let correctedWord = (item.correctedWord || orig.word).trim().toLowerCase();
+      const correctedMeaning = (item.correctedMeaning || orig.meaning).trim();
+      const correctedType = (item.partOfSpeech || orig.type || '').trim().toLowerCase();
+
+      // Heuristic fallback: detect 3+ identical consecutive characters (e.g., "protecttt" -> "protect")
+      const hasObviousRepetition = /(.)\1{2,}/i.test(orig.word);
+      if (hasObviousRepetition && correctedWord === orig.word.trim().toLowerCase()) {
+        correctedWord = orig.word.trim().toLowerCase().replace(/(.)\1{2,}/g, '$1');
       }
 
-      for (let j = 0; j < chunk.length; j++) {
-        const item = parsed.find((p) => p.id === chunk[j].id) || parsed[j];
-        if (!item) continue;
+      const wordChanged = correctedWord !== orig.word.trim().toLowerCase();
+      const meaningChanged = correctedMeaning !== orig.meaning.trim();
+      const typeChanged = correctedType !== (orig.type || '').trim().toLowerCase();
 
-        const correctedWord = (item.correctedWord || chunk[j].word).trim().toLowerCase();
-        const correctedMeaning = (item.correctedMeaning || chunk[j].meaning).trim();
-        const correctedType = (item.partOfSpeech || chunk[j].type || '').trim().toLowerCase();
-
-        const wordChanged = correctedWord !== chunk[j].word.trim().toLowerCase();
-        const meaningChanged = correctedMeaning !== chunk[j].meaning.trim();
-        const typeChanged = correctedType !== (chunk[j].type || '').trim().toLowerCase();
-
-        if (item.hasIssue || wordChanged || meaningChanged || typeChanged) {
-          items.push({
-            vocabId: chunk[j].id,
-            original: { word: chunk[j].word, meaning: chunk[j].meaning, type: chunk[j].type },
-            corrected: {
-              word: correctedWord,
-              meaning: correctedMeaning,
-              partOfSpeech: correctedType,
-              ipa: '',
-            },
-            notes: item.notes || [],
-          });
-        }
+      if (item.hasIssue || wordChanged || meaningChanged || typeChanged || hasObviousRepetition) {
+        items.push({
+          vocabId: orig.id,
+          original: { word: orig.word, meaning: orig.meaning, type: orig.type },
+          corrected: {
+            word: correctedWord,
+            meaning: correctedMeaning,
+            partOfSpeech: correctedType,
+            ipa: '',
+          },
+          notes:
+            item.notes && item.notes.length > 0
+              ? item.notes
+              : [wordChanged || hasObviousRepetition ? `Sửa chính tả: "${orig.word}" → "${correctedWord}"` : 'Chuẩn hóa định dạng'],
+        });
       }
-    } catch (err) {
-      console.error('[GeminiService] batchAuditVocab chunk error:', err);
     }
 
     scanned += chunk.length;
-    onProgress?.(scanned, total);
+    onProgress?.({
+      scanned,
+      total,
+      errorsFound: items.length,
+      currentChunk: chunkIndex,
+      totalChunks,
+    });
   }
 
   return {
@@ -506,7 +638,7 @@ RULES:
 }
 
 // ============================================================================
-// 4. NORMALIZE SELECTED VOCAB (Chunks of max 20)
+// 4. NORMALIZE SELECTED VOCAB (Chunks of 15, Strict Error Propagation)
 // ============================================================================
 
 export interface SelectedNormalizationResult {
@@ -520,20 +652,51 @@ export interface SelectedNormalizationResult {
 }
 
 export async function normalizeSelectedVocabs(
-  vocabs: Array<{ id: string; word: string; meaning: string; type: string }>
+  vocabs: Array<{ id: string; word: string; meaning: string; type: string }>,
+  onProgress?: (progress: BatchAuditProgress) => void,
+  signal?: AbortSignal
 ): Promise<SelectedNormalizationResult[]> {
   if (vocabs.length === 0) return [];
 
   const results: SelectedNormalizationResult[] = [];
   const correctedWordMap = new Map<string, string>(); // lowercase word -> first id
+  let scanned = 0;
+  const total = vocabs.length;
+  const totalChunks = Math.ceil(total / CHUNK_SIZE);
 
   for (let i = 0; i < vocabs.length; i += CHUNK_SIZE) {
+    if (signal?.aborted) {
+      throw new Error('Đã hủy quá trình kiểm tra.');
+    }
+
     const chunk = vocabs.slice(i, i + CHUNK_SIZE);
+    const chunkIndex = Math.floor(i / CHUNK_SIZE) + 1;
+
+    if (i > 0) {
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(resolve, 800);
+        if (signal) {
+          signal.addEventListener(
+            'abort',
+            () => {
+              clearTimeout(timeout);
+              reject(new Error('Đã hủy quá trình kiểm tra.'));
+            },
+            { once: true }
+          );
+        }
+      });
+    }
+
     const entriesText = chunk
-      .map((e, idx) => `${idx + 1}. id="${e.id}" English: "${e.word}", Vietnamese: "${e.meaning}", POS: "${e.type || ''}"`)
+      .map(
+        (e, idx) =>
+          `${idx + 1}. [id="${e.id}"] Word: "${e.word}", Meaning: "${e.meaning}", POS: "${e.type || ''}"`
+      )
       .join('\n');
 
-    const prompt = `Review these English-Vietnamese vocabulary pairs. Standardize and fix typos or translation issues.
+    const prompt = `You are a strict English lexicographer and dictionary spellchecker.
+Review these English-Vietnamese vocabulary pairs. Identify any spelling typos, repetitive letters (e.g., 'protecttt' -> 'protect'), incorrect translations, or wrong parts of speech.
 
 Input:
 ${entriesText}
@@ -543,7 +706,7 @@ Return raw JSON array:
   {
     "id": "id from input",
     "originalWord": "original word",
-    "correctedWord": "corrected English word in lowercase",
+    "correctedWord": "corrected English word in lowercase (e.g. 'protect')",
     "correctedMeaning": "accurate Vietnamese meaning",
     "partOfSpeech": "n | v | adj | adv | phr",
     "hasIssue": boolean
@@ -554,10 +717,17 @@ RULES:
 - Return exactly ${chunk.length} entries in order.
 - Lowercase and trim all words.`;
 
-    const text = await geminiGenerate(prompt, {
-      temperature: 0.1,
-      responseMimeType: 'application/json',
-    });
+    let text: string;
+    try {
+      text = await geminiGenerate(prompt, {
+        temperature: 0.1,
+        responseMimeType: 'application/json',
+        signal,
+      });
+    } catch (apiErr) {
+      const msg = apiErr instanceof Error ? apiErr.message : String(apiErr);
+      throw new Error(`Lỗi kết nối Gemini ở từ ${i + 1} - ${i + chunk.length} / ${total}: ${msg}`);
+    }
 
     let parsed: Array<{
       id: string;
@@ -569,11 +739,10 @@ RULES:
     }>;
 
     try {
-      parsed = JSON.parse(text);
-    } catch {
-      const match = text.match(/\[[\s\S]*\]/);
-      if (!match) throw new Error('No JSON array in response');
-      parsed = JSON.parse(match[0]);
+      parsed = cleanAndParseJSON<typeof parsed>(text);
+    } catch (parseErr) {
+      const msg = parseErr instanceof Error ? parseErr.message : String(parseErr);
+      throw new Error(`Lỗi phân tích JSON ở từ ${i + 1} - ${i + chunk.length}: ${msg}`);
     }
 
     for (let j = 0; j < chunk.length; j++) {
@@ -592,14 +761,22 @@ RULES:
         continue;
       }
 
-      const correctedWord = (item.correctedWord || vocab.word).trim().toLowerCase();
+      let correctedWord = (item.correctedWord || vocab.word).trim().toLowerCase();
       const correctedMeaning = (item.correctedMeaning || vocab.meaning).trim();
       const correctedType = (item.partOfSpeech || vocab.type || '').trim().toLowerCase();
+
+      // Heuristic check: triple repeated characters like "protecttt"
+      const hasObviousRepetition = /(.)\1{2,}/i.test(vocab.word);
+      if (hasObviousRepetition && correctedWord === vocab.word.trim().toLowerCase()) {
+        correctedWord = vocab.word.trim().toLowerCase().replace(/(.)\1{2,}/g, '$1');
+      }
 
       const isDuplicateOf = correctedWordMap.get(correctedWord);
       const wasChanged =
         item.hasIssue ??
-        (correctedWord !== vocab.word.trim().toLowerCase() || correctedMeaning !== vocab.meaning.trim());
+        (correctedWord !== vocab.word.trim().toLowerCase() ||
+          correctedMeaning !== vocab.meaning.trim() ||
+          hasObviousRepetition);
 
       results.push({
         id: vocab.id,
@@ -615,6 +792,15 @@ RULES:
         correctedWordMap.set(correctedWord, vocab.id);
       }
     }
+
+    scanned += chunk.length;
+    onProgress?.({
+      scanned,
+      total,
+      errorsFound: results.filter((r) => r.wasChanged).length,
+      currentChunk: chunkIndex,
+      totalChunks,
+    });
   }
 
   return results;
