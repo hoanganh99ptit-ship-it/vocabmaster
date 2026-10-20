@@ -10,10 +10,10 @@ import type { GrammarEvaluation, DetectedError, NativeAlternative, ErrorType } f
 // ============================================================================
 
 export const USER_KEY_STORAGE = 'vocabmaster_gemini_api_key';
-export const TARGET_MODEL = 'gemini-3.5-flash';
-export const FALLBACK_MODEL = 'gemini-3.8-flash';
+export const TARGET_MODEL = 'gemini-3.5-flash-lite';
+export const FALLBACK_MODEL = 'gemini-3.5-flash';
 export const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
-export const CHUNK_SIZE = 15; // Enforce 15 items per prompt for strict batching & token safety
+export const CHUNK_SIZE = 20; // 20 items per prompt for optimal throughput & quota efficiency
 
 // Runtime preferred model (automatically switches to FALLBACK_MODEL if TARGET_MODEL returns 404/503)
 let currentPreferredModel: string = TARGET_MODEL;
@@ -134,28 +134,28 @@ interface EndpointCandidate {
 
 export const ENDPOINT_CANDIDATES: EndpointCandidate[] = [
   {
+    name: 'gemini-3.5-flash-lite (v1beta)',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent',
+  },
+  {
     name: 'gemini-3.5-flash (v1beta)',
     url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
   },
   {
+    name: 'gemini-flash-lite-latest (v1beta)',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent',
+  },
+  {
+    name: 'gemini-3.1-flash-lite (v1beta)',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent',
+  },
+  {
+    name: 'gemma-4-26b-a4b-it (v1beta)',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:generateContent',
+  },
+  {
     name: 'gemini-3.8-flash (v1beta)',
     url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent',
-  },
-  {
-    name: 'gemini-flash-latest (v1beta)',
-    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent',
-  },
-  {
-    name: 'gemini-2.5-pro (v1beta)',
-    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent',
-  },
-  {
-    name: 'gemini-2.5-flash (v1beta)',
-    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
-  },
-  {
-    name: 'gemini-2.0-flash (v1beta legacy)',
-    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
   },
 ];
 
@@ -244,9 +244,16 @@ async function callSingleEndpoint(
           };
         }
 
-        // 429 rate limit: retry if attempt < retries
-        if (res.status === 429 && attempt < retries) {
-          continue;
+        // 429: Rate limit or daily quota exhausted for this model (e.g. preview 20 RPD cap)
+        if (res.status === 429) {
+          console.warn(`[GeminiService] ${endpoint.name} chạm giới hạn Quota/Rate Limit (429): ${msg}. Tự động fallback sang model khác...`);
+          return {
+            ok: false,
+            status: 429,
+            message: `Model ${endpoint.name} đã chạm giới hạn (429: ${msg})`,
+            isFatalAuth: false,
+            canFallback: true,
+          };
         }
 
         return {
@@ -580,7 +587,7 @@ export async function autoNormalizeVocabBatch(
     const chunk = entries.slice(i, i + CHUNK_SIZE);
 
     if (i > 0) {
-      await new Promise((r) => setTimeout(r, 600));
+      await new Promise((r) => setTimeout(r, 1200));
     }
 
     const entriesText = chunk
@@ -699,7 +706,7 @@ export async function batchAuditVocabWithGemini(
     // Small delay between chunks to respect API rate limits (avoiding HTTP 429)
     if (i > 0) {
       await new Promise((resolve, reject) => {
-        const timeout = setTimeout(resolve, 800);
+        const timeout = setTimeout(resolve, 1200);
         if (signal) {
           signal.addEventListener(
             'abort',
