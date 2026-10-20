@@ -10,8 +10,8 @@ import type { GrammarEvaluation, DetectedError, NativeAlternative, ErrorType } f
 // ============================================================================
 
 export const USER_KEY_STORAGE = 'vocabmaster_gemini_api_key';
-export const TARGET_MODEL = 'gemini-2.0-flash';
-export const FALLBACK_MODEL = 'gemini-1.5-flash';
+export const TARGET_MODEL = 'gemini-3.5-flash';
+export const FALLBACK_MODEL = 'gemini-3.8-flash';
 export const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 export const CHUNK_SIZE = 15; // Enforce 15 items per prompt for strict batching & token safety
 
@@ -127,17 +127,50 @@ export function cleanAndParseJSON<T = unknown>(rawText: string): T {
   throw new Error(`Không thể giải mã phản hồi JSON từ Gemini. Phản hồi: ${rawText.substring(0, 150)}...`);
 }
 
+interface EndpointCandidate {
+  name: string;
+  url: string;
+}
+
+export const ENDPOINT_CANDIDATES: EndpointCandidate[] = [
+  {
+    name: 'gemini-3.5-flash (v1beta)',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
+  },
+  {
+    name: 'gemini-3.8-flash (v1beta)',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent',
+  },
+  {
+    name: 'gemini-flash-latest (v1beta)',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent',
+  },
+  {
+    name: 'gemini-2.5-pro (v1beta)',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent',
+  },
+  {
+    name: 'gemini-2.5-flash (v1beta)',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+  },
+  {
+    name: 'gemini-2.0-flash (v1beta legacy)',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+  },
+];
+
+let preferredEndpointIndex = 0;
+
 type GeminiCallResult =
   | { ok: true; text: string }
   | { ok: false; status: number; message: string; isFatalAuth: boolean; canFallback: boolean };
 
 /**
- * Call a single Gemini model on the v1beta endpoint.
- * URL: https://generativelanguage.googleapis.com/v1beta/models/{modelName}:generateContent
- * Header: 'x-goog-api-key': apiKey
+ * Call a specific Gemini REST endpoint URL.
+ * Headers: Strictly 'x-goog-api-key': apiKey. No query params, no Bearer token.
  */
-async function callSingleModel(
-  modelName: string,
+async function callSingleEndpoint(
+  endpoint: EndpointCandidate,
   prompt: string,
   apiKey: string,
   options?: {
@@ -147,8 +180,6 @@ async function callSingleModel(
     retries?: number;
   }
 ): Promise<GeminiCallResult> {
-  // Exact v1beta endpoint: https://generativelanguage.googleapis.com/v1beta/models/{modelName}:generateContent
-  const url = `${BASE_URL}/${modelName}:generateContent`;
   const { temperature = 0.1, responseMimeType = 'application/json', retries = 1 } = options || {};
 
   const body = JSON.stringify({
@@ -166,7 +197,7 @@ async function callSingleModel(
 
     if (attempt > 0) {
       const delayMs = attempt * 1200;
-      console.warn(`[GeminiService] Thử lại lượt ${attempt} (${modelName}) sau ${delayMs}ms...`);
+      console.warn(`[GeminiService] Thử lại lượt ${attempt} (${endpoint.name}) sau ${delayMs}ms...`);
       await new Promise((r) => setTimeout(r, delayMs));
     }
 
@@ -174,7 +205,7 @@ async function callSingleModel(
     const timeoutId = setTimeout(() => controller.abort(), 45000);
 
     try {
-      const res = await fetch(url, {
+      const res = await fetch(endpoint.url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -189,9 +220,9 @@ async function callSingleModel(
       if (!res.ok) {
         const errData = (await res.json().catch(() => null)) as GeminiApiResponse | null;
         const msg = errData?.error?.message || `HTTP ${res.status}`;
-        console.error(`[GeminiService] ${modelName} HTTP ${res.status}:`, msg);
+        console.error(`[GeminiService] ${endpoint.name} HTTP ${res.status}:`, msg);
 
-        // 401/403: Invalid API key -> fatal auth error, do not retry with fallback
+        // 401/403: Invalid API key -> fatal auth error, do not retry
         if (res.status === 401 || res.status === 403) {
           return {
             ok: false,
@@ -202,7 +233,7 @@ async function callSingleModel(
           };
         }
 
-        // 404 (Model not found/unsupported on this endpoint/tier) or 503 (Overloaded)
+        // 404 (Model not found/unsupported on this endpoint version) or 503 (Overloaded)
         if (res.status === 404 || res.status === 503) {
           return {
             ok: false,
@@ -221,7 +252,7 @@ async function callSingleModel(
         return {
           ok: false,
           status: res.status,
-          message: `Gemini API Error (${modelName} ${res.status}): ${msg}`,
+          message: `Gemini API Error (${endpoint.name} ${res.status}): ${msg}`,
           isFatalAuth: false,
           canFallback: false,
         };
@@ -233,7 +264,7 @@ async function callSingleModel(
         return {
           ok: false,
           status: 200,
-          message: `Gemini (${modelName}) trả về nội dung rỗng (empty candidate).`,
+          message: `Gemini (${endpoint.name}) trả về nội dung rỗng (empty candidate).`,
           isFatalAuth: false,
           canFallback: true,
         };
@@ -265,17 +296,59 @@ async function callSingleModel(
   return {
     ok: false,
     status: 500,
-    message: `Không thể kết nối tới model ${modelName} sau nhiều lần thử.`,
+    message: `Không thể kết nối tới endpoint ${endpoint.name} sau nhiều lần thử.`,
     isFatalAuth: false,
     canFallback: true,
   };
 }
 
 /**
+ * Dynamically queries Google ModelService.ListModels to detect active models for this key.
+ */
+async function discoverWorkingModels(apiKey: string): Promise<EndpointCandidate[]> {
+  const versions = ['v1', 'v1beta'];
+  const discovered: EndpointCandidate[] = [];
+
+  for (const ver of versions) {
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/${ver}/models`, {
+        method: 'GET',
+        headers: { 'x-goog-api-key': apiKey },
+      });
+      if (res.ok) {
+        const data = (await res.json().catch(() => null)) as {
+          models?: Array<{ name?: string; supportedGenerationMethods?: string[] }>;
+        } | null;
+        if (Array.isArray(data?.models)) {
+          for (const m of data.models) {
+            if (m.name && m.supportedGenerationMethods?.includes('generateContent')) {
+              const modelId = m.name.replace(/^models\//, '');
+              discovered.push({
+                name: `${modelId} (${ver} discovered)`,
+                url: `https://generativelanguage.googleapis.com/${ver}/models/${modelId}:generateContent`,
+              });
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore discovery failures
+    }
+  }
+
+  // Prioritize flash models
+  return discovered.sort((a, b) => {
+    const aFlash = a.name.includes('flash') ? 1 : 0;
+    const bFlash = b.name.includes('flash') ? 1 : 0;
+    return bFlash - aFlash;
+  });
+}
+
+/**
  * Low-level REST caller for Gemini API.
- * 1. Endpoint: v1beta (https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent)
- * 2. Header: 'x-goog-api-key': apiKey (exclusive authentication header)
- * 3. Fallback: Automatically falls back from gemini-2.0-flash to gemini-1.5-flash on 404 or 503.
+ * Strict protocol: Only x-goog-api-key header. Never query param. Never Bearer auth.
+ * Automatically tries next candidates (v1beta 2.0-flash -> v1 1.5-flash -> v1beta 1.5-flash -> discovery)
+ * if any model returns 404 or 503.
  */
 async function geminiGenerate(
   prompt: string,
@@ -291,48 +364,65 @@ async function geminiGenerate(
     throw new Error('Thiếu Gemini API key! Vui lòng cấu hình API key trong cài đặt hoặc file .env.');
   }
 
-  // Determine model preference order
-  const primaryModel = currentPreferredModel;
-  const secondaryModel = primaryModel === TARGET_MODEL ? FALLBACK_MODEL : TARGET_MODEL;
+  // Re-order candidates to test preferredEndpointIndex first
+  const candidates: EndpointCandidate[] = [
+    ENDPOINT_CANDIDATES[preferredEndpointIndex] || ENDPOINT_CANDIDATES[0],
+    ...ENDPOINT_CANDIDATES.filter((_, idx) => idx !== preferredEndpointIndex),
+  ];
 
-  // Step 1: Attempt primary model (defaults to gemini-2.0-flash via v1beta)
-  console.log(`[GeminiService] Đang gọi model: ${primaryModel} qua endpoint v1beta...`);
-  const firstResult = await callSingleModel(primaryModel, prompt, apiKey, options);
+  let lastFailureMessage = '';
 
-  if (firstResult.ok) {
-    return firstResult.text;
-  }
+  for (let i = 0; i < candidates.length; i++) {
+    const endpoint = candidates[i];
+    console.log(`[GeminiService] Đang gọi endpoint: ${endpoint.name}...`);
 
-  // Fatal auth errors (401/403) must not be masked or retried with fallback
-  if (firstResult.isFatalAuth) {
-    throw new Error(firstResult.message);
-  }
+    const result = await callSingleEndpoint(endpoint, prompt, apiKey, options);
 
-  // Step 2: Automatic Fallback to secondary model if primary returned 404 or 503
-  if (firstResult.canFallback) {
-    console.warn(
-      `[GeminiService] Model ${primaryModel} gặp lỗi (HTTP ${firstResult.status}: ${firstResult.message}). Tự động fallback sang ${secondaryModel} qua v1beta...`
-    );
-
-    // Switch preferred model for future requests in this session
-    currentPreferredModel = secondaryModel;
-
-    const fallbackResult = await callSingleModel(secondaryModel, prompt, apiKey, options);
-    if (fallbackResult.ok) {
-      console.log(`[GeminiService] Model dự phòng ${secondaryModel} phản hồi thành công!`);
-      return fallbackResult.text;
+    if (result.ok) {
+      // Update preferred endpoint so future batch calls go straight here
+      const originalIdx = ENDPOINT_CANDIDATES.findIndex((c) => c.url === endpoint.url);
+      if (originalIdx >= 0) {
+        preferredEndpointIndex = originalIdx;
+      }
+      return result.text;
     }
 
-    if (fallbackResult.isFatalAuth) {
-      throw new Error(fallbackResult.message);
+    if (result.isFatalAuth) {
+      throw new Error(result.message);
     }
 
-    throw new Error(
-      `Cả hai model ${primaryModel} và ${secondaryModel} đều không khả dụng. Lỗi gần nhất (${secondaryModel} ${fallbackResult.status}): ${fallbackResult.message}`
-    );
+    lastFailureMessage = result.message;
+
+    if (result.canFallback) {
+      console.warn(
+        `[GeminiService] ${endpoint.name} không khả dụng (HTTP ${result.status}). Tự động fallback sang candidate tiếp theo...`
+      );
+      continue;
+    }
+
+    throw new Error(result.message);
   }
 
-  throw new Error(firstResult.message);
+  // Dynamic discovery if all predefined candidates returned 404/503
+  console.warn('[GeminiService] Đang truy vấn ModelService.ListModels từ Google để tìm model khả dụng...');
+  const discovered = await discoverWorkingModels(apiKey);
+
+  for (const endpoint of discovered) {
+    console.log(`[GeminiService] Thử model phát hiện tự động: ${endpoint.name}...`);
+    const result = await callSingleEndpoint(endpoint, prompt, apiKey, options);
+    if (result.ok) {
+      console.log(`[GeminiService] Đã kết nối thành công với ${endpoint.name}!`);
+      return result.text;
+    }
+    if (result.isFatalAuth) {
+      throw new Error(result.message);
+    }
+    lastFailureMessage = result.message;
+  }
+
+  throw new Error(
+    `Không có model Gemini nào phản hồi khả dụng. Lỗi chi tiết: ${lastFailureMessage || 'Google trả về 404 cho tất cả model'}. Vui lòng kiểm tra lại API Key tại https://aistudio.google.com/app/apikey.`
+  );
 }
 
 // ============================================================================
