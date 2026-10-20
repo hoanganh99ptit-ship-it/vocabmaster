@@ -127,11 +127,155 @@ export function cleanAndParseJSON<T = unknown>(rawText: string): T {
   throw new Error(`Không thể giải mã phản hồi JSON từ Gemini. Phản hồi: ${rawText.substring(0, 150)}...`);
 }
 
+type GeminiCallResult =
+  | { ok: true; text: string }
+  | { ok: false; status: number; message: string; isFatalAuth: boolean; canFallback: boolean };
+
+/**
+ * Call a single Gemini model on the v1beta endpoint.
+ * URL: https://generativelanguage.googleapis.com/v1beta/models/{modelName}:generateContent
+ * Header: 'x-goog-api-key': apiKey
+ */
+async function callSingleModel(
+  modelName: string,
+  prompt: string,
+  apiKey: string,
+  options?: {
+    temperature?: number;
+    responseMimeType?: string;
+    signal?: AbortSignal;
+    retries?: number;
+  }
+): Promise<GeminiCallResult> {
+  // Exact v1beta endpoint: https://generativelanguage.googleapis.com/v1beta/models/{modelName}:generateContent
+  const url = `${BASE_URL}/${modelName}:generateContent`;
+  const { temperature = 0.1, responseMimeType = 'application/json', retries = 1 } = options || {};
+
+  const body = JSON.stringify({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature,
+      responseMimeType,
+    },
+  });
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (options?.signal?.aborted) {
+      throw new Error('Đã hủy yêu cầu.');
+    }
+
+    if (attempt > 0) {
+      const delayMs = attempt * 1200;
+      console.warn(`[GeminiService] Thử lại lượt ${attempt} (${modelName}) sau ${delayMs}ms...`);
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        body,
+        signal: options?.signal || controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        const errData = (await res.json().catch(() => null)) as GeminiApiResponse | null;
+        const msg = errData?.error?.message || `HTTP ${res.status}`;
+        console.error(`[GeminiService] ${modelName} HTTP ${res.status}:`, msg);
+
+        // 401/403: Invalid API key -> fatal auth error, do not retry with fallback
+        if (res.status === 401 || res.status === 403) {
+          return {
+            ok: false,
+            status: res.status,
+            message: `Lỗi xác thực Gemini API (${res.status}): API Key không hợp lệ hoặc không có quyền truy cập.`,
+            isFatalAuth: true,
+            canFallback: false,
+          };
+        }
+
+        // 404 (Model not found/unsupported on this endpoint/tier) or 503 (Overloaded)
+        if (res.status === 404 || res.status === 503) {
+          return {
+            ok: false,
+            status: res.status,
+            message: msg,
+            isFatalAuth: false,
+            canFallback: true,
+          };
+        }
+
+        // 429 rate limit: retry if attempt < retries
+        if (res.status === 429 && attempt < retries) {
+          continue;
+        }
+
+        return {
+          ok: false,
+          status: res.status,
+          message: `Gemini API Error (${modelName} ${res.status}): ${msg}`,
+          isFatalAuth: false,
+          canFallback: false,
+        };
+      }
+
+      const data = (await res.json()) as GeminiApiResponse;
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) {
+        return {
+          ok: false,
+          status: 200,
+          message: `Gemini (${modelName}) trả về nội dung rỗng (empty candidate).`,
+          isFatalAuth: false,
+          canFallback: true,
+        };
+      }
+
+      return { ok: true, text };
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err instanceof Error) {
+        if (err.name === 'AbortError') {
+          throw new Error('Yêu cầu tới Gemini API đã bị quá thời gian chờ (timeout 45s).');
+        }
+        if (err.message.includes('xác thực') || err.message.includes('401') || err.message.includes('403')) {
+          throw err;
+        }
+      }
+      if (attempt >= retries) {
+        return {
+          ok: false,
+          status: 0,
+          message: err instanceof Error ? err.message : String(err),
+          isFatalAuth: false,
+          canFallback: true,
+        };
+      }
+    }
+  }
+
+  return {
+    ok: false,
+    status: 500,
+    message: `Không thể kết nối tới model ${modelName} sau nhiều lần thử.`,
+    isFatalAuth: false,
+    canFallback: true,
+  };
+}
+
 /**
  * Low-level REST caller for Gemini API.
- * Strict protocol: Only x-goog-api-key header. Never query param. Never Bearer auth.
- * Target Model: gemini-2.0-flash via v1beta endpoint.
- * Automatic Fallback: If gemini-2.0-flash returns 404 or 503, automatically fall back to gemini-1.5-flash.
+ * 1. Endpoint: v1beta (https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent)
+ * 2. Header: 'x-goog-api-key': apiKey (exclusive authentication header)
+ * 3. Fallback: Automatically falls back from gemini-2.0-flash to gemini-1.5-flash on 404 or 503.
  */
 async function geminiGenerate(
   prompt: string,
@@ -147,116 +291,48 @@ async function geminiGenerate(
     throw new Error('Thiếu Gemini API key! Vui lòng cấu hình API key trong cài đặt hoặc file .env.');
   }
 
-  const { temperature = 0.1, responseMimeType = 'application/json', retries = 2 } = options || {};
+  // Determine model preference order
+  const primaryModel = currentPreferredModel;
+  const secondaryModel = primaryModel === TARGET_MODEL ? FALLBACK_MODEL : TARGET_MODEL;
 
-  const body = {
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: {
-      temperature,
-      responseMimeType,
-    },
-  };
+  // Step 1: Attempt primary model (defaults to gemini-2.0-flash via v1beta)
+  console.log(`[GeminiService] Đang gọi model: ${primaryModel} qua endpoint v1beta...`);
+  const firstResult = await callSingleModel(primaryModel, prompt, apiKey, options);
 
-  // Determine model preference order (starts with currentPreferredModel, falls back to the other)
-  const modelsToTry =
-    currentPreferredModel === FALLBACK_MODEL
-      ? [FALLBACK_MODEL, TARGET_MODEL]
-      : [TARGET_MODEL, FALLBACK_MODEL];
-
-  let lastError: Error | null = null;
-
-  for (let m = 0; m < modelsToTry.length; m++) {
-    const activeModel = modelsToTry[m];
-    // Exact v1beta endpoint: https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
-    const url = `${BASE_URL}/${activeModel}:generateContent`;
-
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      if (options?.signal?.aborted) {
-        throw new Error('Đã hủy yêu cầu.');
-      }
-
-      if (attempt > 0) {
-        // Exponential backoff: 1.5s, 3s
-        const delayMs = attempt * 1500;
-        console.warn(`[GeminiService] Model ${activeModel} thử lại lượt ${attempt} sau ${delayMs}ms...`);
-        await new Promise((r) => setTimeout(r, delayMs));
-      }
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 45000);
-
-      try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey,
-          },
-          body: JSON.stringify(body),
-          signal: options?.signal || controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!res.ok) {
-          const errData = (await res.json().catch(() => null)) as GeminiApiResponse | null;
-          const msg = errData?.error?.message || `HTTP ${res.status}`;
-          console.error(`[GeminiService] ${activeModel} HTTP ${res.status}:`, msg);
-
-          // Fatal Auth errors (401 Bad Key, 403 Forbidden) - fail immediately without fallback
-          if (res.status === 401 || res.status === 403) {
-            throw new Error(`Lỗi xác thực Gemini API (${res.status}): API Key không hợp lệ hoặc không có quyền truy cập.`);
-          }
-
-          // If activeModel is TARGET_MODEL and returns 404 (Model not found/unsupported) or 503 (Overloaded)
-          // immediately trigger fallback to FALLBACK_MODEL!
-          if ((res.status === 404 || res.status === 503) && activeModel === TARGET_MODEL && m < modelsToTry.length - 1) {
-            console.warn(
-              `[GeminiService] Model ${TARGET_MODEL} gặp lỗi ${res.status} (${msg}). Tự động fallback sang ${FALLBACK_MODEL}...`
-            );
-            currentPreferredModel = FALLBACK_MODEL;
-            lastError = new Error(`Model ${TARGET_MODEL} trả về ${res.status}: ${msg}. Đã chuyển sang ${FALLBACK_MODEL}.`);
-            break; // Break inner retry loop to try FALLBACK_MODEL immediately
-          }
-
-          // If rate limit (429) or transient server error (503), retry with backoff
-          if ((res.status === 429 || res.status === 503) && attempt < retries) {
-            lastError = new Error(`Quá giới hạn tần suất API (${activeModel} HTTP ${res.status}): ${msg}`);
-            continue;
-          }
-
-          if (res.status === 404) {
-            throw new Error(`Model ${activeModel} không tồn tại hoặc không được hỗ trợ (${res.status}).`);
-          }
-
-          throw new Error(`Gemini API Error (${activeModel} ${res.status}): ${msg}`);
-        }
-
-        const data = (await res.json()) as GeminiApiResponse;
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!text) {
-          throw new Error(`Gemini (${activeModel}) trả về nội dung rỗng (empty candidate).`);
-        }
-
-        return text;
-      } catch (err) {
-        clearTimeout(timeoutId);
-        if (err instanceof Error) {
-          lastError = err;
-          if (err.name === 'AbortError') {
-            throw new Error('Yêu cầu tới Gemini API đã bị quá thời gian chờ (timeout 45s).');
-          }
-          if (err.message.includes('xác thực') || err.message.includes('401') || err.message.includes('403')) {
-            throw err;
-          }
-        } else {
-          lastError = new Error(String(err));
-        }
-      }
-    }
+  if (firstResult.ok) {
+    return firstResult.text;
   }
 
-  throw lastError || new Error('Không thể kết nối tới Gemini API sau nhiều lần thử.');
+  // Fatal auth errors (401/403) must not be masked or retried with fallback
+  if (firstResult.isFatalAuth) {
+    throw new Error(firstResult.message);
+  }
+
+  // Step 2: Automatic Fallback to secondary model if primary returned 404 or 503
+  if (firstResult.canFallback) {
+    console.warn(
+      `[GeminiService] Model ${primaryModel} gặp lỗi (HTTP ${firstResult.status}: ${firstResult.message}). Tự động fallback sang ${secondaryModel} qua v1beta...`
+    );
+
+    // Switch preferred model for future requests in this session
+    currentPreferredModel = secondaryModel;
+
+    const fallbackResult = await callSingleModel(secondaryModel, prompt, apiKey, options);
+    if (fallbackResult.ok) {
+      console.log(`[GeminiService] Model dự phòng ${secondaryModel} phản hồi thành công!`);
+      return fallbackResult.text;
+    }
+
+    if (fallbackResult.isFatalAuth) {
+      throw new Error(fallbackResult.message);
+    }
+
+    throw new Error(
+      `Cả hai model ${primaryModel} và ${secondaryModel} đều không khả dụng. Lỗi gần nhất (${secondaryModel} ${fallbackResult.status}): ${fallbackResult.message}`
+    );
+  }
+
+  throw new Error(firstResult.message);
 }
 
 // ============================================================================
