@@ -64,35 +64,28 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
   return (
     <>
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs">
-        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
-          <div className="flex items-center justify-between h-16 gap-2">
+        <div className="max-w-[1440px] mx-auto px-2 sm:px-4">
+          <div className="flex items-center justify-between h-16 gap-1 sm:gap-2">
             {/* Logo */}
             <div
               onClick={() => onTabChange('chest')}
-              className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer group"
+              className="flex items-center gap-2 flex-shrink-0 cursor-pointer group"
               title="VocabMaster - Trang chủ"
             >
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform ${
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform ${
                 theme === 'retro'
-                  ? 'bg-gradient-to-br from-amber-600 via-amber-700 to-amber-900 border border-amber-500/40 text-amber-100'
+                  ? 'bg-gradient-to-br from-amber-600 to-amber-900 border border-amber-500/40 text-amber-100'
                   : 'bg-gradient-to-br from-sky-500 to-teal-500 text-white'
               }`}>
-                <BookOpen className="w-5 h-5 text-white" />
+                <BookOpen className="w-4 h-4 text-white" />
               </div>
-              <div className="hidden sm:flex flex-col">
-                <span className={`text-lg font-bold tracking-tight leading-tight ${theme === 'retro' ? 'font-serif text-amber-950' : 'text-slate-800'}`}>
-                  VocabMaster
-                </span>
-                {theme === 'retro' && (
-                  <span className="text-[9px] font-mono tracking-widest text-amber-700/80 -mt-0.5">
-                    EST. 2026 • RETRO VLOG 🎞️
-                  </span>
-                )}
-              </div>
+              <span className={`text-base sm:text-lg font-bold tracking-tight hidden sm:block ${theme === 'retro' ? 'font-serif text-amber-950' : 'text-slate-800'}`}>
+                VocabMaster
+              </span>
             </div>
 
-            {/* Desktop Tabs: always 1 line (whitespace-nowrap), never wraps or breaks awkwardly */}
-            <nav className="hidden lg:flex items-center gap-1 xl:gap-1.5 overflow-x-auto no-scrollbar py-1">
+            {/* Desktop Tabs: always centered, 1 line, no scrollbar, never overflows */}
+            <nav className="hidden lg:flex items-center gap-1 xl:gap-1.5 flex-1 justify-center no-scrollbar px-1">
               {TABS.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.key;
@@ -101,94 +94,99 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
                     key={tab.key}
                     onClick={() => onTabChange(tab.key)}
                     title={lang === 'vi' ? tab.descriptionVi : tab.descriptionEn}
-                    className={`flex items-center gap-1.5 px-2.5 xl:px-3 py-2 rounded-xl text-xs xl:text-sm font-semibold whitespace-nowrap transition-all duration-150 shrink-0 select-none ${
+                    className={`flex items-center gap-1 px-2 xl:px-2.5 py-1.5 rounded-xl text-xs xl:text-sm font-semibold whitespace-nowrap transition-all duration-150 shrink-0 select-none ${
                       isActive
-                        ? 'bg-sky-50 text-sky-700 shadow-xs border border-sky-200/80 font-bold'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                        ? (theme === 'retro'
+                            ? 'bg-amber-200/90 text-amber-950 border border-amber-300 font-bold shadow-2xs'
+                            : 'bg-sky-50 text-sky-700 shadow-xs border border-sky-200/80 font-bold')
+                        : (theme === 'retro'
+                            ? 'text-stone-700 hover:text-stone-950 hover:bg-amber-100/70'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80')
                     }`}
                   >
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-sky-600' : 'text-slate-400'}`} />
+                    <Icon className={`w-3.5 h-3.5 xl:w-4 xl:h-4 shrink-0 ${
+                      isActive
+                        ? (theme === 'retro' ? 'text-amber-800' : 'text-sky-600')
+                        : (theme === 'retro' ? 'text-amber-700/60' : 'text-slate-400')
+                    }`} />
                     <span>{t(tab.labelKey)}</span>
                   </button>
                 );
               })}
             </nav>
 
-            {/* Right side */}
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Right side: Ultra-compact, sleek, never squeezes the tabs */}
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               {/* Retro Vlog Aesthetic Switcher Button */}
               <button
                 onClick={toggleTheme}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer border ${
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border ${
                   theme === 'retro'
-                    ? 'bg-amber-100/90 text-amber-900 border-amber-300 shadow-xs hover:bg-amber-200'
+                    ? 'bg-amber-100/90 text-amber-900 border-amber-300/90 shadow-2xs hover:bg-amber-200'
                     : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200/80'
                 }`}
-                title={theme === 'retro' ? 'Đang ở giao diện Retro Vlog (Bấm để chuyển về Hiện đại)' : 'Chuyển sang giao diện Retro Vlog'}
+                title={theme === 'retro' ? 'Giao diện: Retro Vlog (Bấm để chuyển về Hiện đại)' : 'Giao diện: Hiện đại (Bấm để sang Retro Vlog)'}
               >
-                <span>{theme === 'retro' ? '🎞️' : '✨'}</span>
-                <span className="hidden sm:inline font-mono">
-                  {theme === 'retro' ? 'Retro Vlog' : 'Modern'}
-                </span>
+                <span className="text-xs">🎞️</span>
+                <span className="hidden xl:inline text-[11px] font-mono">Vlog</span>
                 {theme === 'retro' && (
-                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse ml-0.5" title="REC Active"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" title="REC Active" />
                 )}
               </button>
 
               {/* Daily Streak Badge */}
               <button
                 onClick={() => onTabChange('analytics')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 text-amber-900 hover:border-amber-300 hover:shadow-xs transition-all cursor-pointer shrink-0"
+                className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 text-amber-900 hover:border-amber-300 hover:shadow-xs transition-all cursor-pointer shrink-0"
                 title={lang === 'vi' ? `Chuỗi học tập: ${streak.currentStreak} ngày liên tiếp!` : `Study streak: ${streak.currentStreak} days in a row!`}
               >
-                <Flame className={`w-4 h-4 ${streak.currentStreak > 0 ? 'text-orange-500 fill-orange-500' : 'text-slate-400'}`} />
+                <Flame className={`w-3.5 h-3.5 ${streak.currentStreak > 0 ? 'text-orange-500 fill-orange-500' : 'text-slate-400'}`} />
                 <span className="text-xs font-bold text-orange-700">{streak.currentStreak}</span>
-                <span className="text-[11px] font-semibold text-amber-700 hidden xl:inline">
-                  {lang === 'vi' ? 'ngày' : 'd'}
-                </span>
               </button>
 
               {/* Language Toggle */}
               <button
                 onClick={toggleLang}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-200/70 transition-colors shrink-0"
-                title="Switch language (EN / VI)"
+                className="flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-200/70 transition-colors shrink-0"
+                title="Đổi ngôn ngữ (EN / VI)"
               >
-                <span className="text-sm leading-none">{lang === 'en' ? '🇬🇧' : '🇻🇳'}</span>
-                <span className="uppercase tracking-wide">{lang}</span>
+                <span className="text-xs leading-none">{lang === 'en' ? '🇬🇧' : '🇻🇳'}</span>
+                <span className="text-[11px] uppercase tracking-wide hidden xl:inline">{lang}</span>
               </button>
 
               {/* Auth */}
               {user ? (
-                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                  <div className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-100/90 border border-slate-200/60 shrink-0">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-teal-400 to-sky-500 flex items-center justify-center text-white text-[11px] font-bold shadow-2xs">
+                <div className="flex items-center gap-1 shrink-0">
+                  <div
+                    className="flex items-center gap-1.5 px-1.5 py-1 rounded-xl bg-slate-100/90 border border-slate-200/60 shrink-0"
+                    title={user.email || ''}
+                  >
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-teal-400 to-sky-500 flex items-center justify-center text-white text-[10px] font-bold shadow-2xs">
                       {user.email?.[0]?.toUpperCase() || 'U'}
                     </div>
-                    <span className="text-xs font-medium text-slate-700 max-w-[100px] xl:max-w-[140px] truncate">
+                    <span className="text-xs font-medium text-slate-700 max-w-[80px] xl:max-w-[110px] truncate hidden 2xl:inline">
                       {user.email}
                     </span>
                   </div>
                   <button
                     onClick={handleSignOut}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs xl:text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
+                    className="p-1.5 rounded-xl text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
                     title={t('logout')}
                   >
                     <LogOut className="w-4 h-4" />
-                    <span className="hidden xl:inline">{t('logout')}</span>
                   </button>
                 </div>
               ) : (
-                <div className="hidden sm:flex items-center gap-2 shrink-0">
+                <div className="hidden sm:flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => openAuth('login')}
-                    className="px-3 py-1.5 rounded-xl text-xs xl:text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                    className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
                   >
                     {t('login')}
                   </button>
                   <button
                     onClick={() => openAuth('signup')}
-                    className="px-3.5 py-1.5 rounded-xl text-xs xl:text-sm font-semibold text-white bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 transition-all shadow-xs"
+                    className="px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 transition-all shadow-xs"
                   >
                     {t('signUp')}
                   </button>
