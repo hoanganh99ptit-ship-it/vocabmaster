@@ -16,6 +16,8 @@ import {
   CheckCircle2,
   Link2,
   Volume2,
+  Target,
+  Flame,
 } from 'lucide-react';
 import { useVocab } from '@/context/VocabContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -32,7 +34,13 @@ import {
 } from '@/services/geminiService';
 import { isDueForReview, getSRSStage } from '@/lib/srs';
 import { speak } from '@/lib/speech';
-import { getCollocationCache, saveCollocationsForWordToCache } from '@/lib/storage';
+import {
+  getCollocationCache,
+  saveCollocationsForWordToCache,
+  getWeeklyGoal,
+  getStreakData,
+  getDaysLeftInWeek,
+} from '@/lib/storage';
 import type { Vocabulary, CollocationItem } from '@/lib/types';
 
 export function VocabChest() {
@@ -63,6 +71,11 @@ export function VocabChest() {
   const [batchCollocationLoading, setBatchCollocationLoading] = useState(false);
   const [collocationProgress, setCollocationProgress] = useState<{ done: number; total: number } | null>(null);
   const [collocationAbortController, setCollocationAbortController] = useState<AbortController | null>(null);
+
+  // Weekly Goal & Streak tracking
+  const weeklyGoal = useMemo(() => getWeeklyGoal(), []);
+  const streakData = useMemo(() => getStreakData(), []);
+  const daysLeftInWeek = useMemo(() => getDaysLeftInWeek(), []);
 
   // Build chest groups with counts
   const chestGroups = useMemo(() => {
@@ -475,6 +488,51 @@ export function VocabChest() {
             {srsDueCount}
           </span>
         </button>
+      </div>
+
+      {/* Weekly Goal & Streak mini bar */}
+      <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-sky-50 via-indigo-50/50 to-amber-50/50 border border-slate-200/80 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white flex items-center justify-center shadow-xs flex-shrink-0">
+            <Target className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="font-bold text-slate-800 text-sm">
+                {lang === 'vi' ? 'Mục tiêu tuần' : 'Weekly Goal'}: {weeklyGoal.reviewedCount}/{weeklyGoal.targetWords} {lang === 'vi' ? 'từ' : 'words'}
+              </h4>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                weeklyGoal.reviewedCount >= weeklyGoal.targetWords ? 'bg-emerald-100 text-emerald-800' : 'bg-sky-100 text-sky-800'
+              }`}>
+                {Math.round((weeklyGoal.reviewedCount / Math.max(1, weeklyGoal.targetWords)) * 100)}%
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {weeklyGoal.reviewedCount >= weeklyGoal.targetWords
+                ? (lang === 'vi' ? '🎉 Bạn đã hoàn thành xuất sắc mục tiêu tuần này!' : '🎉 Weekly goal achieved!')
+                : (lang === 'vi'
+                    ? `Còn ${Math.max(0, weeklyGoal.targetWords - weeklyGoal.reviewedCount)} từ nữa • Còn ${daysLeftInWeek} ngày`
+                    : `${Math.max(0, weeklyGoal.targetWords - weeklyGoal.reviewedCount)} words remaining • ${daysLeftInWeek} days left`)}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 self-end md:self-center">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-amber-200/80 shadow-2xs">
+            <Flame className="w-4 h-4 text-orange-500 fill-orange-500" />
+            <span className="text-xs font-bold text-orange-800">
+              {streakData.currentStreak} {lang === 'vi' ? 'ngày liên tiếp' : 'day streak'}
+            </span>
+          </div>
+          <div className="w-24 sm:w-36 bg-slate-200 rounded-full h-2.5 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                weeklyGoal.reviewedCount >= weeklyGoal.targetWords ? 'bg-emerald-500' : 'bg-gradient-to-r from-sky-500 to-indigo-600'
+              }`}
+              style={{ width: `${Math.min(100, Math.round((weeklyGoal.reviewedCount / Math.max(1, weeklyGoal.targetWords)) * 100))}%` }}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Chest folder cards */}

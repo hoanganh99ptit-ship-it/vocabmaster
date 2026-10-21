@@ -1,9 +1,34 @@
-import { useMemo } from 'react';
-import { TrendingDown, Target, Award, BookOpen, ChevronRight, BarChart3, AlertTriangle, Volume2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import {
+  TrendingDown,
+  Target,
+  Award,
+  BookOpen,
+  ChevronRight,
+  BarChart3,
+  AlertTriangle,
+  Volume2,
+  Flame,
+  Trophy,
+  Calendar,
+  CheckCircle2,
+  Sparkles,
+  ArrowRight,
+  Zap,
+} from 'lucide-react';
 import { useVocab } from '@/context/VocabContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { speak } from '@/lib/speech';
-import { getPracticeHistory, type PracticeRecord } from '@/lib/storage';
+import {
+  getPracticeHistory,
+  getWeeklyGoal,
+  setWeeklyTarget,
+  getStreakData,
+  getDaysLeftInWeek,
+  type PracticeRecord,
+  type WeeklyGoal,
+  type StreakData,
+} from '@/lib/storage';
 import type { TabKey } from '@/lib/types';
 
 interface AnalyticsProps {
@@ -13,7 +38,46 @@ interface AnalyticsProps {
 
 export function Analytics({ onNavigate }: AnalyticsProps) {
   const { vocabs } = useVocab();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+
+  const [weeklyGoal, setWeeklyGoalState] = useState<WeeklyGoal>(() => getWeeklyGoal());
+  const [streakData, setStreakDataState] = useState<StreakData>(() => getStreakData());
+  const daysLeft = useMemo(() => getDaysLeftInWeek(), []);
+
+  const handleSelectTarget = (target: number) => {
+    const updated = setWeeklyTarget(target);
+    setWeeklyGoalState({ ...updated });
+  };
+
+  const weekDays = useMemo(() => {
+    const now = new Date();
+    const currentDay = now.getDay() || 7; // 1 = Mon, 7 = Sun
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (currentDay - 1));
+
+    const days = [];
+    const labelsVi = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+    const labelsEn = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const dateStr = d.toISOString().split('T')[0];
+      const isToday = dateStr === now.toISOString().split('T')[0];
+      const isPast = d <= now;
+      const isActive = streakData.activeDatesThisWeek.includes(dateStr);
+
+      days.push({
+        label: lang === 'vi' ? labelsVi[i] : labelsEn[i],
+        dateStr,
+        dayNum: d.getDate(),
+        isToday,
+        isPast,
+        isActive,
+      });
+    }
+    return days;
+  }, [streakData, lang]);
 
   const history = useMemo(() => getPracticeHistory(), []);
 
@@ -81,6 +145,200 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* Weekly Goal & Motivation Card */}
+      <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-sky-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden border border-indigo-700/40 animate-fade-in">
+        {/* Background glow decoration */}
+        <div className="absolute -top-24 -right-24 w-72 h-72 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10">
+          {/* Header Row */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-400 to-indigo-500 flex items-center justify-center shadow-lg shadow-sky-500/25 flex-shrink-0">
+                <Target className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                    {lang === 'vi' ? 'Mục tiêu ôn tập tuần này' : 'Weekly Review Goal'}
+                  </h2>
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-white/10 text-sky-200 border border-white/10">
+                    {lang === 'vi' ? `Tuần ${weeklyGoal.weekKey}` : `Week ${weeklyGoal.weekKey}`}
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm text-slate-300 mt-1 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-sky-400" />
+                  <span>
+                    {lang === 'vi'
+                      ? `Còn ${daysLeft} ngày nữa để hoàn thành mục tiêu!`
+                      : `${daysLeft} days left to achieve this goal!`}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            {/* Target Select Buttons */}
+            <div className="flex items-center gap-1.5 bg-white/10 p-1.5 rounded-2xl border border-white/10 backdrop-blur-md self-start md:self-center">
+              <span className="text-xs font-semibold text-slate-300 px-2">
+                {lang === 'vi' ? 'Chỉ tiêu:' : 'Target:'}
+              </span>
+              {[30, 50, 75, 100].map((num) => (
+                <button
+                  key={num}
+                  type="button"
+                  onClick={() => handleSelectTarget(num)}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    weeklyGoal.targetWords === num
+                      ? 'bg-sky-500 text-white shadow-md shadow-sky-500/30'
+                      : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  {num} {lang === 'vi' ? 'từ' : 'w'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Progress Bar & Big Numbers */}
+          <div className="bg-white/5 rounded-2xl p-5 border border-white/10 backdrop-blur-sm mb-6">
+            <div className="flex items-end justify-between gap-4 mb-3">
+              <div>
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-1">
+                  {lang === 'vi' ? 'Tiến độ hoàn thành' : 'Progress'}
+                </span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl sm:text-4xl font-black text-white">
+                    {weeklyGoal.reviewedCount}
+                  </span>
+                  <span className="text-lg text-slate-400 font-semibold">
+                    / {weeklyGoal.targetWords} {lang === 'vi' ? 'từ' : 'words'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-right">
+                <span className="text-2xl sm:text-3xl font-black text-sky-400">
+                  {Math.round((weeklyGoal.reviewedCount / Math.max(1, weeklyGoal.targetWords)) * 100)}%
+                </span>
+                <span className="text-xs text-slate-400 block mt-0.5">
+                  {weeklyGoal.reviewedCount >= weeklyGoal.targetWords
+                    ? (lang === 'vi' ? 'Đã đạt chỉ tiêu!' : 'Goal achieved!')
+                    : (lang === 'vi'
+                        ? `Còn ${Math.max(0, weeklyGoal.targetWords - weeklyGoal.reviewedCount)} từ nữa`
+                        : `${Math.max(0, weeklyGoal.targetWords - weeklyGoal.reviewedCount)} remaining`)}
+                </span>
+              </div>
+            </div>
+
+            {/* Glowing Progress Track */}
+            <div className="w-full bg-slate-800/80 rounded-full h-3.5 overflow-hidden p-0.5 border border-white/5">
+              <div
+                className={`h-full rounded-full transition-all duration-700 ease-out shadow-sm ${
+                  weeklyGoal.reviewedCount >= weeklyGoal.targetWords
+                    ? 'bg-gradient-to-r from-emerald-400 to-teal-400 shadow-emerald-500/50'
+                    : 'bg-gradient-to-r from-sky-400 via-indigo-400 to-pink-500 shadow-sky-500/50'
+                }`}
+                style={{
+                  width: `${Math.min(100, Math.max(3, Math.round((weeklyGoal.reviewedCount / Math.max(1, weeklyGoal.targetWords)) * 100)))}%`,
+                }}
+              />
+            </div>
+
+            {/* Motivation Badge & Tip */}
+            {weeklyGoal.reviewedCount >= weeklyGoal.targetWords ? (
+              <div className="mt-3 flex items-center gap-2 text-emerald-300 text-xs sm:text-sm font-semibold">
+                <Sparkles className="w-4 h-4 text-emerald-400" />
+                <span>
+                  {lang === 'vi'
+                    ? '🎉 Xuất sắc! Bạn đã hoàn thành toàn bộ mục tiêu tuần này. Hãy tiếp tục duy trì phong độ nhé!'
+                    : '🎉 Awesome! You have completed your weekly review goal. Keep up the momentum!'}
+                </span>
+              </div>
+            ) : (
+              <div className="mt-3 flex items-center justify-between text-xs text-slate-300">
+                <span className="flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <span>
+                    {lang === 'vi'
+                      ? `Chỉ cần ôn thêm ~${Math.ceil((weeklyGoal.targetWords - weeklyGoal.reviewedCount) / Math.max(1, daysLeft))} từ/ngày là sẽ hoàn thành!`
+                      : `Just review ~${Math.ceil((weeklyGoal.targetWords - weeklyGoal.reviewedCount) / Math.max(1, daysLeft))} words/day to achieve it!`}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onNavigate('chest')}
+                  className="font-bold text-sky-400 hover:text-sky-300 flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <span>{lang === 'vi' ? 'Ôn ngay' : 'Review now'}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Grid: Streak & 7-Day Habit Tracker */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Streak Card */}
+            <div className="bg-white/5 rounded-2xl p-4 border border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-orange-400 flex-shrink-0">
+                  <Flame className="w-6 h-6 fill-orange-400" />
+                </div>
+                <div>
+                  <span className="text-xs font-semibold text-slate-400 block">
+                    {lang === 'vi' ? 'Chuỗi học liên tục' : 'Current Streak'}
+                  </span>
+                  <span className="text-xl font-black text-white">
+                    {streakData.currentStreak} {lang === 'vi' ? 'ngày liên tiếp' : 'days in a row'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-right border-l border-white/10 pl-4">
+                <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1 justify-end">
+                  <Trophy className="w-3 h-3 text-amber-400" />
+                  {lang === 'vi' ? 'Kỷ lục' : 'Record'}
+                </span>
+                <span className="text-base font-bold text-amber-300">
+                  {streakData.bestStreak} {lang === 'vi' ? 'ngày' : 'days'}
+                </span>
+              </div>
+            </div>
+
+            {/* 7-Day Week Habit Calendar */}
+            <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+              <span className="text-xs font-semibold text-slate-400 block mb-2.5">
+                {lang === 'vi' ? 'Thói quen ôn tập trong tuần này:' : 'Review habits this week:'}
+              </span>
+              <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+                {weekDays.map((day) => (
+                  <div
+                    key={day.dateStr}
+                    className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-center transition-all ${
+                      day.isActive
+                        ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
+                        : day.isToday
+                        ? 'bg-sky-500/20 border-sky-400/60 text-sky-200 ring-1 ring-sky-400/40'
+                        : 'bg-white/5 border-white/5 text-slate-400'
+                    }`}
+                  >
+                    <span className="text-[11px] font-bold block">{day.label}</span>
+                    <div className="mt-1">
+                      {day.isActive ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      ) : (
+                        <span className="text-xs font-medium block">{day.dayNum}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Overview cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={<BookOpen className="w-5 h-5" />} label={t('totalWords')} value={vocabs.length} color="sky" />

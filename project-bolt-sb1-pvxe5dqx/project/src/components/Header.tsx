@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { BookOpen, LogOut, Menu, X, User as UserIcon } from 'lucide-react';
+import { BookOpen, LogOut, Menu, X, User as UserIcon, Flame } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { getStreakData } from '@/lib/storage';
 import { AuthModal } from './AuthModal';
 import type { TabKey } from '@/lib/types';
 import type { TranslationKey } from '@/lib/i18n';
@@ -27,6 +28,7 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [mobileOpen, setMobileOpen] = useState(false);
+  const streak = getStreakData();
 
   const openAuth = (mode: 'login' | 'signup') => {
     setAuthMode(mode);
@@ -69,6 +71,19 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
 
             {/* Right side */}
             <div className="flex items-center gap-2">
+              {/* Daily Streak Badge */}
+              <button
+                onClick={() => onTabChange('analytics')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/90 text-amber-900 hover:border-amber-300 hover:shadow-xs transition-all cursor-pointer"
+                title={lang === 'vi' ? `Chuỗi học tập: ${streak.currentStreak} ngày liên tiếp!` : `Study streak: ${streak.currentStreak} days in a row!`}
+              >
+                <Flame className={`w-4 h-4 ${streak.currentStreak > 0 ? 'text-orange-500 fill-orange-500' : 'text-slate-400'}`} />
+                <span className="text-xs font-bold text-orange-700">{streak.currentStreak}</span>
+                <span className="text-[11px] font-semibold text-amber-700 hidden sm:inline">
+                  {lang === 'vi' ? 'ngày' : 'd'}
+                </span>
+              </button>
+
               {/* Language Toggle */}
               <button
                 onClick={toggleLang}
