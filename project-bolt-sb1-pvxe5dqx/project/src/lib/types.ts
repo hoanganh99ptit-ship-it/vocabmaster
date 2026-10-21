@@ -22,6 +22,7 @@ export type TabKey =
   | 'quiz'
   | 'typing'
   | 'sentence'
+  | 'cloze'
   | 'analytics';
 
 export interface ParsedVocab {
@@ -33,6 +34,16 @@ export interface ParsedVocab {
   easeFactor?: number;
   dueDate?: string;
   repetition?: number;
+}
+
+export interface ClozeQuestion {
+  vocab: Vocabulary;
+  sentenceWithBlank: string;
+  fullSentence: string;
+  translation: string;
+  hint: string;
+  options: string[];
+  correctIndex: number;
 }
 
 export interface QuizQuestion {

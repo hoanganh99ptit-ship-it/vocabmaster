@@ -57,7 +57,7 @@ export function setStoredLang(lang: 'en' | 'vi') {
 const PRACTICE_KEY = 'vocabmaster_practice_history';
 
 export interface PracticeRecord {
-  type: 'quiz' | 'typing' | 'sentence';
+  type: 'quiz' | 'typing' | 'sentence' | 'cloze';
   vocabId?: string;
   word?: string;
   correct: boolean;

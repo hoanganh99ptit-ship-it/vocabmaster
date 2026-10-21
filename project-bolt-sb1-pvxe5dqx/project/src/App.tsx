@@ -9,6 +9,7 @@ import { VocabChest } from '@/pages/VocabChest';
 import { Quiz } from '@/pages/Quiz';
 import { TypingTest } from '@/pages/TypingTest';
 import { SentenceBuilding } from '@/pages/SentenceBuilding';
+import { ClozeTest } from '@/pages/ClozeTest';
 import { Analytics } from '@/pages/Analytics';
 import { useLanguage } from '@/context/LanguageContext';
 import type { TabKey } from '@/lib/types';
@@ -26,6 +27,7 @@ function AppContent() {
         {activeTab === 'quiz' && <Quiz />}
         {activeTab === 'typing' && <TypingTest />}
         {activeTab === 'sentence' && <SentenceBuilding />}
+        {activeTab === 'cloze' && <ClozeTest />}
         {activeTab === 'analytics' && <Analytics onNavigate={setActiveTab} />}
       </main>
       <footer className="border-t border-slate-200 py-6 text-center text-sm text-slate-400">

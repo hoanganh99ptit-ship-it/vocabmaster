@@ -44,6 +44,7 @@ export const translations = {
     tabQuiz: 'Multiple Choice',
     tabTyping: 'Typing Test',
     tabSentence: 'Sentence Building',
+    tabCloze: 'Cloze Test',
     tabAnalytics: 'Skill Analytics',
 
     // Add Vocabulary
@@ -209,6 +210,31 @@ export const translations = {
     correction: 'Correction',
     explanation: 'Explanation',
 
+    // Cloze Deletion Test
+    clozeTitle: 'Contextual Cloze Test',
+    clozeDesc: 'Active Recall by filling in blanks within real-world sentences',
+    clozeMode: 'Input Mode',
+    clozeModeTyping: 'Typing (Active Recall)',
+    clozeModeChoice: 'Multiple Choice (4 Options)',
+    clozeHint: 'Show Hint',
+    clozeHintActive: 'Hint',
+    clozeFirstLetter: 'Starts with',
+    clozeMeaningLabel: 'Vietnamese Meaning',
+    clozeTypePlaceholder: 'Type the missing word...',
+    clozeCheck: 'Check Answer',
+    clozeGenerating: 'Generating context sentences with AI...',
+    clozeGeneratingDesc: 'Crafting natural sentences and blanks tailored to your vocabulary list',
+    clozeNext: 'Next Question',
+    clozeComplete: 'Cloze Test Complete!',
+    clozeScore: 'Your Score',
+    clozeRetry: 'Practice Again',
+    clozeEmpty: 'You need at least 1 word to start Cloze Test',
+    clozeEmptyChoice: 'You need at least 4 words for Multiple Choice mode',
+    clozeAccuracyLabel: 'Cloze Accuracy',
+    clozeTotalLabel: 'Cloze Sessions',
+    clozeListenFull: 'Listen to full sentence',
+    clozeAccuracy: 'Cloze Accuracy',
+
     // Analytics
     analyticsTitle: 'Skill Analytics',
     analyticsDesc: 'Track your progress and weak spots',
@@ -314,6 +340,7 @@ export const translations = {
     tabQuiz: 'Trắc nghiệm',
     tabTyping: 'Luyện gõ từ',
     tabSentence: 'Luyện đặt câu',
+    tabCloze: 'Đục lỗ ngữ cảnh',
     tabAnalytics: 'Phân tích kỹ năng',
 
     // Add Vocabulary
@@ -478,6 +505,31 @@ export const translations = {
     nativeAlternativesDesc: 'Các câu thay thế kèm phát âm',
     correction: 'Sửa thành',
     explanation: 'Giải thích',
+
+    // Cloze Deletion Test
+    clozeTitle: 'Luyện tập đục lỗ theo ngữ cảnh',
+    clozeDesc: 'Tập phản xạ chủ động (Active Recall) bằng cách điền từ vào câu ngữ cảnh thực tế',
+    clozeMode: 'Hình thức làm bài',
+    clozeModeTyping: 'Tự gõ từ (Nhớ chủ động cao)',
+    clozeModeChoice: 'Trắc nghiệm (4 lựa chọn)',
+    clozeHint: 'Xem gợi ý',
+    clozeHintActive: 'Gợi ý',
+    clozeFirstLetter: 'Bắt đầu bằng',
+    clozeMeaningLabel: 'Nghĩa tiếng Việt',
+    clozeTypePlaceholder: 'Gõ từ tiếng Anh còn thiếu...',
+    clozeCheck: 'Kiểm tra đáp án',
+    clozeGenerating: 'Gemini AI đang sinh câu ngữ cảnh...',
+    clozeGeneratingDesc: 'Đang tạo câu ví dụ tự nhiên và đục lỗ từ vựng cho bạn',
+    clozeNext: 'Câu tiếp theo',
+    clozeComplete: 'Hoàn thành bài tập đục lỗ!',
+    clozeScore: 'Kết quả của bạn',
+    clozeRetry: 'Luyện tập lại',
+    clozeEmpty: 'Bạn cần ít nhất 1 từ vựng để bắt đầu',
+    clozeEmptyChoice: 'Bạn cần ít nhất 4 từ vựng cho chế độ trắc nghiệm',
+    clozeAccuracyLabel: 'Độ chính xác Đục lỗ',
+    clozeTotalLabel: 'Số lượt luyện Đục lỗ',
+    clozeListenFull: 'Nghe phát âm cả câu',
+    clozeAccuracy: 'Độ chính xác đục lỗ',
 
     // Analytics
     analyticsTitle: 'Phân tích kỹ năng',

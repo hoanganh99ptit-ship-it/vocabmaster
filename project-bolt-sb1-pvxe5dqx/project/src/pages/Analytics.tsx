@@ -28,6 +28,7 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
     const quizRecords = history.filter((r) => r.type === 'quiz');
     const typingRecords = history.filter((r) => r.type === 'typing');
     const sentenceRecords = history.filter((r) => r.type === 'sentence');
+    const clozeRecords = history.filter((r) => r.type === 'cloze');
 
     const calcAccuracy = (records: PracticeRecord[]) => {
       if (records.length === 0) return 0;
@@ -43,11 +44,14 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
       quizAccuracy: calcAccuracy(quizRecords),
       typingAccuracy: calcAccuracy(typingRecords),
       sentenceAccuracy: sentenceAvg,
+      clozeAccuracy: calcAccuracy(clozeRecords),
       quizTotal: quizRecords.length,
       typingTotal: typingRecords.length,
       sentenceTotal: sentenceRecords.length,
+      clozeTotal: clozeRecords.length,
       quizCorrect: quizRecords.filter((r) => r.correct).length,
       typingCorrect: typingRecords.filter((r) => r.correct).length,
+      clozeCorrect: clozeRecords.filter((r) => r.correct).length,
     };
   }, [history]);
 
@@ -95,6 +99,7 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
             <AccuracyBar label={t('quizAccuracy')} value={stats.quizAccuracy} total={stats.quizTotal} correct={stats.quizCorrect} color="emerald" />
             <AccuracyBar label={t('typingAccuracy')} value={stats.typingAccuracy} total={stats.typingTotal} correct={stats.typingCorrect} color="teal" />
             <AccuracyBar label={t('sentenceAccuracy')} value={stats.sentenceAccuracy} total={stats.sentenceTotal} correct={Math.round(stats.sentenceTotal * stats.sentenceAccuracy / 100)} color="indigo" />
+            <AccuracyBar label={t('clozeAccuracy')} value={stats.clozeAccuracy} total={stats.clozeTotal} correct={stats.clozeCorrect} color="sky" />
           </div>
         )}
       </div>

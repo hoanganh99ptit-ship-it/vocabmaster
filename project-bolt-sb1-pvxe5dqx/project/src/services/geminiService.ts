@@ -1,4 +1,4 @@
-import type { Language } from '@/lib/types';
+import type { Language, Vocabulary, ClozeQuestion } from '@/lib/types';
 import type { GrammarEvaluation, DetectedError, NativeAlternative, ErrorType } from '@/lib/grammarCheck';
 
 // ============================================================================
@@ -1027,3 +1027,164 @@ RULES:
 
   return results;
 }
+
+// ============================================================================
+// 5. CONTEXTUAL CLOZE TEST GENERATION (Active Recall)
+// ============================================================================
+
+/**
+ * Generates contextual cloze test questions for a batch of vocabularies using Gemini AI.
+ * Falls back gracefully to intelligent templates if AI generation fails or offline.
+ */
+export async function generateClozeQuestions(
+  targetVocabs: Vocabulary[],
+  allVocabs: Vocabulary[] = []
+): Promise<ClozeQuestion[]> {
+  if (targetVocabs.length === 0) return [];
+
+  // Helper to get 3 random distractors from allVocabs or standard vocabulary pool
+  const getRandomDistractors = (targetWord: string): string[] => {
+    const candidates = allVocabs
+      .map((v) => v.word.trim().toLowerCase())
+      .filter((w) => w && w !== targetWord.toLowerCase());
+
+    const shuffled = [...candidates].sort(() => Math.random() - 0.5);
+    const result = shuffled.slice(0, 3);
+
+    const backupPool = [
+      'protect', 'reduce', 'maintain', 'explore', 'create', 'improve',
+      'decision', 'challenge', 'environment', 'solution', 'resource',
+      'essential', 'natural', 'complex', 'significant', 'practical'
+    ].filter((w) => w !== targetWord.toLowerCase());
+
+    while (result.length < 3) {
+      const backupWord = backupPool[Math.floor(Math.random() * backupPool.length)];
+      if (!result.includes(backupWord) && backupWord !== targetWord.toLowerCase()) {
+        result.push(backupWord);
+      }
+    }
+    return result;
+  };
+
+  const fallbackQuestions = (vocabList: Vocabulary[]): ClozeQuestion[] => {
+    return vocabList.map((v) => {
+      const distractors = getRandomDistractors(v.word);
+      const options = [v.word, ...distractors].sort(() => Math.random() - 0.5);
+      const correctIndex = options.indexOf(v.word);
+      const firstLetter = v.word.charAt(0).toUpperCase();
+
+      return {
+        vocab: v,
+        sentenceWithBlank: `The word "______" is an important concept meaning "${v.meaning}".`,
+        fullSentence: `The word "${v.word}" is an important concept meaning "${v.meaning}".`,
+        translation: `Từ "${v.word}" có nghĩa là "${v.meaning}".`,
+        hint: `Bắt đầu bằng: ${firstLetter}... | Nghĩa: ${v.meaning}`,
+        options,
+        correctIndex,
+      };
+    });
+  };
+
+  // If Gemini is not configured, directly return fallback
+  if (!isGeminiConfigured()) {
+    return fallbackQuestions(targetVocabs);
+  }
+
+  try {
+    const itemsText = targetVocabs
+      .map(
+        (v, idx) =>
+          `${idx + 1}. id="${v.id}" Word: "${v.word}", Type: "${v.type || 'word'}", Meaning: "${v.meaning}"`
+      )
+      .join('\n');
+
+    const prompt = `You are an expert English language examiner creating Contextual Cloze Deletion Test (đục lỗ ngữ cảnh) questions for English learners.
+
+For each vocabulary entry below, create a natural, realistic English sentence that uses the word in a clear, meaningful context.
+Replace the target word in the sentence with "______" (6 underscores).
+Also provide:
+- fullSentence: The complete sentence with the word included.
+- sentenceWithBlank: The sentence with the word replaced by "______". Keep punctuation intact.
+- translation: Natural Vietnamese translation of the full sentence.
+- hint: A helpful hint in Vietnamese (e.g. contextual hint or meaning).
+- distractors: An array of exactly 3 different English words with similar part of speech that could look plausible but are incorrect in this context.
+
+Vocabulary list:
+${itemsText}
+
+Return strictly a JSON array matching this schema:
+[
+  {
+    "id": "the entry id from input",
+    "sentenceWithBlank": "We must take immediate action to ______ our natural environment.",
+    "fullSentence": "We must take immediate action to protect our natural environment.",
+    "translation": "Chúng ta phải hành động ngay lập tức để bảo vệ môi trường tự nhiên của mình.",
+    "hint": "Hành động giữ gìn, bảo vệ khỏi nguy hiểm",
+    "distractors": ["destroy", "abandon", "pollute"]
+  }
+]
+
+CRITICAL RULES:
+- Return exactly ${targetVocabs.length} items in the same order.
+- Ensure the sentence provides strong contextual clues for the missing word.
+- The target word inside fullSentence must match the input word.`;
+
+    const text = await geminiGenerate(prompt, {
+      temperature: 0.2,
+      responseMimeType: 'application/json',
+    });
+
+    const parsed = cleanAndParseJSON<Array<{
+      id: string;
+      sentenceWithBlank: string;
+      fullSentence: string;
+      translation: string;
+      hint: string;
+      distractors?: string[];
+    }>>(text);
+
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return fallbackQuestions(targetVocabs);
+    }
+
+    return targetVocabs.map((vocab, idx) => {
+      const generated = parsed.find((p) => p.id === vocab.id) || parsed[idx];
+      if (!generated || !generated.sentenceWithBlank || !generated.fullSentence) {
+        return fallbackQuestions([vocab])[0];
+      }
+
+      // Ensure distractor words exist and don't contain the target word
+      let distractors = Array.isArray(generated.distractors) && generated.distractors.length >= 3
+        ? generated.distractors.slice(0, 3)
+        : getRandomDistractors(vocab.word);
+
+      distractors = distractors.filter((d) => d.toLowerCase() !== vocab.word.toLowerCase());
+      while (distractors.length < 3) {
+        const extra = getRandomDistractors(vocab.word);
+        for (const item of extra) {
+          if (!distractors.includes(item) && item.toLowerCase() !== vocab.word.toLowerCase()) {
+            distractors.push(item);
+          }
+        }
+      }
+      distractors = distractors.slice(0, 3);
+
+      const options = [vocab.word, ...distractors].sort(() => Math.random() - 0.5);
+      const correctIndex = options.indexOf(vocab.word);
+
+      return {
+        vocab,
+        sentenceWithBlank: generated.sentenceWithBlank,
+        fullSentence: generated.fullSentence,
+        translation: generated.translation || '',
+        hint: generated.hint || vocab.meaning,
+        options,
+        correctIndex,
+      };
+    });
+  } catch (err) {
+    console.warn('[GeminiService] generateClozeQuestions failed, falling back to local questions:', err);
+    return fallbackQuestions(targetVocabs);
+  }
+}
+

@@ -17,6 +17,7 @@ const TABS: { key: TabKey; labelKey: TranslationKey }[] = [
   { key: 'quiz', labelKey: 'tabQuiz' },
   { key: 'typing', labelKey: 'tabTyping' },
   { key: 'sentence', labelKey: 'tabSentence' },
+  { key: 'cloze', labelKey: 'tabCloze' },
   { key: 'analytics', labelKey: 'tabAnalytics' },
 ];
 
