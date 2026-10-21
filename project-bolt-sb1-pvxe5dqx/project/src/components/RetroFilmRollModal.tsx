@@ -43,23 +43,35 @@ const VLOG_BACKGROUNDS = [
 export function RetroFilmRollModal({ isOpen, onClose, vocabs }: RetroFilmRollModalProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isShuffle, setIsShuffle] = useState(false);
   const [flipped, setFlipped] = useState(false);
   const [bgIndex, setBgIndex] = useState(0);
 
   const currentBg = VLOG_BACKGROUNDS[bgIndex];
 
+  // Mỗi khi mở cuộn phim, luôn bốc ngẫu nhiên 1 thẻ
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen && vocabs.length > 0) {
+      const randomIndex = Math.floor(Math.random() * vocabs.length);
+      setCurrentIndex(randomIndex);
       setIsPlaying(false);
       setFlipped(false);
     }
-  }, [isOpen]);
+  }, [isOpen, vocabs.length]);
 
   const current = vocabs[currentIndex] || vocabs[0];
 
   const handleNext = () => {
     if (vocabs.length === 0) return;
-    setCurrentIndex((prev) => (prev + 1) % vocabs.length);
+    if (isShuffle && vocabs.length > 1) {
+      let nextIndex = Math.floor(Math.random() * vocabs.length);
+      while (nextIndex === currentIndex && vocabs.length > 1) {
+        nextIndex = Math.floor(Math.random() * vocabs.length);
+      }
+      setCurrentIndex(nextIndex);
+    } else {
+      setCurrentIndex((prev) => (prev + 1) % vocabs.length);
+    }
     setFlipped(false);
   };
 
@@ -71,8 +83,11 @@ export function RetroFilmRollModal({ isOpen, onClose, vocabs }: RetroFilmRollMod
 
   const handleShuffle = () => {
     if (vocabs.length === 0) return;
-    const random = Math.floor(Math.random() * vocabs.length);
-    setCurrentIndex(random);
+    let nextIndex = Math.floor(Math.random() * vocabs.length);
+    while (nextIndex === currentIndex && vocabs.length > 1) {
+      nextIndex = Math.floor(Math.random() * vocabs.length);
+    }
+    setCurrentIndex(nextIndex);
     setFlipped(false);
   };
 
@@ -95,6 +110,8 @@ export function RetroFilmRollModal({ isOpen, onClose, vocabs }: RetroFilmRollMod
         setFlipped((f) => !f);
       } else if (e.key === 's' || e.key === 'S' || e.key === 'p' || e.key === 'P') {
         if (current) speak(current.word);
+      } else if (e.key === 'r' || e.key === 'R') {
+        handleShuffle();
       } else if (e.key === 'Escape') {
         onClose();
       }
@@ -102,17 +119,25 @@ export function RetroFilmRollModal({ isOpen, onClose, vocabs }: RetroFilmRollMod
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, vocabs.length, currentIndex, current]);
+  }, [isOpen, vocabs.length, currentIndex, current, isShuffle]);
 
   // Auto-play slideshow for vlog reel vibe
   useEffect(() => {
     if (!isPlaying || vocabs.length === 0) return;
     const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % vocabs.length);
+      if (isShuffle && vocabs.length > 1) {
+        let nextIndex = Math.floor(Math.random() * vocabs.length);
+        while (nextIndex === currentIndex && vocabs.length > 1) {
+          nextIndex = Math.floor(Math.random() * vocabs.length);
+        }
+        setCurrentIndex(nextIndex);
+      } else {
+        setCurrentIndex((prev) => (prev + 1) % vocabs.length);
+      }
       setFlipped(false);
     }, 4500);
     return () => clearInterval(timer);
-  }, [isPlaying, vocabs.length]);
+  }, [isPlaying, vocabs.length, currentIndex, isShuffle]);
 
   if (!isOpen || vocabs.length === 0) return null;
 
@@ -323,13 +348,14 @@ export function RetroFilmRollModal({ isOpen, onClose, vocabs }: RetroFilmRollMod
         </div>
 
         {/* Navigation Buttons: Clean, generous spacing */}
-        <div className="flex items-center justify-between gap-2 mt-2.5 sm:mt-3">
+        <div className="flex items-center justify-between gap-1.5 sm:gap-2 mt-2.5 sm:mt-3">
           <button
             onClick={handlePrev}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-stone-900/95 hover:bg-stone-800 text-amber-200 border border-stone-700/80 text-xs sm:text-sm font-semibold transition-all hover:-translate-x-0.5 cursor-pointer shadow-md"
+            className="flex-1 flex items-center justify-center gap-1 px-2.5 sm:px-3 py-2 rounded-xl bg-stone-900/95 hover:bg-stone-800 text-amber-200 border border-stone-700/80 text-xs sm:text-sm font-semibold transition-all hover:-translate-x-0.5 cursor-pointer shadow-md"
+            title="Từ trước đó (Phím ←)"
           >
             <ChevronLeft className="w-3.5 h-3.5 text-amber-400" />
-            <span>Từ trước</span>
+            <span>Trước</span>
           </button>
 
           <button
@@ -342,10 +368,20 @@ export function RetroFilmRollModal({ isOpen, onClose, vocabs }: RetroFilmRollMod
           </button>
 
           <button
-            onClick={handleNext}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs sm:text-sm transition-all hover:translate-x-0.5 cursor-pointer shadow-md"
+            onClick={handleShuffle}
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-amber-950/80 to-stone-900/95 hover:from-amber-900/90 hover:to-stone-850 text-amber-300 border border-amber-500/40 text-xs font-mono font-bold transition-all cursor-pointer shadow-md hover:border-amber-400 active:scale-95"
+            title="Bốc ngẫu nhiên một từ khác (Phím R)"
           >
-            <span>Từ tiếp theo</span>
+            <Shuffle className="w-3 h-3 text-amber-400" />
+            <span>Ngẫu nhiên</span>
+          </button>
+
+          <button
+            onClick={handleNext}
+            className="flex-1 flex items-center justify-center gap-1 px-2.5 sm:px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs sm:text-sm transition-all hover:translate-x-0.5 cursor-pointer shadow-md"
+            title="Từ tiếp theo (Phím →)"
+          >
+            <span>Tiếp theo</span>
             <ChevronRight className="w-3.5 h-3.5 text-stone-950" />
           </button>
         </div>
@@ -359,6 +395,9 @@ export function RetroFilmRollModal({ isOpen, onClose, vocabs }: RetroFilmRollMod
             <span className="text-stone-600">•</span>
             <kbd className="px-1.5 py-0.5 rounded bg-stone-800 border border-stone-700 text-amber-300 font-bold">Space</kbd>
             <span>lật thẻ</span>
+            <span className="text-stone-600">•</span>
+            <kbd className="px-1.5 py-0.5 rounded bg-stone-800 border border-stone-700 text-amber-300 font-bold">R</kbd>
+            <span>ngẫu nhiên</span>
             <span className="text-stone-600">•</span>
             <kbd className="px-1.5 py-0.5 rounded bg-stone-800 border border-stone-700 text-amber-300 font-bold">S</kbd>
             <span>phát âm</span>
