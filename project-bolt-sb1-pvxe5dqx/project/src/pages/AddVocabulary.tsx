@@ -112,7 +112,7 @@ export function AddVocabulary() {
       });
 
       if (error) {
-        show(t('toastError'), 'error');
+        show(error || t('toastError'), 'error');
       } else {
         if (entry.wasAutoCorrected && entry.originalWord.toLowerCase() !== finalWord.toLowerCase()) {
           show(tFnStr('aiAutoCorrected', entry.originalWord, finalWord), 'success');
@@ -132,7 +132,7 @@ export function AddVocabulary() {
         category: finalCategory,
       });
       if (error) {
-        show(t('toastError'), 'error');
+        show(error || t('toastError'), 'error');
       } else {
         show(t('aiSavedUnvalidated'), 'success');
         resetForm();
@@ -224,7 +224,7 @@ export function AddVocabulary() {
 
       const { error, count } = await addManyVocabs(unique);
       if (error) {
-        show(t('toastError'), 'error');
+        show(error || t('toastError'), 'error');
       } else {
         const correctedCount = normalized.filter(
           (n) => n.wasAutoCorrected,
@@ -235,11 +235,21 @@ export function AddVocabulary() {
         setBulkText('');
         setFileName('');
       }
-    } catch {
+    } catch (err) {
+      console.warn('[AddVocabulary] Save selected AI error, fallback to selected items:', err);
       // Gemini failed: save original selected vocabs with notice (graceful fallback)
-      const { error, count } = await addManyVocabs(selected);
+      const existingLower = new Set(vocabs.map((v) => v.word.trim().toLowerCase()));
+      const uniqueSelected = selected.filter((v) => !existingLower.has(v.word.trim().toLowerCase()));
+
+      if (uniqueSelected.length === 0) {
+        show(t('wordExists'), 'error');
+        setNormalizing(false);
+        return;
+      }
+
+      const { error, count } = await addManyVocabs(uniqueSelected);
       if (error) {
-        show(t('toastError'), 'error');
+        show(error || t('toastError'), 'error');
       } else {
         show(`${tFn('toastImported', count)} — ${t('aiSavedUnvalidated')}`, 'success');
         setParsed([]);

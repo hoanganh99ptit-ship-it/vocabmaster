@@ -21,6 +21,18 @@ interface VocabContextValue {
   existingWords: Set<string>;
 }
 
+// Helper to detect if Supabase table lacks SRS metadata columns (interval, ease_factor, due_date, repetition)
+let dbSupportsSrsColumns: boolean | null = null;
+
+function isMissingColumnError(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  return (
+    error.code === '42703' ||
+    (typeof error.message === 'string' &&
+      (error.message.includes('column') && error.message.includes('does not exist')))
+  );
+}
+
 const VocabContext = createContext<VocabContextValue | null>(null);
 
 export function VocabProvider({ children }: { children: ReactNode }) {
@@ -131,20 +143,49 @@ export function VocabProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      const { data, error } = await supabase
-        .from('vocabularies')
-        .insert({
-          word: cleanWord,
-          type: cleanType,
-          meaning: cleanMeaning,
-          category,
+      let insertPayload: Record<string, unknown> = {
+        user_id: user.id,
+        word: cleanWord,
+        type: cleanType,
+        meaning: cleanMeaning,
+        category,
+      };
+
+      if (dbSupportsSrsColumns !== false) {
+        insertPayload = {
+          ...insertPayload,
           interval: 1,
           ease_factor: 2.5,
           due_date: now,
           repetition: 0,
-        })
+        };
+      }
+
+      let { data, error } = await supabase
+        .from('vocabularies')
+        .insert(insertPayload)
         .select()
         .single();
+
+      if (error && dbSupportsSrsColumns !== false && isMissingColumnError(error)) {
+        dbSupportsSrsColumns = false;
+        const fallbackPayload = {
+          user_id: user.id,
+          word: cleanWord,
+          type: cleanType,
+          meaning: cleanMeaning,
+          category,
+        };
+        const retryResult = await supabase
+          .from('vocabularies')
+          .insert(fallbackPayload)
+          .select()
+          .single();
+        data = retryResult.data;
+        error = retryResult.error;
+      } else if (!error && dbSupportsSrsColumns === null) {
+        dbSupportsSrsColumns = true;
+      }
 
       if (error) {
         // Rollback optimistic update
@@ -237,21 +278,43 @@ export function VocabProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      const dbRows = toInsert.map((v) => ({
-        word: v.word,
-        type: v.type,
-        meaning: v.meaning,
-        category: v.category,
-        interval: v.interval,
-        ease_factor: v.easeFactor,
-        due_date: v.dueDate,
-        repetition: v.repetition,
-      }));
+      const buildDbRows = (includeSrs: boolean) =>
+        toInsert.map((v) => ({
+          user_id: user.id,
+          word: v.word,
+          type: v.type,
+          meaning: v.meaning,
+          category: v.category,
+          ...(includeSrs
+            ? {
+                interval: v.interval,
+                ease_factor: v.easeFactor,
+                due_date: v.dueDate,
+                repetition: v.repetition,
+              }
+            : {}),
+        }));
 
-      const { data, error } = await supabase
+      const shouldTrySrs = dbSupportsSrsColumns !== false;
+      let dbRows = buildDbRows(shouldTrySrs);
+
+      let { data, error } = await supabase
         .from('vocabularies')
         .insert(dbRows)
         .select();
+
+      if (error && shouldTrySrs && isMissingColumnError(error)) {
+        dbSupportsSrsColumns = false;
+        dbRows = buildDbRows(false);
+        const retryResult = await supabase
+          .from('vocabularies')
+          .insert(dbRows)
+          .select();
+        data = retryResult.data;
+        error = retryResult.error;
+      } else if (!error && dbSupportsSrsColumns === null) {
+        dbSupportsSrsColumns = true;
+      }
 
       if (error) {
         setVocabs(prevVocabs);
@@ -326,12 +389,40 @@ export function VocabProvider({ children }: { children: ReactNode }) {
       if (sanitizedUpdates.type !== undefined) dbUpdates.type = sanitizedUpdates.type;
       if (sanitizedUpdates.meaning !== undefined) dbUpdates.meaning = sanitizedUpdates.meaning;
       if (sanitizedUpdates.category !== undefined) dbUpdates.category = sanitizedUpdates.category;
-      if (sanitizedUpdates.interval !== undefined) dbUpdates.interval = sanitizedUpdates.interval;
-      if (sanitizedUpdates.easeFactor !== undefined) dbUpdates.ease_factor = sanitizedUpdates.easeFactor;
-      if (sanitizedUpdates.dueDate !== undefined) dbUpdates.due_date = sanitizedUpdates.dueDate;
-      if (sanitizedUpdates.repetition !== undefined) dbUpdates.repetition = sanitizedUpdates.repetition;
 
-      const { error } = await supabase.from('vocabularies').update(dbUpdates).eq('id', id);
+      if (dbSupportsSrsColumns !== false) {
+        if (sanitizedUpdates.interval !== undefined) dbUpdates.interval = sanitizedUpdates.interval;
+        if (sanitizedUpdates.easeFactor !== undefined) dbUpdates.ease_factor = sanitizedUpdates.easeFactor;
+        if (sanitizedUpdates.dueDate !== undefined) dbUpdates.due_date = sanitizedUpdates.dueDate;
+        if (sanitizedUpdates.repetition !== undefined) dbUpdates.repetition = sanitizedUpdates.repetition;
+      }
+
+      let { error } = await supabase.from('vocabularies').update(dbUpdates).eq('id', id);
+
+      if (error && dbSupportsSrsColumns !== false && isMissingColumnError(error)) {
+        dbSupportsSrsColumns = false;
+        delete dbUpdates.interval;
+        delete dbUpdates.ease_factor;
+        delete dbUpdates.due_date;
+        delete dbUpdates.repetition;
+
+        if (Object.keys(dbUpdates).length > 0) {
+          const retryResult = await supabase.from('vocabularies').update(dbUpdates).eq('id', id);
+          error = retryResult.error;
+        } else {
+          error = null;
+        }
+      } else if (!error && dbSupportsSrsColumns === null) {
+        if (
+          sanitizedUpdates.interval !== undefined ||
+          sanitizedUpdates.easeFactor !== undefined ||
+          sanitizedUpdates.dueDate !== undefined ||
+          sanitizedUpdates.repetition !== undefined
+        ) {
+          dbSupportsSrsColumns = true;
+        }
+      }
+
       if (error) {
         setVocabs(prevVocabs);
         return { error: error.message };

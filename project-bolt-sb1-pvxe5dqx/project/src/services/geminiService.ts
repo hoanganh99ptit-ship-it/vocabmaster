@@ -620,34 +620,49 @@ CRITICAL RULES:
 - Standardize all English words in lowercase trimmed form.
 - If already correct, set wasAutoCorrected to false.`;
 
-    const text = await geminiGenerate(prompt, {
-      temperature: 0.1,
-      responseMimeType: 'application/json',
-    });
+    try {
+      const text = await geminiGenerate(prompt, {
+        temperature: 0.1,
+        responseMimeType: 'application/json',
+      });
 
-    const parsed = cleanAndParseJSON<NormalizedVocabEntry[]>(text);
+      const parsed = cleanAndParseJSON<NormalizedVocabEntry[]>(text);
 
-    for (let j = 0; j < chunk.length; j++) {
-      const item = parsed[j];
-      if (!item) {
+      for (let j = 0; j < chunk.length; j++) {
+        const item = parsed[j];
+        if (!item) {
+          results.push({
+            originalWord: chunk[j].word,
+            word: chunk[j].word.trim().toLowerCase(),
+            meaning: chunk[j].meaning.trim(),
+            partOfSpeech: (chunk[j].type || '').trim().toLowerCase(),
+            ipa: '',
+            wasAutoCorrected: false,
+            correctionNote: '',
+          });
+        } else {
+          results.push({
+            originalWord: chunk[j].word,
+            word: (item.word || chunk[j].word).trim().toLowerCase(),
+            meaning: (item.meaning || chunk[j].meaning).trim(),
+            partOfSpeech: (item.partOfSpeech || chunk[j].type || '').trim().toLowerCase(),
+            ipa: item.ipa || '',
+            wasAutoCorrected: Boolean(item.wasAutoCorrected),
+            correctionNote: item.correctionNote || '',
+          });
+        }
+      }
+    } catch (chunkErr) {
+      console.warn('[GeminiService] autoNormalizeVocabBatch chunk failed, falling back:', chunkErr);
+      for (const entry of chunk) {
         results.push({
-          originalWord: chunk[j].word,
-          word: chunk[j].word.trim().toLowerCase(),
-          meaning: chunk[j].meaning.trim(),
-          partOfSpeech: (chunk[j].type || '').trim().toLowerCase(),
+          originalWord: entry.word,
+          word: entry.word.trim().toLowerCase(),
+          meaning: entry.meaning.trim(),
+          partOfSpeech: (entry.type || '').trim().toLowerCase(),
           ipa: '',
           wasAutoCorrected: false,
           correctionNote: '',
-        });
-      } else {
-        results.push({
-          originalWord: chunk[j].word,
-          word: (item.word || chunk[j].word).trim().toLowerCase(),
-          meaning: (item.meaning || chunk[j].meaning).trim(),
-          partOfSpeech: (item.partOfSpeech || chunk[j].type || '').trim().toLowerCase(),
-          ipa: item.ipa || '',
-          wasAutoCorrected: Boolean(item.wasAutoCorrected),
-          correctionNote: item.correctionNote || '',
         });
       }
     }
