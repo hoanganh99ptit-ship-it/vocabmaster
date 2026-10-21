@@ -574,20 +574,24 @@ export function ClozeTest() {
         <div className="my-6 p-6 rounded-2xl bg-slate-50/80 border border-slate-100 relative">
           {renderSentenceWithBlank()}
 
-          {/* Full Sentence Audio button (when answered) */}
+          {/* Full Sentence Audio & Translation (when answered) */}
           {answered && (
-            <div className="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between">
-              <button
-                onClick={() => speak(currentQ.fullSentence, rate)}
-                className="flex items-center gap-2 text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition-colors"
-              >
-                <Volume2 className="w-4 h-4" />
-                <span>{t('clozeListenFull')}</span>
-              </button>
+            <div className="mt-4 pt-3 border-t border-slate-200/60 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => speak(currentQ.fullSentence, rate)}
+                  className="flex items-center gap-2 text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition-colors shadow-sm"
+                >
+                  <Volume2 className="w-4 h-4" />
+                  <span>{t('clozeListenFull')}</span>
+                </button>
+              </div>
               {currentQ.translation && (
-                <span className="text-xs text-slate-500 italic max-w-sm truncate text-right">
+                <div className="text-sm text-slate-700 italic bg-white/80 p-3 rounded-xl border border-slate-200/70 leading-relaxed shadow-xs">
+                  <span className="font-semibold text-slate-800 not-italic mr-1.5">Dịch nghĩa câu:</span>
                   {currentQ.translation}
-                </span>
+                </div>
               )}
             </div>
           )}
