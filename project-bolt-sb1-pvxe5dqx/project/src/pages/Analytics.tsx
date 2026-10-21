@@ -30,13 +30,19 @@ import {
   getPracticeHistory,
   getWeeklyGoal,
   updateWeeklyGoal,
+  setWeeklyDifficulty,
+  activatePenalty,
+  clearActivePenalty,
+  getActivePenalty,
   getStreakData,
   getDaysLeftInWeek,
+  DIFFICULTY_CONFIGS,
   REWARD_SUGGESTIONS,
-  PENALTY_SUGGESTIONS,
   type PracticeRecord,
   type WeeklyGoal,
   type StreakData,
+  type GoalDifficulty,
+  type ActivePenalty,
 } from '@/lib/storage';
 import type { TabKey } from '@/lib/types';
 
@@ -51,12 +57,17 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
 
   const [weeklyGoal, setWeeklyGoalState] = useState<WeeklyGoal>(() => getWeeklyGoal());
   const [streakData, setStreakDataState] = useState<StreakData>(() => getStreakData());
+  const [activePenalty, setActivePenaltyState] = useState<ActivePenalty>(() => getActivePenalty());
   const daysLeft = useMemo(() => getDaysLeftInWeek(), []);
 
-  // Contract editing state
+  // Contract editing state (only reward is user-editable, penalty is system-calculated)
   const [isEditingContract, setIsEditingContract] = useState(false);
   const [rewardInput, setRewardInput] = useState(weeklyGoal.rewardText);
-  const [penaltyInput, setPenaltyInput] = useState(weeklyGoal.penaltyText);
+
+  const handleSelectDifficulty = (diff: GoalDifficulty) => {
+    const updated = setWeeklyDifficulty(diff);
+    setWeeklyGoalState({ ...updated });
+  };
 
   const handleSelectQuizTarget = (target: number) => {
     const updated = updateWeeklyGoal({ quizTarget: target });
@@ -71,7 +82,6 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
   const handleSaveContract = () => {
     const updated = updateWeeklyGoal({
       rewardText: rewardInput,
-      penaltyText: penaltyInput,
     });
     setWeeklyGoalState({ ...updated });
     setIsEditingContract(false);
@@ -79,8 +89,17 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
 
   const handleCancelContract = () => {
     setRewardInput(weeklyGoal.rewardText);
-    setPenaltyInput(weeklyGoal.penaltyText);
     setIsEditingContract(false);
+  };
+
+  const handleTriggerTestPenalty = () => {
+    const pen = activatePenalty(weeklyGoal.difficulty, weeklyGoal.weekKey);
+    setActivePenaltyState(pen);
+  };
+
+  const handleClearPenalty = () => {
+    clearActivePenalty();
+    setActivePenaltyState(getActivePenalty());
   };
 
   const weekDays = useMemo(() => {
@@ -187,7 +206,7 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
 
         <div className="relative z-10">
           {/* Header Row */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
             <div className="flex items-center gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-400 to-indigo-500 flex items-center justify-center shadow-lg shadow-sky-500/25 flex-shrink-0">
                 <Target className="w-6 h-6 text-white" />
@@ -212,15 +231,63 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
               </div>
             </div>
 
-            {/* Quick Contract Edit Button */}
+            {/* Quick Reward Edit Button */}
             <button
               type="button"
               onClick={() => setIsEditingContract(!isEditingContract)}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 border border-white/15 text-sky-200 hover:text-white transition-all cursor-pointer self-start md:self-center"
             >
               <Edit3 className="w-3.5 h-3.5" />
-              <span>{isEditingContract ? (lang === 'vi' ? 'Đóng chỉnh sửa' : 'Close Editor') : (lang === 'vi' ? 'Sửa Thưởng - Phạt' : 'Edit Reward/Penalty')}</span>
+              <span>{isEditingContract ? (lang === 'vi' ? 'Đóng chỉnh sửa' : 'Close Editor') : (lang === 'vi' ? 'Đổi phần thưởng 🎁' : 'Edit Reward 🎁')}</span>
             </button>
+          </div>
+
+          {/* 4 Difficulty Levels Selector (Dễ, Trung Bình, Khó, Địa ngục) */}
+          <div className="mb-6 p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+            <div className="flex items-center justify-between mb-2 px-1">
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                <span>{lang === 'vi' ? 'Cấp độ thử thách tuần này:' : 'Weekly Challenge Level:'}</span>
+              </span>
+              <span className="text-[11px] text-slate-400">
+                {lang === 'vi' ? 'Hình phạt tự động điều chỉnh theo độ khó' : 'Penalty auto-calculated per level'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {(['easy', 'medium', 'hard', 'nightmare'] as GoalDifficulty[]).map((diffKey) => {
+                const cfg = DIFFICULTY_CONFIGS[diffKey];
+                const isSelected = weeklyGoal.difficulty === diffKey;
+
+                return (
+                  <button
+                    key={diffKey}
+                    type="button"
+                    onClick={() => handleSelectDifficulty(diffKey)}
+                    className={`py-2 px-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-sky-500/20 border-sky-400 shadow-md shadow-sky-500/20 text-white'
+                        : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs font-black flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${
+                          diffKey === 'easy' ? 'bg-emerald-400' :
+                          diffKey === 'medium' ? 'bg-sky-400' :
+                          diffKey === 'hard' ? 'bg-amber-400' : 'bg-rose-500'
+                        }`} />
+                        {cfg.nameVi}
+                      </span>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-sky-400 stroke-[3]" />}
+                    </div>
+                    <span className="text-[10px] text-slate-400 block">
+                      {cfg.quizTarget} Quiz • {cfg.clozeTarget} Cloze
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Victory Celebration Banner (When both goals completed) */}
@@ -276,7 +343,7 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
 
                       {/* Target Selectors */}
                       <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl border border-white/10">
-                        {[15, 30, 50, 100].map((num) => (
+                        {[15, 30, 60, 100].map((num) => (
                           <button
                             key={num}
                             type="button"
@@ -368,7 +435,7 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
 
                       {/* Target Selectors */}
                       <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl border border-white/10">
-                        {[10, 20, 40, 60].map((num) => (
+                        {[10, 20, 40, 70].map((num) => (
                           <button
                             key={num}
                             type="button"
@@ -444,12 +511,12 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
                 </div>
                 <div>
                   <h3 className="font-black text-white text-sm sm:text-base">
-                    {lang === 'vi' ? 'Kế hoạch Thưởng - Phạt (Khế ước cam kết)' : 'Reward & Penalty Commitment'}
+                    {lang === 'vi' ? 'Kế hoạch Thưởng - Phạt tuần này' : 'Weekly Reward & System Penalty'}
                   </h3>
                   <span className="text-[11px] text-slate-300 block">
                     {lang === 'vi'
-                      ? 'Tự giác duy trì kỷ luật: Thưởng khi hoàn thành cả 2 chỉ tiêu, phạt khi bỏ cuộc'
-                      : 'Self-accountability: Reward on completion, penalty on failure'}
+                      ? 'Hình phạt ứng với chức năng do hệ thống tự động đưa ra theo độ khó đã chọn.'
+                      : 'Penalty tasks are auto-generated based on your chosen difficulty level.'}
                   </span>
                 </div>
               </div>
@@ -461,7 +528,7 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
                   className="text-xs font-bold text-sky-300 hover:text-white px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition-all cursor-pointer flex items-center gap-1"
                 >
                   <Edit3 className="w-3.5 h-3.5" />
-                  <span>{lang === 'vi' ? 'Chỉnh sửa' : 'Edit'}</span>
+                  <span>{lang === 'vi' ? 'Sửa phần thưởng' : 'Edit Reward'}</span>
                 </button>
               )}
             </div>
@@ -470,56 +537,85 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
             {!isEditingContract ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Reward Card */}
-                <div className="rounded-xl p-4 bg-gradient-to-br from-emerald-950/60 to-slate-900/60 border border-emerald-500/30">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <Gift className="w-4 h-4 text-emerald-400" />
-                      <span>{lang === 'vi' ? 'Phần thưởng tự trao' : 'Reward'}</span>
-                    </span>
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      {weeklyGoal.quizReviewed >= weeklyGoal.quizTarget && weeklyGoal.clozeReviewed >= weeklyGoal.clozeTarget
-                        ? (lang === 'vi' ? '🎉 ĐÃ MỞ KHÓA' : '🎉 UNLOCKED')
-                        : (lang === 'vi' ? '⏳ Khi đạt cả 2 chỉ tiêu' : '⏳ On completion')}
-                    </span>
+                <div className="rounded-xl p-4 bg-gradient-to-br from-emerald-950/60 to-slate-900/60 border border-emerald-500/30 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Gift className="w-4 h-4 text-emerald-400" />
+                        <span>{lang === 'vi' ? 'Phần thưởng tự trao' : 'Reward'}</span>
+                      </span>
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        {weeklyGoal.quizReviewed >= weeklyGoal.quizTarget && weeklyGoal.clozeReviewed >= weeklyGoal.clozeTarget
+                          ? (lang === 'vi' ? '🎉 ĐÃ MỞ KHÓA' : '🎉 UNLOCKED')
+                          : (lang === 'vi' ? '⏳ Khi đạt cả 2 chỉ tiêu' : '⏳ On completion')}
+                      </span>
+                    </div>
+                    <p className="text-base font-bold text-white mt-1">
+                      {weeklyGoal.rewardText}
+                    </p>
                   </div>
-                  <p className="text-base font-bold text-white mt-1">
-                    {weeklyGoal.rewardText}
-                  </p>
-                  <p className="text-[11px] text-slate-400 mt-2">
+                  <p className="text-[11px] text-slate-400 mt-3 pt-2 border-t border-white/10">
                     {lang === 'vi'
                       ? 'Đạt cả chỉ tiêu Trắc nghiệm & Đục lỗ trước chủ nhật để nhận thưởng.'
                       : 'Achieve both Quiz & Cloze targets before Sunday to enjoy this reward.'}
                   </p>
                 </div>
 
-                {/* Penalty Card */}
-                <div className="rounded-xl p-4 bg-gradient-to-br from-amber-950/60 to-slate-900/60 border border-amber-500/30">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <span className="text-amber-400">⚡</span>
-                      <span>{lang === 'vi' ? 'Kỷ luật tự giác (Phạt)' : 'Penalty'}</span>
-                    </span>
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                      {lang === 'vi' ? `Còn ${daysLeft} ngày` : `${daysLeft} days left`}
-                    </span>
+                {/* System-Generated Penalty Card */}
+                <div className="rounded-xl p-4 bg-gradient-to-br from-rose-950/60 via-slate-900/60 to-rose-950/60 border border-rose-500/30 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Zap className="w-4 h-4 text-rose-400" />
+                        <span>{lang === 'vi' ? 'Hình phạt tự động của hệ thống' : 'System Auto Penalty'}</span>
+                      </span>
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                        {activePenalty.isActive
+                          ? (lang === 'vi' ? '⚡ ĐANG BỊ KHÓA' : '⚡ LOCKED')
+                          : (lang === 'vi' ? `Mức: ${DIFFICULTY_CONFIGS[weeklyGoal.difficulty].nameVi}` : `Level: ${DIFFICULTY_CONFIGS[weeklyGoal.difficulty].nameEn}`)}
+                      </span>
+                    </div>
+
+                    <p className="text-sm sm:text-base font-bold text-rose-200 mt-1">
+                      {weeklyGoal.penaltyText}
+                    </p>
                   </div>
-                  <p className="text-base font-bold text-white mt-1">
-                    {weeklyGoal.penaltyText}
-                  </p>
-                  <p className="text-[11px] text-slate-400 mt-2">
-                    {lang === 'vi'
-                      ? 'Cam kết tự giác thực hiện nếu đến hết tuần chưa hoàn thành mục tiêu.'
-                      : 'Self-commit to execute if weekly targets are not met by end of week.'}
-                  </p>
+
+                  <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-[11px] text-slate-400">
+                      {activePenalty.isActive
+                        ? (lang === 'vi' ? `Tiến độ: Quiz ${activePenalty.quizDone}/${activePenalty.quizRequired} • Cloze ${activePenalty.clozeDone}/${activePenalty.clozeRequired}` : `Progress: Quiz ${activePenalty.quizDone}/${activePenalty.quizRequired}`)
+                        : (lang === 'vi' ? 'Khóa ứng dụng nếu hết tuần chưa đạt mục tiêu' : 'Locks app if targets missed')}
+                    </span>
+
+                    {/* Simulation / Test Penalty Button */}
+                    {activePenalty.isActive ? (
+                      <button
+                        type="button"
+                        onClick={handleClearPenalty}
+                        className="text-[11px] font-bold text-emerald-300 hover:text-white px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 transition-all cursor-pointer"
+                      >
+                        {lang === 'vi' ? 'Hủy chế độ phạt 🔓' : 'Clear Penalty 🔓'}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleTriggerTestPenalty}
+                        className="text-[11px] font-bold text-rose-300 hover:text-white px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/30 transition-all cursor-pointer"
+                        title={lang === 'vi' ? 'Kích hoạt thử thách phạt để trải nghiệm cơ chế khóa app' : 'Simulate lockout to test penalty mechanics'}
+                      >
+                        {lang === 'vi' ? 'Thử nghiệm khóa phạt ⚡' : 'Test Lockout ⚡'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ) : (
-              /* Edit Mode */
+              /* Edit Mode: Only Reward is user editable */
               <div className="space-y-4 pt-2">
-                {/* Reward input */}
                 <div>
                   <label className="block text-xs font-bold text-emerald-300 mb-1.5">
-                    🎁 {lang === 'vi' ? 'Phần thưởng tự trao khi hoàn thành:' : 'Reward upon completion:'}
+                    🎁 {lang === 'vi' ? 'Phần thưởng tự trao khi hoàn thành cả 2 chỉ tiêu:' : 'Reward upon completion:'}
                   </label>
                   <input
                     type="text"
@@ -543,31 +639,11 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
                   </div>
                 </div>
 
-                {/* Penalty input */}
-                <div>
-                  <label className="block text-xs font-bold text-amber-300 mb-1.5">
-                    ⚡ {lang === 'vi' ? 'Hình phạt tự giác nếu không đạt mục tiêu:' : 'Penalty if goal is missed:'}
-                  </label>
-                  <input
-                    type="text"
-                    value={penaltyInput}
-                    onChange={(e) => setPenaltyInput(e.target.value)}
-                    placeholder={lang === 'vi' ? 'Ví dụ: Chạy bộ 3km hoặc chép phạt 20 từ ra giấy 🏃' : 'e.g. Run 3km or copy 20 words by hand 🏃'}
-                    className="w-full bg-slate-800/90 border border-white/20 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors"
-                  />
-                  <div className="flex items-center gap-1.5 flex-wrap mt-2">
-                    <span className="text-[11px] text-slate-400">{lang === 'vi' ? 'Gợi ý nhanh:' : 'Quick ideas:'}</span>
-                    {PENALTY_SUGGESTIONS.map((sug, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setPenaltyInput(sug)}
-                        className="text-[11px] px-2 py-0.5 rounded-lg bg-white/10 hover:bg-amber-500/20 hover:text-amber-300 text-slate-300 transition-colors cursor-pointer"
-                      >
-                        {sug}
-                      </button>
-                    ))}
-                  </div>
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300">
+                  <span className="text-amber-300 font-bold block mb-1">
+                    ⚡ Hình phạt hệ thống hiện tại (Mức {DIFFICULTY_CONFIGS[weeklyGoal.difficulty].nameVi}):
+                  </span>
+                  <span>{weeklyGoal.penaltyText}</span>
                 </div>
 
                 {/* Action buttons */}
@@ -585,7 +661,7 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
                     className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 shadow-md shadow-emerald-500/30 transition-all cursor-pointer flex items-center gap-1.5"
                   >
                     <Check className="w-3.5 h-3.5" />
-                    <span>{lang === 'vi' ? 'Lưu khế ước cam kết' : 'Save Commitment'}</span>
+                    <span>{lang === 'vi' ? 'Lưu phần thưởng' : 'Save Reward'}</span>
                   </button>
                 </div>
               </div>

@@ -43,6 +43,7 @@ import {
   getWeeklyGoal,
   getStreakData,
   getDaysLeftInWeek,
+  DIFFICULTY_CONFIGS,
 } from '@/lib/storage';
 import type { Vocabulary, CollocationItem, TabKey } from '@/lib/types';
 
@@ -518,6 +519,9 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
                     </h4>
                     <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-100/80 text-indigo-700">
                       {weeklyGoal.weekKey}
+                    </span>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 border border-sky-200">
+                      {lang === 'vi' ? `Mức: ${DIFFICULTY_CONFIGS[weeklyGoal.difficulty || 'medium'].nameVi}` : `Level: ${DIFFICULTY_CONFIGS[weeklyGoal.difficulty || 'medium'].nameEn}`}
                     </span>
                     <span className="text-xs font-medium text-slate-500">
                       {lang === 'vi' ? `• Còn ${daysLeftInWeek} ngày` : `• ${daysLeftInWeek} days left`}
