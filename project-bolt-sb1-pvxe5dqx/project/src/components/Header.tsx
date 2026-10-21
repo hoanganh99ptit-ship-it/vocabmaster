@@ -138,7 +138,7 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
                 <span className="text-xs">
                   {theme === 'cinema' ? '🎞️' : theme === 'retro' ? '📜' : '☀️'}
                 </span>
-                <span className="hidden xl:inline text-[11px] font-mono">
+                <span className="hidden sm:inline text-[11px] font-mono">
                   {theme === 'cinema' ? '35mm Reel' : theme === 'retro' ? 'Paper' : 'Modern'}
                 </span>
                 {theme === 'cinema' && (

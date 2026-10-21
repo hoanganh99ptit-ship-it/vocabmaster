@@ -194,38 +194,62 @@ select {
    Synchronized directly with the 35mm Kodak Portra Vlog Card
    ======================================================== */
 
+/* ========================================================
+   35MM CINEMA FILM REEL VLOG AESTHETIC (DARK MODE)
+   Synchronized directly with the 35mm Kodak Portra Vlog Card
+   ======================================================== */
+
 .theme-cinema {
-  --cinema-bg: #0c0a08;
-  --cinema-surface: #14100c;
-  --cinema-card: #18130e;
-  --cinema-border: rgba(217, 119, 6, 0.28);
-  --cinema-border-hover: rgba(245, 158, 11, 0.6);
+  --cinema-bg: #120e0b;
+  --cinema-surface: #1a140f;
+  --cinema-card: #201913;
+  --cinema-border: rgba(217, 119, 6, 0.38);
+  --cinema-border-hover: rgba(245, 158, 11, 0.75);
   --cinema-amber: #f59e0b;
   --cinema-gold: #fbbf24;
-  --cinema-text-main: #fef3c7;
-  --cinema-text-muted: #c9b8a3;
-  --cinema-text-subtle: #8a7663;
+  --cinema-text-main: #fffbeb;
+  --cinema-text-muted: #e2d5c3;
+  --cinema-text-subtle: #b8a590;
 }
 
 .theme-cinema body {
-  background-color: #0c0a08 !important;
+  background-color: #120e0b !important;
   background-image: 
-    radial-gradient(circle at 15% 15%, rgba(217, 119, 6, 0.12) 0%, transparent 45%),
-    radial-gradient(circle at 85% 75%, rgba(180, 83, 9, 0.08) 0%, transparent 45%),
-    linear-gradient(180deg, #100d0a 0%, #080605 100%) !important;
+    radial-gradient(circle at 50% 0%, rgba(217, 119, 6, 0.16) 0%, transparent 60%),
+    radial-gradient(circle at 90% 80%, rgba(180, 83, 9, 0.12) 0%, transparent 50%),
+    linear-gradient(180deg, #15100c 0%, #0d0a08 100%) !important;
   background-attachment: fixed;
-  color: #fef3c7 !important;
+  color: #fffbeb !important;
 }
 
 /* Typography in 35mm Cinema Mode */
 .theme-cinema h1,
 .theme-cinema h2,
-.theme-cinema h3,
 .theme-cinema .retro-serif {
   font-family: 'Playfair Display', Georgia, serif;
-  color: #fef3c7 !important;
+  color: #fffbeb !important;
+  font-weight: 800 !important;
   letter-spacing: -0.015em;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+}
+
+/* Category header & section labels: Clear, high contrast Space Mono */
+.theme-cinema h3.uppercase,
+.theme-cinema h3[class*="uppercase"] {
+  font-family: 'Space Mono', monospace !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.14em !important;
+  color: #fde047 !important;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+}
+
+/* Word titles in list and cards: Large, bold & elegant */
+.theme-cinema h3:not([class*="uppercase"]) {
+  font-family: 'Playfair Display', Georgia, serif !important;
+  color: #fffbeb !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.01em !important;
 }
 
 .theme-cinema .retro-hand {
@@ -240,21 +264,22 @@ select {
 
 /* Cinema Header */
 .theme-cinema header {
-  background-color: rgba(15, 12, 10, 0.94) !important;
+  background-color: rgba(18, 14, 11, 0.96) !important;
   backdrop-filter: blur(16px) !important;
-  border-bottom: 2px solid rgba(217, 119, 6, 0.3) !important;
-  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.8) !important;
+  border-bottom: 2px solid rgba(217, 119, 6, 0.35) !important;
+  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.85) !important;
 }
 
 /* Cinema Navigation Tabs */
 .theme-cinema nav button {
-  color: #d1c2ab !important;
-  border-color: rgba(217, 119, 6, 0.15) !important;
+  color: #e2d5c3 !important;
+  border-color: rgba(217, 119, 6, 0.2) !important;
+  font-weight: 600 !important;
 }
 
 .theme-cinema nav button:hover {
-  background-color: rgba(30, 22, 16, 0.8) !important;
-  color: #fef3c7 !important;
+  background-color: rgba(35, 27, 20, 0.9) !important;
+  color: #fffbeb !important;
 }
 
 .theme-cinema nav button.bg-sky-50 {
@@ -262,70 +287,152 @@ select {
   color: #0c0a08 !important;
   font-weight: 800 !important;
   border: 1px solid #fbbf24 !important;
-  box-shadow: 0 2px 12px rgba(217, 119, 6, 0.45) !important;
+  box-shadow: 0 2px 14px rgba(217, 119, 6, 0.5) !important;
 }
 
 .theme-cinema nav button.bg-sky-50 svg {
   color: #0c0a08 !important;
 }
 
-/* Cinema Cards (Film Frame Surface, Dark Glass, Warm Amber Borders) */
-.theme-cinema .bg-white {
-  background-color: rgba(22, 17, 13, 0.95) !important;
-  border: 1px solid rgba(217, 119, 6, 0.25) !important;
-  box-shadow: 0 14px 34px -5px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(251, 191, 36, 0.08) !important;
-  color: #fef3c7 !important;
+/* Cinema Cards (Film Frame Surface, Warm Amber Borders) */
+.theme-cinema [class*="bg-white"] {
+  background-color: rgba(28, 22, 17, 0.95) !important;
+  border: 1.5px solid rgba(217, 119, 6, 0.35) !important;
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(251, 191, 36, 0.1) !important;
+  color: #fffbeb !important;
 }
 
 .theme-cinema .bg-slate-50 {
-  background-color: #0f0c0a !important;
+  background-color: #14100c !important;
 }
 
 .theme-cinema .border-slate-200,
 .theme-cinema .border-slate-100 {
-  border-color: rgba(217, 119, 6, 0.2) !important;
+  border-color: rgba(217, 119, 6, 0.25) !important;
 }
 
 .theme-cinema .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
 .theme-cinema .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
-  border-color: rgba(217, 119, 6, 0.15) !important;
+  border-color: rgba(217, 119, 6, 0.2) !important;
 }
 
-/* Text Overrides */
+/* High Contrast Text in Cinema Mode */
 .theme-cinema .text-slate-900,
 .theme-cinema .text-slate-800 {
-  color: #fef3c7 !important;
+  color: #fffbeb !important;
+  font-weight: 700 !important;
 }
 
 .theme-cinema .text-slate-700,
 .theme-cinema .text-slate-600 {
-  color: #d6c5b0 !important;
+  color: #e6dacb !important;
 }
 
 .theme-cinema .text-slate-500,
 .theme-cinema .text-slate-400 {
-  color: #9e8b78 !important;
+  color: #c4b39f !important;
+}
+
+/* Weekly Goal Banner in Cinema Mode (Crisp, High-Contrast & Beautiful) */
+.theme-cinema .bg-gradient-to-r.from-sky-50 {
+  background: linear-gradient(135deg, rgba(34, 26, 20, 0.98) 0%, rgba(24, 18, 14, 0.98) 100%) !important;
+  border: 1.5px solid rgba(217, 119, 6, 0.5) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75) !important;
+}
+
+/* Sub-cards inside Weekly Goal Banner */
+.theme-cinema .bg-gradient-to-r.from-sky-50 [class*="bg-white"] {
+  background-color: rgba(20, 15, 11, 0.9) !important;
+  border: 1px solid rgba(217, 119, 6, 0.38) !important;
+}
+
+.theme-cinema .bg-gradient-to-r.from-sky-50 span.text-sky-600,
+.theme-cinema .bg-gradient-to-r.from-sky-50 span.text-emerald-600,
+.theme-cinema .bg-gradient-to-r.from-sky-50 span.text-orange-800 {
+  color: #fde047 !important;
+  font-weight: 800 !important;
+}
+
+/* Badges inside Weekly Goal */
+.theme-cinema [class*="bg-indigo-100"],
+.theme-cinema [class*="bg-sky-100"],
+.theme-cinema [class*="bg-amber-100"],
+.theme-cinema [class*="bg-emerald-100"] {
+  background-color: rgba(42, 33, 24, 0.95) !important;
+  border: 1px solid rgba(245, 158, 11, 0.45) !important;
+  color: #fef08a !important;
+}
+
+/* Progress bar track & fill in Cinema Mode */
+.theme-cinema .w-full.bg-slate-100,
+.theme-cinema .bg-slate-100.rounded-full {
+  background-color: #261e17 !important;
+  border: 1px solid rgba(217, 119, 6, 0.25) !important;
+}
+
+.theme-cinema .w-full.bg-slate-100 > div,
+.theme-cinema .bg-slate-100.rounded-full > div {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24) !important;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.6) !important;
+}
+
+/* Category Folder Cards: Distinct, warm, gorgeous 35mm slide look */
+.theme-cinema button.group.rounded-2xl {
+  background: linear-gradient(145deg, rgba(32, 25, 19, 0.98) 0%, rgba(22, 17, 13, 0.98) 100%) !important;
+  border: 1.5px solid rgba(217, 119, 6, 0.35) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+  transition: all 0.25s ease !important;
+}
+
+.theme-cinema button.group.rounded-2xl:hover {
+  border-color: #f59e0b !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 12px 30px rgba(245, 158, 11, 0.25) !important;
+}
+
+.theme-cinema button.group.rounded-2xl p.text-slate-800 {
+  color: #fffbeb !important;
+  font-weight: 700 !important;
+}
+
+.theme-cinema button.group.rounded-2xl p.text-slate-400 {
+  color: #fcd34d !important;
+  font-family: 'Space Mono', monospace !important;
+}
+
+/* Filter buttons on top bar (Tổng số từ, Chủ đề, Cần ôn hôm nay) */
+.theme-cinema .flex.items-center.gap-2 button,
+.theme-cinema .flex.items-center.gap-2 div.border {
+  background-color: rgba(28, 22, 17, 0.95) !important;
+  border: 1.5px solid rgba(217, 119, 6, 0.35) !important;
+  color: #fffbeb !important;
+}
+
+.theme-cinema span.text-amber-800,
+.theme-cinema span.text-sky-600,
+.theme-cinema span.text-indigo-600 {
+  color: #fde047 !important;
 }
 
 /* Inputs, Textareas, Selects */
 .theme-cinema input,
 .theme-cinema textarea,
 .theme-cinema select {
-  background-color: #120e0b !important;
-  border-color: rgba(217, 119, 6, 0.3) !important;
-  color: #fef3c7 !important;
+  background-color: #17120e !important;
+  border: 1.5px solid rgba(217, 119, 6, 0.4) !important;
+  color: #fffbeb !important;
 }
 
 .theme-cinema input::placeholder,
 .theme-cinema textarea::placeholder {
-  color: #7d6b59 !important;
+  color: #9c8a77 !important;
 }
 
 .theme-cinema input:focus,
 .theme-cinema textarea:focus,
 .theme-cinema select:focus {
   border-color: #f59e0b !important;
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25) !important;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.35) !important;
 }
 
 /* Primary Action Buttons: Kodak Honey Gold Gradient */
@@ -337,53 +444,22 @@ select {
   color: #0c0a08 !important;
   font-weight: 800 !important;
   border-color: #fbbf24 !important;
-  box-shadow: 0 4px 18px rgba(217, 119, 6, 0.35) !important;
+  box-shadow: 0 4px 18px rgba(217, 119, 6, 0.4) !important;
 }
 
 .theme-cinema .bg-gradient-to-r.from-sky-500:hover,
 .theme-cinema .bg-sky-600:hover,
 .theme-cinema .bg-sky-500:hover {
   background: linear-gradient(to right, #fbbf24, #ea580c) !important;
-  box-shadow: 0 6px 22px rgba(217, 119, 6, 0.5) !important;
-}
-
-/* Badges & Tags */
-.theme-cinema .bg-sky-50 {
-  background-color: rgba(217, 119, 6, 0.15) !important;
-  border: 1px solid rgba(245, 158, 11, 0.35) !important;
-  color: #fbbf24 !important;
-}
-
-.theme-cinema .bg-slate-100 {
-  background-color: #1c1611 !important;
-  border-color: #33261a !important;
-  color: #d1c2ab !important;
-}
-
-/* Weekly Goal Banner in Cinema Mode */
-.theme-cinema .bg-gradient-to-r.from-sky-50 {
-  background: linear-gradient(to right, #1f1812, #18120e, #1b1510) !important;
-  border-color: rgba(217, 119, 6, 0.35) !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
-}
-
-/* Quiz, Cloze & Practice options in Cinema Mode */
-.theme-cinema .hover\:bg-slate-50:hover,
-.theme-cinema .hover\:bg-slate-100:hover {
-  background-color: rgba(35, 27, 20, 0.9) !important;
-}
-
-.theme-cinema button.border-slate-200:hover,
-.theme-cinema button.border-slate-300:hover {
-  border-color: rgba(245, 158, 11, 0.6) !important;
+  box-shadow: 0 6px 24px rgba(217, 119, 6, 0.55) !important;
 }
 
 /* Modals & Dialogs in Cinema Mode */
 .theme-cinema .bg-white.rounded-2xl,
 .theme-cinema .bg-white.rounded-3xl {
-  background-color: #15110d !important;
-  border: 1px solid rgba(217, 119, 6, 0.35) !important;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9) !important;
+  background-color: #1a140f !important;
+  border: 1.5px solid rgba(217, 119, 6, 0.45) !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95) !important;
 }
 
 /* Cinema Scrollbar */
@@ -392,14 +468,14 @@ select {
   height: 8px;
 }
 .theme-cinema ::-webkit-scrollbar-track {
-  background: #0c0a08;
+  background: #120e0b;
 }
 .theme-cinema ::-webkit-scrollbar-thumb {
-  background: #2b2118;
+  background: #33261a;
   border-radius: 4px;
 }
 .theme-cinema ::-webkit-scrollbar-thumb:hover {
-  background: #d97706;
+  background: #f59e0b;
 }
 
 /* Retro Film Strip 35mm Frame styling (Matches Image 2 exactly) */
