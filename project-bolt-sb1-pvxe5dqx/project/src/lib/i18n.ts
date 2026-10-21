@@ -39,13 +39,13 @@ export const translations = {
     checkEmailConfirm: 'Please check your email to confirm your account',
 
     // Tabs
-    tabAdd: 'Add Vocabulary',
-    tabChest: 'Vocab Chest',
-    tabQuiz: 'Multiple Choice',
-    tabTyping: 'Typing Test',
-    tabSentence: 'Sentence Building',
-    tabCloze: 'Cloze Test',
-    tabAnalytics: 'Skill Analytics',
+    tabAdd: 'Add',
+    tabChest: 'Chest',
+    tabQuiz: 'Quiz',
+    tabTyping: 'Typing',
+    tabSentence: 'Sentence',
+    tabCloze: 'Cloze',
+    tabAnalytics: 'Stats',
 
     // Add Vocabulary
     quickAdd: 'Quick Add',
@@ -335,13 +335,13 @@ export const translations = {
     checkEmailConfirm: 'Vui lòng kiểm tra email để xác nhận tài khoản',
 
     // Tabs
-    tabAdd: 'Thêm từ vựng',
-    tabChest: 'Rương từ vựng',
+    tabAdd: 'Thêm từ',
+    tabChest: 'Rương từ',
     tabQuiz: 'Trắc nghiệm',
-    tabTyping: 'Luyện gõ từ',
-    tabSentence: 'Luyện đặt câu',
-    tabCloze: 'Đục lỗ ngữ cảnh',
-    tabAnalytics: 'Phân tích kỹ năng',
+    tabTyping: 'Gõ từ',
+    tabSentence: 'Đặt câu',
+    tabCloze: 'Đục lỗ',
+    tabAnalytics: 'Thống kê',
 
     // Add Vocabulary
     quickAdd: 'Thêm nhanh',
