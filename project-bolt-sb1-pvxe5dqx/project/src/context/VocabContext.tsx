@@ -26,10 +26,15 @@ let dbSupportsSrsColumns: boolean | null = null;
 
 function isMissingColumnError(error: { code?: string; message?: string } | null | undefined): boolean {
   if (!error) return false;
+  const code = String(error.code || '');
+  const msg = String(error.message || '').toLowerCase();
   return (
-    error.code === '42703' ||
-    (typeof error.message === 'string' &&
-      (error.message.includes('column') && error.message.includes('does not exist')))
+    code === '42703' ||
+    code === 'PGRST204' ||
+    msg.includes('schema cache') ||
+    msg.includes('could not find the') ||
+    msg.includes('does not exist') ||
+    msg.includes('column')
   );
 }
 
@@ -39,6 +44,21 @@ export function VocabProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [vocabs, setVocabs] = useState<Vocabulary[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Proactively check if the Supabase database supports SRS columns
+  const checkSrsSupport = useCallback(async () => {
+    if (dbSupportsSrsColumns !== null) return;
+    try {
+      const { error } = await supabase.from('vocabularies').select('due_date').limit(1);
+      if (error && isMissingColumnError(error)) {
+        dbSupportsSrsColumns = false;
+      } else if (!error) {
+        dbSupportsSrsColumns = true;
+      }
+    } catch {
+      dbSupportsSrsColumns = false;
+    }
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!user) {
@@ -77,8 +97,9 @@ export function VocabProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   useEffect(() => {
+    checkSrsSupport();
     refresh();
-  }, [refresh]);
+  }, [checkSrsSupport, refresh]);
 
   const existingWords = new Set(vocabs.map((v) => v.word.trim().toLowerCase()));
 
