@@ -1379,3 +1379,46 @@ CRITICAL RULES:
   return result;
 }
 
+// ============================================================================
+// 7. SINGLE VOCABULARY CONTEXT / EXAMPLE SENTENCE GENERATION (Vlog Style)
+// ============================================================================
+
+export interface VocabExampleResult {
+  sentence: string;
+  translation: string;
+}
+
+export async function fetchExampleSentenceForWord(
+  word: string,
+  meaning: string = '',
+  type: string = ''
+): Promise<VocabExampleResult | null> {
+  if (!word || !isGeminiConfigured()) return null;
+
+  const prompt = `You are a creative English teacher and storyteller.
+Write exactly ONE natural, vivid, real-life English example sentence containing the target word: "${word.trim()}" (Part of speech: "${type || ''}", Vietnamese meaning: "${meaning || ''}").
+The sentence should feel conversational, memorable, and contextual like a dialogue or narration from an authentic vlog.
+Also provide its accurate, natural Vietnamese translation.
+Return strictly a JSON object:
+{
+  "sentence": "English sentence containing the target word",
+  "translation": "Bản dịch tiếng Việt tự nhiên của câu trên"
+}`;
+
+  try {
+    const text = await geminiGenerate(prompt, {
+      temperature: 0.3,
+      responseMimeType: 'application/json',
+    });
+    const parsed = cleanAndParseJSON<VocabExampleResult>(text);
+    if (parsed && typeof parsed.sentence === 'string' && parsed.sentence.trim()) {
+      return {
+        sentence: parsed.sentence.trim(),
+        translation: (parsed.translation || '').trim(),
+      };
+    }
+  } catch (err) {
+    console.warn(`[GeminiService] fetchExampleSentenceForWord failed for "${word}":`, err);
+  }
+  return null;
+}

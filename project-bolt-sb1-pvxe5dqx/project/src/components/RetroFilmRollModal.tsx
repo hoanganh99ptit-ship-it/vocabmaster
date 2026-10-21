@@ -1,12 +1,67 @@
 import { useState, useEffect } from 'react';
-import { X, Volume2, ChevronLeft, ChevronRight, Play, Pause, Shuffle, Sparkles, Film, Image as ImageIcon } from 'lucide-react';
+import { X, Volume2, ChevronLeft, ChevronRight, Play, Pause, Shuffle, Sparkles, Film, Image as ImageIcon, Link2, Loader2, RefreshCw } from 'lucide-react';
 import { speak } from '@/lib/speech';
-import type { Vocabulary } from '@/lib/types';
+import type { Vocabulary, CollocationItem } from '@/lib/types';
+import { getExampleCache, getExampleForWordFromCache, saveExampleForWordToCache, getCollocationsForWordFromCache } from '@/lib/storage';
+import { fetchExampleSentenceForWord, isGeminiConfigured } from '@/services/geminiService';
 
 interface RetroFilmRollModalProps {
   isOpen: boolean;
   onClose: () => void;
   vocabs: Vocabulary[];
+}
+
+// Fallback ngữ cảnh thông minh tự nhiên theo từ loại khi chưa có ví dụ
+function getSmartContext(word: string, meaning: string = '', type: string = ''): { sentence: string; translation: string } {
+  const w = word.trim();
+  const m = meaning.trim() || w;
+  const t = (type || '').toLowerCase();
+
+  if (t.includes('verb') || t.includes('động')) {
+    return {
+      sentence: `It takes patience, constant practice, and genuine dedication to ${w} effectively.`,
+      translation: `Cần có sự kiên nhẫn, luyện tập liên tục và tận tâm thực sự để ${m} một cách hiệu quả.`,
+    };
+  }
+  if (t.includes('adj') || t.includes('tính')) {
+    return {
+      sentence: `Maintaining a ${w} mindset is essential for overcoming unexpected challenges in life.`,
+      translation: `Giữ một tinh thần ${m} là điều cốt yếu để vượt qua những thử thách bất ngờ trong cuộc sống.`,
+    };
+  }
+  if (t.includes('adv') || t.includes('trạng')) {
+    return {
+      sentence: `They handled the entire creative process ${w} from beginning to end.`,
+      translation: `Họ đã xử lý toàn bộ quá trình sáng tạo một cách ${m} từ đầu đến cuối.`,
+    };
+  }
+  if (t.includes('phr') || t.includes('idiom') || t.includes('cụm')) {
+    return {
+      sentence: `Mastering expressions like "${w}" will make your everyday English conversations sound much more natural.`,
+      translation: `Nắm vững những cụm từ như "${w}" sẽ giúp các cuộc trò chuyện tiếng Anh của bạn tự nhiên hơn rất nhiều.`,
+    };
+  }
+  // Mặc định hoặc danh từ (noun)
+  return {
+    sentence: `Fulfilling this vital ${w} brings a profound sense of achievement and growth.`,
+    translation: `Hoàn thành ${m} quan trọng này mang lại cảm giác sâu sắc về thành tựu và sự trưởng thành.`,
+  };
+}
+
+function highlightWord(sentence: string, targetWord: string) {
+  if (!sentence || !targetWord) return sentence;
+  const escaped = targetWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`\\b(${escaped}(?:s|es|ed|ing|d)?)\\b`, 'gi');
+  const parts = sentence.split(regex);
+  return parts.map((part, i) =>
+    regex.test(part) ? (
+      <span key={i} className="text-amber-300 font-bold underline decoration-amber-500/60 not-italic">
+        {part}
+      </span>
+    ) : (
+      part
+    )
+  );
 }
 
 const VLOG_BACKGROUNDS = [
@@ -46,6 +101,8 @@ export function RetroFilmRollModal({ isOpen, onClose, vocabs }: RetroFilmRollMod
   const [isShuffle, setIsShuffle] = useState(false);
   const [flipped, setFlipped] = useState(false);
   const [bgIndex, setBgIndex] = useState(0);
+  const [exampleMap, setExampleMap] = useState<Record<string, { sentence: string; translation: string }>>(() => getExampleCache());
+  const [loadingAiExample, setLoadingAiExample] = useState(false);
 
   const currentBg = VLOG_BACKGROUNDS[bgIndex];
 
@@ -60,6 +117,66 @@ export function RetroFilmRollModal({ isOpen, onClose, vocabs }: RetroFilmRollMod
   }, [isOpen, vocabs.length]);
 
   const current = vocabs[currentIndex] || vocabs[0];
+  const wordKey = current ? current.word.trim().toLowerCase() : '';
+
+  // Ngữ cảnh ví dụ: Ưu tiên example có sẵn -> Cache -> Fallback ngữ cảnh thông minh
+  const activeExample = (() => {
+    if (!current) return { sentence: '', translation: '' };
+    if ((current as any).example) {
+      return {
+        sentence: (current as any).example,
+        translation: (current as any).exampleMeaning || '',
+      };
+    }
+    if (exampleMap[wordKey]) {
+      return exampleMap[wordKey];
+    }
+    return getSmartContext(current.word, current.meaning, current.type);
+  })();
+
+  const collocations: CollocationItem[] = current?.collocations?.length
+    ? current.collocations
+    : getCollocationsForWordFromCache(wordKey) || [];
+
+  // Tự động gọi AI cập nhật ngữ cảnh câu phong cách vlog khi lật thẻ (nếu chưa có trong cache)
+  useEffect(() => {
+    if (!flipped || !current || !wordKey) return;
+    if ((current as any).example || exampleMap[wordKey] || !isGeminiConfigured()) return;
+
+    let isMounted = true;
+    setLoadingAiExample(true);
+
+    fetchExampleSentenceForWord(current.word, current.meaning, current.type)
+      .then((res) => {
+        if (isMounted && res && res.sentence) {
+          saveExampleForWordToCache(wordKey, res);
+          setExampleMap((prev) => ({ ...prev, [wordKey]: res }));
+        }
+      })
+      .catch((err) => console.warn('[RetroFilmRollModal] AI example fetch error:', err))
+      .finally(() => {
+        if (isMounted) setLoadingAiExample(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [flipped, current, wordKey]);
+
+  const handleRefreshAiExample = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!current || loadingAiExample) return;
+    setLoadingAiExample(true);
+    try {
+      const res = await fetchExampleSentenceForWord(current.word, current.meaning, current.type);
+      if (res && res.sentence) {
+        saveExampleForWordToCache(wordKey, res);
+        setExampleMap((prev) => ({ ...prev, [wordKey]: res }));
+      }
+    } finally {
+      setLoadingAiExample(false);
+    }
+  };
 
   const handleNext = () => {
     if (vocabs.length === 0) return;
@@ -292,23 +409,81 @@ export function RetroFilmRollModal({ isOpen, onClose, vocabs }: RetroFilmRollMod
                   </p>
                 </div>
 
-                {/* Example sentence formatted like cinematic movie subtitles */}
-                {current.example && (
-                  <div className="p-3 sm:p-3.5 rounded-xl bg-black/85 backdrop-blur-md border border-stone-700/80 shadow-lg">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[9px] font-mono uppercase tracking-widest text-amber-400/70">
-                        SUBTITLE • VÍ DỤ NGỮ CẢNH
-                      </span>
-                      <span className="text-[9px] font-mono text-stone-400">[00:01:24]</span>
+                {/* Example sentence formatted like cinematic movie subtitles (ALWAYS PRESENT) */}
+                <div className="p-3 sm:p-3.5 rounded-xl bg-black/85 backdrop-blur-md border border-stone-700/80 shadow-lg">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[9px] font-mono uppercase tracking-widest text-amber-400/80 flex items-center gap-1">
+                      <Film className="w-2.5 h-2.5 text-amber-400" />
+                      SUBTITLE • NGỮ CẢNH VÍ DỤ
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {isGeminiConfigured() && (
+                        <button
+                          type="button"
+                          onClick={handleRefreshAiExample}
+                          disabled={loadingAiExample}
+                          className="text-[9px] font-mono text-amber-300/80 hover:text-amber-200 flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-stone-900 border border-stone-700 hover:border-amber-400/50 transition-colors cursor-pointer"
+                          title="Tạo ngữ cảnh mới bằng AI"
+                        >
+                          {loadingAiExample ? (
+                            <Loader2 className="w-2.5 h-2.5 animate-spin text-amber-400" />
+                          ) : (
+                            <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                          )}
+                          <span>AI Đổi câu</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          speak(activeExample.sentence);
+                        }}
+                        className="text-[9px] font-mono text-stone-400 hover:text-amber-300 flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-stone-900 border border-stone-800 hover:border-amber-500/40 transition-colors cursor-pointer"
+                        title="Nghe phát âm cả câu ví dụ"
+                      >
+                        <Volume2 className="w-2.5 h-2.5 text-amber-400" />
+                        <span>Nghe</span>
+                      </button>
                     </div>
-                    <p className="text-sm sm:text-base font-serif italic text-amber-200 leading-relaxed">
-                      "{current.example}"
+                  </div>
+
+                  <p className="text-sm sm:text-base font-serif italic text-amber-100 leading-relaxed drop-shadow-sm">
+                    "{highlightWord(activeExample.sentence, current.word)}"
+                  </p>
+
+                  {activeExample.translation && (
+                    <p className="text-xs text-stone-300 mt-2 pt-1.5 border-t border-stone-800/80 font-sans flex items-start gap-1">
+                      <span className="text-amber-400/90 font-bold">👉</span>
+                      <span>{activeExample.translation}</span>
                     </p>
-                    {current.exampleMeaning && (
-                      <p className="text-xs text-stone-300 mt-2 pt-1.5 border-t border-stone-800/80 font-sans">
-                        👉 {current.exampleMeaning}
-                      </p>
-                    )}
+                  )}
+                </div>
+
+                {/* Collocations / Cụm từ hay gặp (nếu có) */}
+                {collocations.length > 0 && (
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-black/75 backdrop-blur-md border border-amber-500/25 shadow-md">
+                    <span className="text-[9px] font-mono uppercase tracking-widest text-amber-400/70 flex items-center gap-1 mb-1.5">
+                      <Link2 className="w-2.5 h-2.5 text-amber-400" />
+                      CỤM TỪ HAY ĐI KÈM (COLLOCATIONS)
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {collocations.map((item, idx) => (
+                        <span
+                          key={idx}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            speak(item.phrase);
+                          }}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-stone-900/90 hover:bg-stone-850 border border-amber-400/30 hover:border-amber-400 text-stone-200 text-xs font-mono transition-colors cursor-pointer"
+                          title={`Nghe phát âm: "${item.phrase}"`}
+                        >
+                          <span className="text-amber-300 font-bold">{item.phrase}</span>
+                          {item.meaning && <span className="text-stone-400 text-[10px]">({item.meaning})</span>}
+                          <Volume2 className="w-2.5 h-2.5 text-amber-400/80 ml-0.5" />
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

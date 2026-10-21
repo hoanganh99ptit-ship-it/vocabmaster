@@ -3,6 +3,40 @@ import type { Vocabulary, ParsedVocab, CollocationItem } from './types';
 const LOCAL_KEY = 'vocabmaster_local_vocabs';
 const LANG_KEY = 'vocabmaster_lang';
 const COLLOCATIONS_KEY = 'vocabmaster_collocations_cache';
+const EXAMPLES_KEY = 'vocabmaster_examples_cache';
+
+export interface StoredExample {
+  sentence: string;
+  translation: string;
+}
+
+export type ExampleMap = Record<string, StoredExample>;
+
+export function getExampleCache(): ExampleMap {
+  try {
+    const raw = localStorage.getItem(EXAMPLES_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return typeof parsed === 'object' && parsed !== null ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function getExampleForWordFromCache(word: string): StoredExample | undefined {
+  if (!word) return undefined;
+  const cache = getExampleCache();
+  return cache[word.trim().toLowerCase()];
+}
+
+export function saveExampleForWordToCache(word: string, example: StoredExample): void {
+  if (!word || !example?.sentence) return;
+  const cache = getExampleCache();
+  cache[word.trim().toLowerCase()] = example;
+  try {
+    localStorage.setItem(EXAMPLES_KEY, JSON.stringify(cache));
+  } catch {}
+}
 
 export type CollocationMap = Record<string, CollocationItem[]>;
 
