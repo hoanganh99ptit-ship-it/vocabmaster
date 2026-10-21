@@ -1,3 +1,8 @@
+export interface CollocationItem {
+  phrase: string;
+  meaning: string;
+}
+
 export interface Vocabulary {
   id: string;
   user_id: string;
@@ -12,6 +17,7 @@ export interface Vocabulary {
   easeFactor?: number;
   dueDate?: string;
   repetition?: number;
+  collocations?: CollocationItem[];
 }
 
 export type Language = 'en' | 'vi';
@@ -34,6 +40,7 @@ export interface ParsedVocab {
   easeFactor?: number;
   dueDate?: string;
   repetition?: number;
+  collocations?: CollocationItem[];
 }
 
 export interface ClozeQuestion {

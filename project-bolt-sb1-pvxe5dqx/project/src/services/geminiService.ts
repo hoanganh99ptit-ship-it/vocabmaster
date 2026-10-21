@@ -1,5 +1,10 @@
-import type { Language, Vocabulary, ClozeQuestion } from '@/lib/types';
+import type { Language, Vocabulary, ClozeQuestion, CollocationItem } from '@/lib/types';
 import type { GrammarEvaluation, DetectedError, NativeAlternative, ErrorType } from '@/lib/grammarCheck';
+import {
+  getCollocationsForWordFromCache,
+  saveCollocationsForWordToCache,
+  saveBatchCollocationsToCache,
+} from '@/lib/storage';
 
 // ============================================================================
 // GEMINI SERVICE: Single Source of Truth for all Gemini API Interactions
@@ -1186,5 +1191,191 @@ CRITICAL RULES:
     console.warn('[GeminiService] generateClozeQuestions failed, falling back to local questions:', err);
     return fallbackQuestions(targetVocabs);
   }
+}
+
+/**
+ * Generates 2 natural, high-frequency collocations/phrasal pairings for a single vocabulary word.
+ * Caches result in localStorage to conserve quota and ensure instant recall.
+ */
+export async function fetchCollocationsForWord(
+  word: string,
+  meaning?: string,
+  type?: string
+): Promise<CollocationItem[]> {
+  const normalized = word.trim().toLowerCase();
+  if (!normalized) return [];
+
+  // Check cache first
+  const cached = getCollocationsForWordFromCache(normalized);
+  if (cached && cached.length > 0) {
+    return cached;
+  }
+
+  if (!isGeminiConfigured()) {
+    return [];
+  }
+
+  const prompt = `You are an expert lexicographer and English teacher.
+Provide the top 2 most common, natural collocations or phrasal pairings for this English word: "${normalized}" (Type: "${type || ''}", Vietnamese meaning: "${meaning || ''}").
+Rules:
+- Give exactly 2 high-frequency, natural collocations/pairings (e.g. for "waste" -> "toxic waste" (chất thải độc hại) and "reduce waste" (giảm thiểu rác thải)).
+- Provide a clear, natural Vietnamese meaning for each phrase.
+- Return strictly a JSON array matching:
+[
+  { "phrase": "example phrase", "meaning": "nghĩa tiếng Việt" },
+  { "phrase": "another phrase", "meaning": "nghĩa tiếng Việt" }
+]`;
+
+  try {
+    const text = await geminiGenerate(prompt, {
+      temperature: 0.2,
+      responseMimeType: 'application/json',
+    });
+    const parsed = cleanAndParseJSON<CollocationItem[]>(text);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const valid = parsed
+        .filter((item) => item && typeof item.phrase === 'string' && item.phrase.trim())
+        .map((item) => ({
+          phrase: item.phrase.trim(),
+          meaning: (item.meaning || '').trim(),
+        }))
+        .slice(0, 2);
+
+      if (valid.length > 0) {
+        saveCollocationsForWordToCache(normalized, valid);
+        return valid;
+      }
+    }
+  } catch (err) {
+    console.warn(`[GeminiService] fetchCollocationsForWord failed for "${word}":`, err);
+  }
+
+  return [];
+}
+
+/**
+ * Batch generates 2 natural collocations for a list of words.
+ * Batches in chunks of 15 items to optimize quota and speed.
+ * Skips words that already have cached collocations.
+ */
+export async function batchFetchCollocations(
+  words: Array<{ id: string; word: string; meaning?: string; type?: string }>,
+  options?: {
+    onProgress?: (done: number, total: number) => void;
+    signal?: AbortSignal;
+  }
+): Promise<Record<string, CollocationItem[]>> {
+  const result: Record<string, CollocationItem[]> = {};
+  if (!words || words.length === 0) return result;
+
+  const toFetch: Array<{ id: string; word: string; meaning?: string; type?: string }> = [];
+
+  // Check cache first for all items
+  for (const item of words) {
+    const key = item.word.trim().toLowerCase();
+    if (!key) continue;
+    const cached = getCollocationsForWordFromCache(key);
+    if (cached && cached.length > 0) {
+      result[key] = cached;
+    } else {
+      toFetch.push(item);
+    }
+  }
+
+  const total = words.length;
+  let done = Object.keys(result).length;
+  options?.onProgress?.(done, total);
+
+  if (toFetch.length === 0 || !isGeminiConfigured()) {
+    return result;
+  }
+
+  // Deduplicate words to fetch by lowercased word
+  const uniqueToFetchMap = new Map<string, { id: string; word: string; meaning?: string; type?: string }>();
+  for (const item of toFetch) {
+    const key = item.word.trim().toLowerCase();
+    if (!uniqueToFetchMap.has(key)) {
+      uniqueToFetchMap.set(key, item);
+    }
+  }
+  const uniqueToFetch = Array.from(uniqueToFetchMap.values());
+
+  const CHUNK = 15;
+  for (let i = 0; i < uniqueToFetch.length; i += CHUNK) {
+    if (options?.signal?.aborted) {
+      break;
+    }
+
+    const chunk = uniqueToFetch.slice(i, i + CHUNK);
+    const chunkItemsText = chunk
+      .map(
+        (v, idx) =>
+          `${idx + 1}. Word: "${v.word.trim().toLowerCase()}", Type: "${v.type || ''}", Meaning: "${v.meaning || ''}"`
+      )
+      .join('\n');
+
+    const prompt = `You are an expert lexicographer and English teacher.
+For each vocabulary word below, provide the top 2 most common, natural collocations or phrasal pairings used by native speakers.
+Include a clear, concise Vietnamese meaning for each collocation.
+
+Vocabulary list:
+${chunkItemsText}
+
+Return strictly a JSON array matching this schema:
+[
+  {
+    "word": "waste",
+    "collocations": [
+      { "phrase": "toxic waste", "meaning": "chất thải độc hại" },
+      { "phrase": "reduce waste", "meaning": "giảm thiểu rác thải" }
+    ]
+  }
+]
+
+CRITICAL RULES:
+- Return exactly ${chunk.length} items.
+- "collocations" must be an array of exactly 2 items with "phrase" and "meaning".
+- Do NOT include markdown commentary outside the JSON array.`;
+
+    try {
+      const text = await geminiGenerate(prompt, {
+        temperature: 0.2,
+        responseMimeType: 'application/json',
+        signal: options?.signal,
+      });
+
+      const parsed = cleanAndParseJSON<Array<{
+        word: string;
+        collocations: CollocationItem[];
+      }>>(text);
+
+      if (Array.isArray(parsed)) {
+        const batchNew: Record<string, CollocationItem[]> = {};
+        for (const entry of parsed) {
+          if (entry && entry.word && Array.isArray(entry.collocations)) {
+            const wKey = entry.word.trim().toLowerCase();
+            const validCols = entry.collocations
+              .filter((c) => c && typeof c.phrase === 'string' && c.phrase.trim())
+              .map((c) => ({ phrase: c.phrase.trim(), meaning: (c.meaning || '').trim() }))
+              .slice(0, 2);
+
+            if (validCols.length > 0) {
+              batchNew[wKey] = validCols;
+              result[wKey] = validCols;
+            }
+          }
+        }
+        saveBatchCollocationsToCache(batchNew);
+      }
+    } catch (err) {
+      if (options?.signal?.aborted) break;
+      console.warn('[GeminiService] batchFetchCollocations chunk failed:', err);
+    }
+
+    done = Math.min(total, done + chunk.length);
+    options?.onProgress?.(done, total);
+  }
+
+  return result;
 }
 

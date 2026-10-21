@@ -1,7 +1,52 @@
-import type { Vocabulary, ParsedVocab } from './types';
+import type { Vocabulary, ParsedVocab, CollocationItem } from './types';
 
 const LOCAL_KEY = 'vocabmaster_local_vocabs';
 const LANG_KEY = 'vocabmaster_lang';
+const COLLOCATIONS_KEY = 'vocabmaster_collocations_cache';
+
+export type CollocationMap = Record<string, CollocationItem[]>;
+
+export function getCollocationCache(): CollocationMap {
+  try {
+    const raw = localStorage.getItem(COLLOCATIONS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return typeof parsed === 'object' && parsed !== null ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveCollocationCache(cache: CollocationMap): void {
+  try {
+    localStorage.setItem(COLLOCATIONS_KEY, JSON.stringify(cache));
+  } catch {
+    // storage full or unavailable
+  }
+}
+
+export function getCollocationsForWordFromCache(word: string): CollocationItem[] | undefined {
+  if (!word) return undefined;
+  const cache = getCollocationCache();
+  return cache[word.trim().toLowerCase()];
+}
+
+export function saveCollocationsForWordToCache(word: string, items: CollocationItem[]): void {
+  if (!word || !Array.isArray(items)) return;
+  const cache = getCollocationCache();
+  cache[word.trim().toLowerCase()] = items;
+  saveCollocationCache(cache);
+}
+
+export function saveBatchCollocationsToCache(newItems: Record<string, CollocationItem[]>): void {
+  const cache = getCollocationCache();
+  for (const [w, items] of Object.entries(newItems)) {
+    if (w && Array.isArray(items)) {
+      cache[w.trim().toLowerCase()] = items;
+    }
+  }
+  saveCollocationCache(cache);
+}
 
 export function getLocalVocabs(): ParsedVocab[] {
   try {

@@ -14,6 +14,8 @@ import {
   Layers,
   Clock,
   CheckCircle2,
+  Link2,
+  Volume2,
 } from 'lucide-react';
 import { useVocab } from '@/context/VocabContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -24,10 +26,14 @@ import { DEFAULT_CHESTS, FALLBACK_CHEST_KEY } from '@/lib/categorizer';
 import {
   batchAuditVocabWithGemini,
   normalizeSelectedVocabs,
+  fetchCollocationsForWord,
+  batchFetchCollocations,
   type BatchAuditProgress,
 } from '@/services/geminiService';
 import { isDueForReview, getSRSStage } from '@/lib/srs';
-import type { Vocabulary } from '@/lib/types';
+import { speak } from '@/lib/speech';
+import { getCollocationCache, saveCollocationsForWordToCache } from '@/lib/storage';
+import type { Vocabulary, CollocationItem } from '@/lib/types';
 
 export function VocabChest() {
   const { vocabs, deleteVocabs, updateVocab, refresh, deduplicateVocabs } = useVocab();
@@ -50,6 +56,13 @@ export function VocabChest() {
 
   // Selected normalization state
   const [normalizingSelected, setNormalizingSelected] = useState(false);
+
+  // Collocation & Phrasal Pairing state
+  const [collocationMap, setCollocationMap] = useState<Record<string, CollocationItem[]>>(() => getCollocationCache());
+  const [loadingCollocationIds, setLoadingCollocationIds] = useState<Set<string>>(new Set());
+  const [batchCollocationLoading, setBatchCollocationLoading] = useState(false);
+  const [collocationProgress, setCollocationProgress] = useState<{ done: number; total: number } | null>(null);
+  const [collocationAbortController, setCollocationAbortController] = useState<AbortController | null>(null);
 
   // Build chest groups with counts
   const chestGroups = useMemo(() => {
@@ -308,6 +321,88 @@ export function VocabChest() {
     }
   };
 
+  // Collocation handlers
+  const handleGenerateSingleCollocation = async (vocab: Vocabulary, forceRefresh = false) => {
+    const wordKey = vocab.word.trim().toLowerCase();
+    if (!forceRefresh && collocationMap[wordKey] && collocationMap[wordKey].length > 0) return;
+
+    setLoadingCollocationIds((prev) => new Set(prev).add(vocab.id));
+    try {
+      const res = await fetchCollocationsForWord(vocab.word, vocab.meaning, vocab.type);
+      if (res && res.length > 0) {
+        setCollocationMap((prev) => ({ ...prev, [wordKey]: res }));
+        show(
+          lang === 'vi'
+            ? `Đã tìm thấy 2 cụm từ cho "${vocab.word}"!`
+            : `Found collocations for "${vocab.word}"!`,
+          'success'
+        );
+      } else {
+        show(
+          lang === 'vi'
+            ? `Không tìm được cụm từ cho "${vocab.word}". Kiểm tra kết nối AI.`
+            : `Could not find collocations for "${vocab.word}". Check AI connection.`,
+          'warning'
+        );
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      show(`Lỗi: ${msg}`, 'error');
+    } finally {
+      setLoadingCollocationIds((prev) => {
+        const next = new Set(prev);
+        next.delete(vocab.id);
+        return next;
+      });
+    }
+  };
+
+  const handleBatchCollocations = async (targetWords?: Vocabulary[]) => {
+    const list = targetWords || (selected.size > 0 ? vocabs.filter((v) => selected.has(v.id)) : filtered);
+    if (list.length === 0) return;
+
+    const controller = new AbortController();
+    setCollocationAbortController(controller);
+    setBatchCollocationLoading(true);
+    setCollocationProgress({ done: 0, total: list.length });
+
+    try {
+      const res = await batchFetchCollocations(list, {
+        signal: controller.signal,
+        onProgress: (done, total) => {
+          setCollocationProgress({ done, total });
+        },
+      });
+
+      setCollocationMap((prev) => ({ ...prev, ...res }));
+      const foundCount = Object.keys(res).length;
+      show(
+        lang === 'vi'
+          ? `Hoàn tất! Đã có cụm từ cho ${foundCount} từ vựng.`
+          : `Done! Collocations ready for ${foundCount} words.`,
+        'success'
+      );
+    } catch (err: unknown) {
+      if (controller.signal.aborted) {
+        show(lang === 'vi' ? 'Đã dừng tìm cụm từ.' : 'Collocation search cancelled.', 'info');
+      } else {
+        const msg = err instanceof Error ? err.message : String(err);
+        show(`Lỗi: ${msg}`, 'error');
+      }
+    } finally {
+      setBatchCollocationLoading(false);
+      setCollocationProgress(null);
+      setCollocationAbortController(null);
+    }
+  };
+
+  const handleCancelCollocation = () => {
+    if (collocationAbortController) {
+      collocationAbortController.abort();
+      setCollocationAbortController(null);
+    }
+  };
+
   const chestDisplayName = (cat: string): string => {
     const defaultChest = DEFAULT_CHESTS.find((c) => c.key === cat);
     if (defaultChest) return lang === 'vi' ? defaultChest.nameVi : defaultChest.nameEn;
@@ -465,7 +560,59 @@ export function VocabChest() {
         </div>
       )}
 
-      {/* Search, Deduplicate, AI Audit & Filter toolbar */}
+      {/* Prominent AI Collocation Progress Banner */}
+      {batchCollocationLoading && collocationProgress && (
+        <div className="mb-5 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-sky-50 via-indigo-50 to-sky-50 border border-sky-200 shadow-md animate-slide-up">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm flex-shrink-0">
+                <Loader2 className="w-5 h-5 animate-spin" />
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-800 text-sm sm:text-base flex items-center gap-2">
+                  <span>
+                    {lang === 'vi'
+                      ? 'AI đang tìm cụm từ cố định (Collocations & Phrasal Pairing)...'
+                      : 'AI is finding natural collocations & phrasal pairings...'}
+                  </span>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-indigo-200 text-indigo-900">
+                    {Math.round((collocationProgress.done / Math.max(1, collocationProgress.total)) * 100)}%
+                  </span>
+                </h4>
+                <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+                  {lang === 'vi'
+                    ? `Đang tìm cụm từ cho từ ${collocationProgress.done} / ${collocationProgress.total}...`
+                    : `Finding collocations for word ${collocationProgress.done} / ${collocationProgress.total}...`}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 self-end sm:self-center">
+              {collocationAbortController && (
+                <button
+                  type="button"
+                  onClick={handleCancelCollocation}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 bg-white hover:bg-slate-100 hover:text-slate-900 transition-colors shadow-sm"
+                >
+                  {lang === 'vi' ? 'Dừng lại' : 'Stop'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Progress track */}
+          <div className="w-full bg-indigo-200/60 rounded-full h-3 overflow-hidden shadow-inner p-0.5">
+            <div
+              className="bg-gradient-to-r from-sky-500 to-indigo-600 h-full rounded-full transition-all duration-300 ease-out shadow-sm"
+              style={{
+                width: `${Math.min(100, Math.max(3, Math.round((collocationProgress.done / Math.max(1, collocationProgress.total)) * 100)))}%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Search, Deduplicate, AI Audit, Collocations & Filter toolbar */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -514,6 +661,32 @@ export function VocabChest() {
           )}
         </button>
 
+        {/* AI Batch Collocations */}
+        <button
+          onClick={() => handleBatchCollocations()}
+          disabled={batchCollocationLoading || auditing || vocabs.length === 0}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-semibold text-sm hover:from-sky-600 hover:to-indigo-700 transition-all shadow-sm disabled:opacity-50 whitespace-nowrap"
+          title={lang === 'vi' ? 'AI tự động bổ sung 2 cụm từ thường đi kèm nhất (Collocations & Phrasal Pairing)' : 'AI find common collocations'}
+        >
+          {batchCollocationLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>
+                {collocationProgress
+                  ? (lang === 'vi'
+                      ? `Tìm cụm từ ${collocationProgress.done}/${collocationProgress.total}...`
+                      : `Collocations ${collocationProgress.done}/${collocationProgress.total}...`)
+                  : (lang === 'vi' ? 'Đang tìm...' : 'Loading...')}
+              </span>
+            </>
+          ) : (
+            <>
+              <Link2 className="w-4 h-4" />
+              <span>{lang === 'vi' ? 'Tìm cụm từ (Collocations)' : 'Find Collocations'}</span>
+            </>
+          )}
+        </button>
+
         {/* Category filter */}
         <select
           value={filterCategory}
@@ -553,6 +726,8 @@ export function VocabChest() {
         {filtered.map((vocab) => {
           const srsStage = getSRSStage(vocab.interval, vocab.repetition);
           const isDue = isDueForReview(vocab.dueDate);
+          const wordKey = vocab.word.trim().toLowerCase();
+          const collocations = collocationMap[wordKey] || vocab.collocations;
 
           return (
             <div
@@ -621,6 +796,89 @@ export function VocabChest() {
                 </button>
               </div>
 
+              {/* Collocations (Cụm từ cố định) */}
+              <div className="mt-3 pt-2.5 border-t border-slate-100">
+                {collocations && collocations.length > 0 ? (
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                        <Link2 className="w-3 h-3 text-sky-500" />
+                        {lang === 'vi' ? 'Cụm từ hay gặp' : 'Collocations'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleGenerateSingleCollocation(vocab, true);
+                        }}
+                        disabled={loadingCollocationIds.has(vocab.id)}
+                        className="text-[10px] text-slate-400 hover:text-sky-600 flex items-center gap-0.5 transition-colors cursor-pointer"
+                        title={lang === 'vi' ? 'Làm mới cụm từ với AI' : 'Refresh collocations'}
+                      >
+                        {loadingCollocationIds.has(vocab.id) ? (
+                          <Loader2 className="w-2.5 h-2.5 animate-spin text-sky-500" />
+                        ) : (
+                          <Sparkles className="w-2.5 h-2.5 text-sky-400" />
+                        )}
+                        <span>{lang === 'vi' ? 'Đổi khác' : 'Refresh'}</span>
+                      </button>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      {collocations.map((item, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            speak(item.phrase);
+                          }}
+                          title={lang === 'vi' ? `Nhấn để nghe phát âm: "${item.phrase}"` : `Click to listen: "${item.phrase}"`}
+                          className="group/item flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-sky-50/60 hover:bg-sky-100/70 border border-sky-100 hover:border-sky-300 transition-all text-left cursor-pointer"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <span className="text-xs font-bold text-sky-900 group-hover/item:text-sky-700 block truncate">
+                              {item.phrase}
+                            </span>
+                            {item.meaning && (
+                              <span className="text-[11px] text-slate-500 block truncate">
+                                {item.meaning}
+                              </span>
+                            )}
+                          </div>
+                          <Volume2 className="w-3.5 h-3.5 text-sky-500 flex-shrink-0 opacity-70 group-hover/item:opacity-100" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleGenerateSingleCollocation(vocab);
+                      }}
+                      disabled={loadingCollocationIds.has(vocab.id)}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-600 hover:text-sky-700 bg-sky-50 hover:bg-sky-100 px-2.5 py-1 rounded-lg border border-sky-200/60 transition-all cursor-pointer"
+                      title={lang === 'vi' ? 'AI tìm 2 cụm từ thường đi kèm nhất' : 'AI find 2 most common collocations'}
+                    >
+                      {loadingCollocationIds.has(vocab.id) ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin text-sky-500" />
+                          <span>{lang === 'vi' ? 'Đang tìm cụm từ...' : 'Finding collocations...'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3 h-3 text-sky-500" />
+                          <span>{lang === 'vi' ? '✨ Tìm cụm từ đi kèm' : '✨ Find collocations'}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div className="flex items-center justify-between pt-3 border-t border-slate-100 mt-2">
                 <AudioControl text={vocab.word} size="sm" showSpeed={false} />
                 <button
@@ -650,6 +908,15 @@ export function VocabChest() {
           >
             {normalizingSelected ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {tFn('aiFixSelectedCount', selected.size)}
+          </button>
+          <div className="w-px h-6 bg-slate-600" />
+          <button
+            onClick={() => handleBatchCollocations(vocabs.filter((v) => selected.has(v.id)))}
+            disabled={batchCollocationLoading}
+            className="flex items-center gap-1.5 text-sm font-semibold text-indigo-300 hover:text-indigo-200 transition-colors"
+          >
+            {batchCollocationLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+            {lang === 'vi' ? `Cụm từ (${selected.size})` : `Collocations (${selected.size})`}
           </button>
           <div className="w-px h-6 bg-slate-600" />
           <button
