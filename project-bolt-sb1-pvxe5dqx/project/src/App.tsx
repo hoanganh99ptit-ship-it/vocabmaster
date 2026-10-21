@@ -16,11 +16,13 @@ import { PenaltyLockModal } from '@/components/PenaltyLockModal';
 import { WeeklyGoalSetupModal } from '@/components/WeeklyGoalSetupModal';
 import { getActivePenalty, getWeeklyGoal, type ActivePenalty, type WeeklyGoal } from '@/lib/storage';
 import { useLanguage } from '@/context/LanguageContext';
+import { useTheme } from '@/context/ThemeContext';
 import { Lock } from 'lucide-react';
 import type { TabKey } from '@/lib/types';
 
 function AppContent() {
   const { t, lang } = useLanguage();
+  const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState<TabKey>('chest');
   const [activePenalty, setActivePenalty] = useState<ActivePenalty>(() => getActivePenalty());
   const [weeklyGoal, setWeeklyGoal] = useState<WeeklyGoal>(() => getWeeklyGoal());
@@ -53,7 +55,13 @@ function AppContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className={`min-h-screen transition-colors duration-300 ${
+      theme === 'cinema'
+        ? 'bg-[#0c0a08] text-amber-100 selection:bg-amber-500 selection:text-stone-950'
+        : theme === 'retro'
+        ? 'bg-[#f7f1e7] text-stone-900'
+        : 'bg-slate-50 text-slate-900'
+    }`}>
       <Header activeTab={activeTab} onTabChange={handleTabChange} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">

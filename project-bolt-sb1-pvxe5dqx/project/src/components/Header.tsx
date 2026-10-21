@@ -117,19 +117,31 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
 
             {/* Right side: Ultra-compact, sleek, never squeezes the tabs */}
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-              {/* Retro Vlog Aesthetic Switcher Button */}
+              {/* Theme Switcher Button: 35mm Cinema Dark / Retro Paper / Modern */}
               <button
                 onClick={toggleTheme}
-                className={`flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border ${
-                  theme === 'retro'
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border ${
+                  theme === 'cinema'
+                    ? 'bg-gradient-to-r from-stone-900 via-neutral-900 to-amber-950 text-amber-300 border-amber-500/50 shadow-md hover:border-amber-400'
+                    : theme === 'retro'
                     ? 'bg-amber-100/90 text-amber-900 border-amber-300/90 shadow-2xs hover:bg-amber-200'
                     : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200/80'
                 }`}
-                title={theme === 'retro' ? 'Giao diện: Retro Vlog (Bấm để chuyển về Hiện đại)' : 'Giao diện: Hiện đại (Bấm để sang Retro Vlog)'}
+                title={
+                  theme === 'cinema'
+                    ? 'Giao diện: 35mm Film Cinema (Bấm để chuyển sang Retro Sổ tay)'
+                    : theme === 'retro'
+                    ? 'Giao diện: Retro Sổ tay (Bấm để sang Hiện đại)'
+                    : 'Giao diện: Hiện đại (Bấm để sang 35mm Cinema)'
+                }
               >
-                <span className="text-xs">🎞️</span>
-                <span className="hidden xl:inline text-[11px] font-mono">Vlog</span>
-                {theme === 'retro' && (
+                <span className="text-xs">
+                  {theme === 'cinema' ? '🎞️' : theme === 'retro' ? '📜' : '☀️'}
+                </span>
+                <span className="hidden xl:inline text-[11px] font-mono">
+                  {theme === 'cinema' ? '35mm Reel' : theme === 'retro' ? 'Paper' : 'Modern'}
+                </span>
+                {theme === 'cinema' && (
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" title="REC Active" />
                 )}
               </button>

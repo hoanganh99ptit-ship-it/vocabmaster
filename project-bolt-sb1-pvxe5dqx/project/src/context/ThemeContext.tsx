@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
-export type AppTheme = 'retro' | 'modern';
+export type AppTheme = 'cinema' | 'retro' | 'modern';
 
 interface ThemeContextType {
   theme: AppTheme;
@@ -16,10 +16,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<AppTheme>(() => {
     try {
       const saved = localStorage.getItem(THEME_KEY);
-      if (saved === 'modern' || saved === 'retro') return saved;
-      return 'retro'; // Default to retro as requested!
+      if (saved === 'modern' || saved === 'retro' || saved === 'cinema') return saved as AppTheme;
+      return 'cinema'; // Mặc định chế độ 35mm Film Vlog mới theo yêu cầu!
     } catch {
-      return 'retro';
+      return 'cinema';
     }
   });
 
@@ -30,10 +30,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       // ignore
     }
 
-    if (theme === 'retro') {
+    document.documentElement.classList.remove('theme-retro', 'theme-cinema');
+    if (theme === 'cinema') {
+      document.documentElement.classList.add('theme-cinema');
+    } else if (theme === 'retro') {
       document.documentElement.classList.add('theme-retro');
-    } else {
-      document.documentElement.classList.remove('theme-retro');
     }
   }, [theme]);
 
@@ -42,7 +43,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   };
 
   const toggleTheme = () => {
-    setThemeState((prev) => (prev === 'retro' ? 'modern' : 'retro'));
+    setThemeState((prev) => {
+      if (prev === 'cinema') return 'retro';
+      if (prev === 'retro') return 'modern';
+      return 'cinema';
+    });
   };
 
   return (

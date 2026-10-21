@@ -189,6 +189,219 @@ select {
   box-shadow: 0 2px 8px rgba(217, 119, 6, 0.25) !important;
 }
 
+/* ========================================================
+   35MM CINEMA FILM REEL VLOG AESTHETIC (DARK MODE)
+   Synchronized directly with the 35mm Kodak Portra Vlog Card
+   ======================================================== */
+
+.theme-cinema {
+  --cinema-bg: #0c0a08;
+  --cinema-surface: #14100c;
+  --cinema-card: #18130e;
+  --cinema-border: rgba(217, 119, 6, 0.28);
+  --cinema-border-hover: rgba(245, 158, 11, 0.6);
+  --cinema-amber: #f59e0b;
+  --cinema-gold: #fbbf24;
+  --cinema-text-main: #fef3c7;
+  --cinema-text-muted: #c9b8a3;
+  --cinema-text-subtle: #8a7663;
+}
+
+.theme-cinema body {
+  background-color: #0c0a08 !important;
+  background-image: 
+    radial-gradient(circle at 15% 15%, rgba(217, 119, 6, 0.12) 0%, transparent 45%),
+    radial-gradient(circle at 85% 75%, rgba(180, 83, 9, 0.08) 0%, transparent 45%),
+    linear-gradient(180deg, #100d0a 0%, #080605 100%) !important;
+  background-attachment: fixed;
+  color: #fef3c7 !important;
+}
+
+/* Typography in 35mm Cinema Mode */
+.theme-cinema h1,
+.theme-cinema h2,
+.theme-cinema h3,
+.theme-cinema .retro-serif {
+  font-family: 'Playfair Display', Georgia, serif;
+  color: #fef3c7 !important;
+  letter-spacing: -0.015em;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+}
+
+.theme-cinema .retro-hand {
+  font-family: 'Caveat', cursive;
+  color: #fde68a !important;
+}
+
+.theme-cinema .retro-mono {
+  font-family: 'Space Mono', Courier, monospace;
+  color: #fbbf24 !important;
+}
+
+/* Cinema Header */
+.theme-cinema header {
+  background-color: rgba(15, 12, 10, 0.94) !important;
+  backdrop-filter: blur(16px) !important;
+  border-bottom: 2px solid rgba(217, 119, 6, 0.3) !important;
+  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.8) !important;
+}
+
+/* Cinema Navigation Tabs */
+.theme-cinema nav button {
+  color: #d1c2ab !important;
+  border-color: rgba(217, 119, 6, 0.15) !important;
+}
+
+.theme-cinema nav button:hover {
+  background-color: rgba(30, 22, 16, 0.8) !important;
+  color: #fef3c7 !important;
+}
+
+.theme-cinema nav button.bg-sky-50 {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
+  color: #0c0a08 !important;
+  font-weight: 800 !important;
+  border: 1px solid #fbbf24 !important;
+  box-shadow: 0 2px 12px rgba(217, 119, 6, 0.45) !important;
+}
+
+.theme-cinema nav button.bg-sky-50 svg {
+  color: #0c0a08 !important;
+}
+
+/* Cinema Cards (Film Frame Surface, Dark Glass, Warm Amber Borders) */
+.theme-cinema .bg-white {
+  background-color: rgba(22, 17, 13, 0.95) !important;
+  border: 1px solid rgba(217, 119, 6, 0.25) !important;
+  box-shadow: 0 14px 34px -5px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(251, 191, 36, 0.08) !important;
+  color: #fef3c7 !important;
+}
+
+.theme-cinema .bg-slate-50 {
+  background-color: #0f0c0a !important;
+}
+
+.theme-cinema .border-slate-200,
+.theme-cinema .border-slate-100 {
+  border-color: rgba(217, 119, 6, 0.2) !important;
+}
+
+.theme-cinema .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.theme-cinema .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(217, 119, 6, 0.15) !important;
+}
+
+/* Text Overrides */
+.theme-cinema .text-slate-900,
+.theme-cinema .text-slate-800 {
+  color: #fef3c7 !important;
+}
+
+.theme-cinema .text-slate-700,
+.theme-cinema .text-slate-600 {
+  color: #d6c5b0 !important;
+}
+
+.theme-cinema .text-slate-500,
+.theme-cinema .text-slate-400 {
+  color: #9e8b78 !important;
+}
+
+/* Inputs, Textareas, Selects */
+.theme-cinema input,
+.theme-cinema textarea,
+.theme-cinema select {
+  background-color: #120e0b !important;
+  border-color: rgba(217, 119, 6, 0.3) !important;
+  color: #fef3c7 !important;
+}
+
+.theme-cinema input::placeholder,
+.theme-cinema textarea::placeholder {
+  color: #7d6b59 !important;
+}
+
+.theme-cinema input:focus,
+.theme-cinema textarea:focus,
+.theme-cinema select:focus {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25) !important;
+}
+
+/* Primary Action Buttons: Kodak Honey Gold Gradient */
+.theme-cinema .bg-gradient-to-r.from-sky-500.to-teal-500,
+.theme-cinema .bg-gradient-to-r.from-sky-500.to-indigo-600,
+.theme-cinema .bg-sky-600,
+.theme-cinema .bg-sky-500 {
+  background: linear-gradient(to right, #f59e0b, #d97706) !important;
+  color: #0c0a08 !important;
+  font-weight: 800 !important;
+  border-color: #fbbf24 !important;
+  box-shadow: 0 4px 18px rgba(217, 119, 6, 0.35) !important;
+}
+
+.theme-cinema .bg-gradient-to-r.from-sky-500:hover,
+.theme-cinema .bg-sky-600:hover,
+.theme-cinema .bg-sky-500:hover {
+  background: linear-gradient(to right, #fbbf24, #ea580c) !important;
+  box-shadow: 0 6px 22px rgba(217, 119, 6, 0.5) !important;
+}
+
+/* Badges & Tags */
+.theme-cinema .bg-sky-50 {
+  background-color: rgba(217, 119, 6, 0.15) !important;
+  border: 1px solid rgba(245, 158, 11, 0.35) !important;
+  color: #fbbf24 !important;
+}
+
+.theme-cinema .bg-slate-100 {
+  background-color: #1c1611 !important;
+  border-color: #33261a !important;
+  color: #d1c2ab !important;
+}
+
+/* Weekly Goal Banner in Cinema Mode */
+.theme-cinema .bg-gradient-to-r.from-sky-50 {
+  background: linear-gradient(to right, #1f1812, #18120e, #1b1510) !important;
+  border-color: rgba(217, 119, 6, 0.35) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Quiz, Cloze & Practice options in Cinema Mode */
+.theme-cinema .hover\:bg-slate-50:hover,
+.theme-cinema .hover\:bg-slate-100:hover {
+  background-color: rgba(35, 27, 20, 0.9) !important;
+}
+
+.theme-cinema button.border-slate-200:hover,
+.theme-cinema button.border-slate-300:hover {
+  border-color: rgba(245, 158, 11, 0.6) !important;
+}
+
+/* Modals & Dialogs in Cinema Mode */
+.theme-cinema .bg-white.rounded-2xl,
+.theme-cinema .bg-white.rounded-3xl {
+  background-color: #15110d !important;
+  border: 1px solid rgba(217, 119, 6, 0.35) !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9) !important;
+}
+
+/* Cinema Scrollbar */
+.theme-cinema ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.theme-cinema ::-webkit-scrollbar-track {
+  background: #0c0a08;
+}
+.theme-cinema ::-webkit-scrollbar-thumb {
+  background: #2b2118;
+  border-radius: 4px;
+}
+.theme-cinema ::-webkit-scrollbar-thumb:hover {
+  background: #d97706;
+}
+
 /* Retro Film Strip 35mm Frame styling (Matches Image 2 exactly) */
 .film-frame-card {
   background: #110e0c;
