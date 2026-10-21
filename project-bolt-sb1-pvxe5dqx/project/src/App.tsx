@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AuthProvider } from '@/context/AuthContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { VocabProvider } from '@/context/VocabContext';
+import { ThemeProvider } from '@/context/ThemeContext';
 import { ToastProvider } from '@/components/Toast';
 import { Header } from '@/components/Header';
 import { AddVocabulary } from '@/pages/AddVocabulary';
@@ -133,14 +134,16 @@ function AppContent() {
 
 export default function App() {
   return (
-    <LanguageProvider>
-      <ToastProvider>
-        <AuthProvider>
-          <VocabProvider>
-            <AppContent />
-          </VocabProvider>
-        </AuthProvider>
-      </ToastProvider>
-    </LanguageProvider>
+    <ThemeProvider>
+      <LanguageProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <VocabProvider>
+              <AppContent />
+            </VocabProvider>
+          </AuthProvider>
+        </ToastProvider>
+      </LanguageProvider>
+    </ThemeProvider>
   );
 }

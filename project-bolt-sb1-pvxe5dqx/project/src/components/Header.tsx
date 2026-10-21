@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { useTheme } from '@/context/ThemeContext';
 import { getStreakData } from '@/lib/storage';
 import { AuthModal } from './AuthModal';
 import type { TabKey } from '@/lib/types';
@@ -45,6 +46,7 @@ const TABS: {
 export function Header({ activeTab, onTabChange }: HeaderProps) {
   const { user, signOut } = useAuth();
   const { lang, toggleLang, t } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -70,12 +72,23 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
               className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer group"
               title="VocabMaster - Trang chủ"
             >
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-teal-500 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform ${
+                theme === 'retro'
+                  ? 'bg-gradient-to-br from-amber-600 via-amber-700 to-amber-900 border border-amber-500/40 text-amber-100'
+                  : 'bg-gradient-to-br from-sky-500 to-teal-500 text-white'
+              }`}>
                 <BookOpen className="w-5 h-5 text-white" />
               </div>
-              <span className="text-lg font-bold text-slate-800 hidden sm:block tracking-tight">
-                VocabMaster
-              </span>
+              <div className="hidden sm:flex flex-col">
+                <span className={`text-lg font-bold tracking-tight leading-tight ${theme === 'retro' ? 'font-serif text-amber-950' : 'text-slate-800'}`}>
+                  VocabMaster
+                </span>
+                {theme === 'retro' && (
+                  <span className="text-[9px] font-mono tracking-widest text-amber-700/80 -mt-0.5">
+                    EST. 2026 • RETRO VLOG 🎞️
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Desktop Tabs: always 1 line (whitespace-nowrap), never wraps or breaks awkwardly */}
@@ -103,6 +116,25 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
 
             {/* Right side */}
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {/* Retro Vlog Aesthetic Switcher Button */}
+              <button
+                onClick={toggleTheme}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer border ${
+                  theme === 'retro'
+                    ? 'bg-amber-100/90 text-amber-900 border-amber-300 shadow-xs hover:bg-amber-200'
+                    : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200/80'
+                }`}
+                title={theme === 'retro' ? 'Đang ở giao diện Retro Vlog (Bấm để chuyển về Hiện đại)' : 'Chuyển sang giao diện Retro Vlog'}
+              >
+                <span>{theme === 'retro' ? '🎞️' : '✨'}</span>
+                <span className="hidden sm:inline font-mono">
+                  {theme === 'retro' ? 'Retro Vlog' : 'Modern'}
+                </span>
+                {theme === 'retro' && (
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse ml-0.5" title="REC Active"></span>
+                )}
+              </button>
+
               {/* Daily Streak Badge */}
               <button
                 onClick={() => onTabChange('analytics')}

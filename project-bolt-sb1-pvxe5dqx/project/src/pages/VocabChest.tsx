@@ -21,7 +21,9 @@ import {
   Gift,
   Trophy,
   HelpCircle,
+  Film,
 } from 'lucide-react';
+import { RetroFilmRollModal } from '@/components/RetroFilmRollModal';
 import { useVocab } from '@/context/VocabContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useToast } from '@/components/Toast';
@@ -64,6 +66,7 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
   const [moveOpen, setMoveOpen] = useState(false);
   const [moveCategory, setMoveCategory] = useState('');
   const [deduplicating, setDeduplicating] = useState(false);
+  const [filmRollOpen, setFilmRollOpen] = useState(false);
 
   // Batch audit & normalize state with strict progress tracking
   const [auditing, setAuditing] = useState(false);
@@ -495,6 +498,17 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
           }`}>
             {srsDueCount}
           </span>
+        </button>
+
+        {/* 35mm Retro Film Roll Vlog View Button */}
+        <button
+          onClick={() => setFilmRollOpen(true)}
+          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-stone-900 via-neutral-900 to-amber-950 text-amber-300 border border-amber-500/40 hover:border-amber-400 hover:text-amber-100 transition-all shadow-sm font-mono text-xs font-bold cursor-pointer hover:scale-[1.02]"
+          title="Xem từ vựng dưới dạng Cuộn phim 35mm Retro Vlog (Reels)"
+        >
+          <Film className="w-4 h-4 text-amber-400" />
+          <span>🎬 Cuộn phim Vlog (35mm)</span>
+          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" title="REC Active" />
         </button>
       </div>
 
@@ -1238,6 +1252,13 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
         cancelLabel={t('cancel')}
         onConfirm={handleDeleteSelected}
         onCancel={() => setConfirmOpen(false)}
+      />
+
+      {/* Retro Film Roll Modal (35mm Vlog Aesthetics) */}
+      <RetroFilmRollModal
+        isOpen={filmRollOpen}
+        onClose={() => setFilmRollOpen(false)}
+        vocabs={filtered.length > 0 ? filtered : vocabs}
       />
     </div>
   );
