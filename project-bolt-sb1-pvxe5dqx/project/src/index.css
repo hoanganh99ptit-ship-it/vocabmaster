@@ -201,14 +201,14 @@ select {
 }
 
 .film-sprocket-track {
-  height: 28px;
+  height: 24px;
   background-color: #0b0907;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px;
+  padding: 0 10px;
   font-family: 'Space Mono', monospace;
-  font-size: 10px;
+  font-size: 9px;
   color: #eab308;
   letter-spacing: 0.1em;
   border-bottom: 1px solid #1f1914;
@@ -216,14 +216,14 @@ select {
 }
 
 .film-sprocket-bottom {
-  height: 28px;
+  height: 24px;
   background-color: #0b0907;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px;
+  padding: 0 10px;
   font-family: 'Space Mono', monospace;
-  font-size: 10px;
+  font-size: 9px;
   color: #eab308;
   letter-spacing: 0.1em;
   border-top: 1px solid #1f1914;

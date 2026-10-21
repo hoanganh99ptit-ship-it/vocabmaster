@@ -117,15 +117,15 @@ export function RetroFilmRollModal({ isOpen, onClose, vocabs }: RetroFilmRollMod
   if (!isOpen || vocabs.length === 0) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/90 backdrop-blur-md animate-fade-in overflow-y-auto">
-      <div className="relative w-full max-w-lg mx-auto py-2">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/90 backdrop-blur-md animate-fade-in overflow-y-auto">
+      <div className="relative w-full max-w-[460px] mx-auto my-auto py-1">
         {/* Top Control Bar */}
-        <div className="flex items-center justify-between mb-3 text-amber-100 px-1">
+        <div className="flex items-center justify-between mb-2 text-amber-100 px-1">
           <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/60 text-rose-400 text-xs font-mono font-bold tracking-wider animate-pulse shadow-xs">
+            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/60 text-rose-400 text-[11px] font-mono font-bold tracking-wider animate-pulse shadow-xs">
               <span className="w-2 h-2 rounded-full bg-rose-500"></span> REC
             </span>
-            <span className="text-xs font-mono text-amber-200/80 tracking-widest">
+            <span className="text-[11px] font-mono text-amber-200/80 tracking-widest">
               KODAK PORTRA • {currentIndex + 1}/{vocabs.length}
             </span>
           </div>
@@ -134,41 +134,41 @@ export function RetroFilmRollModal({ isOpen, onClose, vocabs }: RetroFilmRollMod
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setBgIndex((prev) => (prev + 1) % VLOG_BACKGROUNDS.length)}
-              className="px-2 py-1 rounded-lg bg-stone-900/90 hover:bg-stone-800 border border-stone-700/80 text-amber-200 text-xs font-mono flex items-center gap-1 transition-all"
+              className="px-2 py-0.5 rounded-lg bg-stone-900/90 hover:bg-stone-800 border border-stone-700/80 text-amber-200 text-[11px] font-mono flex items-center gap-1 transition-all"
               title="Đổi phong cảnh Retro (Cúc Phương, Roadtrip, Daisy, Kodak)"
             >
-              <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
+              <ImageIcon className="w-3 h-3 text-amber-400" />
               <span className="hidden sm:inline">{currentBg.name}</span>
             </button>
             <button
               onClick={() => setIsPlaying(!isPlaying)}
-              className="p-1.5 rounded-lg bg-stone-900/90 hover:bg-stone-800 border border-stone-700/80 text-amber-200 transition-colors"
+              className="p-1 rounded-lg bg-stone-900/90 hover:bg-stone-800 border border-stone-700/80 text-amber-200 transition-colors"
               title={isPlaying ? 'Tạm dừng auto' : 'Tự động chạy Vlog'}
             >
-              {isPlaying ? <Pause className="w-4 h-4 text-amber-400" /> : <Play className="w-4 h-4 text-amber-400" />}
+              {isPlaying ? <Pause className="w-3.5 h-3.5 text-amber-400" /> : <Play className="w-3.5 h-3.5 text-amber-400" />}
             </button>
             <button
               onClick={handleShuffle}
-              className="p-1.5 rounded-lg bg-stone-900/90 hover:bg-stone-800 border border-stone-700/80 text-amber-200 transition-colors"
+              className="p-1 rounded-lg bg-stone-900/90 hover:bg-stone-800 border border-stone-700/80 text-amber-200 transition-colors"
               title="Xáo trộn ngẫu nhiên"
             >
-              <Shuffle className="w-4 h-4" />
+              <Shuffle className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg bg-stone-900/90 hover:bg-rose-500/40 border border-stone-700/80 text-stone-300 hover:text-white transition-colors ml-1"
+              className="p-1 rounded-lg bg-stone-900/90 hover:bg-rose-500/40 border border-stone-700/80 text-stone-300 hover:text-white transition-colors ml-0.5"
               title="Đóng (Esc)"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* 35mm Retro Film Card (Reels Format - matching Image 2) */}
+        {/* 35mm Retro Film Card (Proportional, floats comfortably in viewport) */}
         <div
           onClick={() => setFlipped(!flipped)}
           className="film-frame-card cursor-pointer select-none transition-all duration-300 hover:shadow-[0_16px_40px_rgba(0,0,0,0.8)] border-2 border-stone-800"
-          style={{ minHeight: '530px' }}
+          style={{ minHeight: '390px' }}
         >
           {/* Top Film Sprocket Track */}
           <div className="film-sprocket-track">
@@ -180,10 +180,10 @@ export function RetroFilmRollModal({ isOpen, onClose, vocabs }: RetroFilmRollMod
               <span className="sprocket-hole"></span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-amber-400 font-bold tracking-widest">
+              <span className="text-[9px] text-amber-400 font-bold tracking-widest">
                 ■ {currentIndex + 1} ■■■ {currentIndex + 1}A ■■■
               </span>
-              <span className="text-[9px] text-amber-400/60 hidden sm:inline tracking-widest">
+              <span className="text-[8px] text-amber-400/60 hidden sm:inline tracking-widest">
                 ISO 400
               </span>
             </div>
@@ -198,89 +198,89 @@ export function RetroFilmRollModal({ isOpen, onClose, vocabs }: RetroFilmRollMod
 
           {/* Card Body with Camcorder Viewfinder & Retro Atmosphere Background */}
           <div
-            className="p-6 sm:p-8 camcorder-overlay flex flex-col justify-between relative transition-all duration-500"
+            className="p-4 sm:p-6 camcorder-overlay flex flex-col justify-between relative transition-all duration-500"
             style={{
-              minHeight: '474px',
+              minHeight: '342px',
               background: currentBg.gradient,
             }}
           >
             {/* Viewfinder Camcorder HUD top */}
             <div className="flex items-center justify-between text-xs font-mono z-10">
-              <div className="flex items-center gap-2 text-amber-300/80 tracking-widest text-[11px]">
-                <Film className="w-3.5 h-3.5 text-amber-400" />
+              <div className="flex items-center gap-2 text-amber-300/80 tracking-widest text-[10px]">
+                <Film className="w-3 h-3 text-amber-400" />
                 <span className="font-bold">VLOG #2026</span>
                 <span className="text-stone-500">•</span>
                 <span className="uppercase text-amber-400/90">{current.type || 'WORD'}</span>
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono text-stone-400 hidden sm:inline">
+                <span className="text-[9px] font-mono text-stone-400 hidden sm:inline">
                   SP 4:3
                 </span>
                 <button
                   onClick={handleSpeak}
-                  className="w-9 h-9 rounded-full bg-amber-400/20 hover:bg-amber-400/40 border border-amber-400/60 flex items-center justify-center text-amber-300 transition-all hover:scale-110 shadow-md cursor-pointer"
+                  className="w-8 h-8 rounded-full bg-amber-400/20 hover:bg-amber-400/40 border border-amber-400/60 flex items-center justify-center text-amber-300 transition-all hover:scale-110 shadow-md cursor-pointer"
                   title="Phát âm từ (Phím S)"
                 >
-                  <Volume2 className="w-4 h-4" />
+                  <Volume2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
 
             {/* Center Content: Front (Word) or Back (Meaning & Context) */}
             {!flipped ? (
-              <div className="my-auto text-center py-6 z-10">
-                {/* Nostalgic Handwritten Subtitle (like "with friends" / "butterfly season" in Image 2) */}
-                <p className="text-xl sm:text-2xl font-handwriting text-amber-200/90 tracking-wide mb-3 drop-shadow-sm">
+              <div className="my-auto text-center py-3 sm:py-5 z-10">
+                {/* Nostalgic Handwritten Subtitle */}
+                <p className="text-base sm:text-lg font-handwriting text-amber-200/90 tracking-wide mb-1.5 drop-shadow-sm">
                   {current.category ? `~ ${current.category} ~` : '✨ vocabulary memory'}
                 </p>
 
-                {/* Big Vintage Serif Golden Title (Exact style from Image 2) */}
-                <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-black text-amber-300 tracking-tight leading-tight mb-3 drop-shadow-[0_4px_18px_rgba(0,0,0,0.95)]">
+                {/* Big Vintage Serif Golden Title */}
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-serif font-black text-amber-300 tracking-tight leading-snug mb-2 sm:mb-3 drop-shadow-[0_4px_18px_rgba(0,0,0,0.95)]">
                   {current.word}
                 </h2>
 
                 {/* Phonetics in clean retro badge */}
                 {current.phonetic && (
-                  <div className="mb-6">
-                    <span className="inline-block px-3 py-1 rounded-md bg-black/60 border border-amber-400/40 text-amber-200 font-mono text-sm tracking-wider shadow-sm">
+                  <div className="mb-3 sm:mb-4">
+                    <span className="inline-block px-2.5 py-0.5 rounded-md bg-black/60 border border-amber-400/40 text-amber-200 font-mono text-xs tracking-wider shadow-sm">
                       /{current.phonetic.replace(/^\/|\/$/g, '')}/
                     </span>
                   </div>
                 )}
 
                 {/* Flip Hint */}
-                <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-black/70 backdrop-blur-sm border border-amber-400/30 text-amber-200 text-xs font-mono shadow-sm hover:border-amber-400/60 transition-colors">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/70 backdrop-blur-sm border border-amber-400/30 text-amber-200 text-[11px] font-mono shadow-sm hover:border-amber-400/60 transition-colors">
+                  <Sparkles className="w-3 h-3 text-amber-400 animate-pulse" />
                   <span>Chạm để lật xem nghĩa & ngữ cảnh ↺</span>
                 </div>
               </div>
             ) : (
-              <div className="my-auto text-left py-2 px-1 space-y-4 z-10 animate-fade-in">
+              <div className="my-auto text-left py-1 px-0.5 space-y-2.5 sm:space-y-3 z-10 animate-fade-in">
                 {/* Meaning Section */}
-                <div className="p-4 rounded-2xl bg-black/75 backdrop-blur-md border border-amber-500/40 shadow-xl">
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400/80 block mb-1">
+                <div className="p-3 sm:p-3.5 rounded-xl bg-black/75 backdrop-blur-md border border-amber-500/40 shadow-lg">
+                  <span className="text-[9px] font-mono uppercase tracking-widest text-amber-400/80 block mb-0.5">
                     Ý NGHĨA TIẾNG VIỆT
                   </span>
-                  <p className="text-2xl sm:text-3xl font-serif font-bold text-amber-100 leading-snug drop-shadow-sm">
+                  <p className="text-xl sm:text-2xl font-serif font-bold text-amber-100 leading-snug drop-shadow-sm">
                     {current.meaning}
                   </p>
                 </div>
 
                 {/* Example sentence formatted like cinematic movie subtitles */}
                 {current.example && (
-                  <div className="p-4 rounded-2xl bg-black/85 backdrop-blur-md border border-stone-700/80 shadow-xl">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400/70">
+                  <div className="p-3 sm:p-3.5 rounded-xl bg-black/85 backdrop-blur-md border border-stone-700/80 shadow-lg">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[9px] font-mono uppercase tracking-widest text-amber-400/70">
                         SUBTITLE • VÍ DỤ NGỮ CẢNH
                       </span>
-                      <span className="text-[10px] font-mono text-stone-400">[00:01:24]</span>
+                      <span className="text-[9px] font-mono text-stone-400">[00:01:24]</span>
                     </div>
-                    <p className="text-base sm:text-lg font-serif italic text-amber-200 leading-relaxed">
+                    <p className="text-sm sm:text-base font-serif italic text-amber-200 leading-relaxed">
                       "{current.example}"
                     </p>
                     {current.exampleMeaning && (
-                      <p className="text-xs sm:text-sm text-stone-300 mt-2.5 pt-2 border-t border-stone-800/80 font-sans">
+                      <p className="text-xs text-stone-300 mt-2 pt-1.5 border-t border-stone-800/80 font-sans">
                         👉 {current.exampleMeaning}
                       </p>
                     )}
@@ -290,11 +290,11 @@ export function RetroFilmRollModal({ isOpen, onClose, vocabs }: RetroFilmRollMod
             )}
 
             {/* Bottom camcorder metadata */}
-            <div className="flex items-center justify-between text-xs font-mono text-stone-400 pt-3 border-t border-stone-800/80 z-10">
-              <span className="font-handwriting text-xl text-amber-300/90">
+            <div className="flex items-center justify-between text-xs font-mono text-stone-400 pt-2 border-t border-stone-800/80 z-10">
+              <span className="font-handwriting text-lg text-amber-300/90">
                 Memories & Vocab
               </span>
-              <span className="text-[11px] tracking-widest text-amber-400/70 font-mono">
+              <span className="text-[10px] tracking-widest text-amber-400/70 font-mono">
                 24 FPS • HI-FI STEREO
               </span>
             </div>
@@ -309,7 +309,7 @@ export function RetroFilmRollModal({ isOpen, onClose, vocabs }: RetroFilmRollMod
               <span className="sprocket-hole"></span>
               <span className="sprocket-hole"></span>
             </div>
-            <span className="text-[10px] text-amber-400 font-bold tracking-widest">
+            <span className="text-[9px] text-amber-400 font-bold tracking-widest">
               VOCABMASTER 35MM • VLOG REEL
             </span>
             <div className="sprocket-holes">
@@ -322,37 +322,37 @@ export function RetroFilmRollModal({ isOpen, onClose, vocabs }: RetroFilmRollMod
           </div>
         </div>
 
-        {/* Navigation Buttons: Clean, generous spacing, no squeezed middle text */}
-        <div className="flex items-center justify-between gap-2.5 mt-4">
+        {/* Navigation Buttons: Clean, generous spacing */}
+        <div className="flex items-center justify-between gap-2 mt-2.5 sm:mt-3">
           <button
             onClick={handlePrev}
-            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-stone-900/95 hover:bg-stone-800 text-amber-200 border border-stone-700/80 text-sm font-semibold transition-all hover:-translate-x-0.5 cursor-pointer shadow-md"
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-stone-900/95 hover:bg-stone-800 text-amber-200 border border-stone-700/80 text-xs sm:text-sm font-semibold transition-all hover:-translate-x-0.5 cursor-pointer shadow-md"
           >
-            <ChevronLeft className="w-4 h-4 text-amber-400" />
+            <ChevronLeft className="w-3.5 h-3.5 text-amber-400" />
             <span>Từ trước</span>
           </button>
 
           <button
             onClick={() => setFlipped(!flipped)}
-            className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-stone-900/95 hover:bg-stone-800 text-stone-300 border border-stone-700/80 text-xs font-mono transition-all cursor-pointer shadow-md"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-stone-900/95 hover:bg-stone-800 text-stone-300 border border-stone-700/80 text-xs font-mono transition-all cursor-pointer shadow-md"
             title="Lật thẻ xem nghĩa (Phím Space)"
           >
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <Sparkles className="w-3 h-3 text-amber-400" />
             <span>{flipped ? 'Xem từ' : 'Xem nghĩa'}</span>
           </button>
 
           <button
             onClick={handleNext}
-            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-sm transition-all hover:translate-x-0.5 cursor-pointer shadow-md"
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs sm:text-sm transition-all hover:translate-x-0.5 cursor-pointer shadow-md"
           >
             <span>Từ tiếp theo</span>
-            <ChevronRight className="w-4 h-4 text-stone-950" />
+            <ChevronRight className="w-3.5 h-3.5 text-stone-950" />
           </button>
         </div>
 
-        {/* Keyboard shortcut hint: on its own dedicated row, never wraps or looks broken */}
-        <div className="text-center mt-3">
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-stone-900/90 border border-stone-800 text-[11px] font-mono text-stone-400 whitespace-nowrap shadow-sm">
+        {/* Keyboard shortcut hint */}
+        <div className="text-center mt-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-900/90 border border-stone-800 text-[10px] font-mono text-stone-400 whitespace-nowrap shadow-sm">
             <kbd className="px-1.5 py-0.5 rounded bg-stone-800 border border-stone-700 text-amber-300 font-bold">←</kbd>
             <kbd className="px-1.5 py-0.5 rounded bg-stone-800 border border-stone-700 text-amber-300 font-bold">→</kbd>
             <span>đổi từ</span>
