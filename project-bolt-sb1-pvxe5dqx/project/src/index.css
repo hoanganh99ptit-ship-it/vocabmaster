@@ -414,6 +414,132 @@ select {
   color: #fde047 !important;
 }
 
+/* ========================================================
+   CINEMA MODE: VOCAB CARDS, BADGES & COLLOCATIONS
+   ======================================================== */
+
+/* 1. Badge từ loại (phr, adj, n, v, etc.) - Tối ưu hoàn toàn độ tương phản */
+.theme-cinema .bg-sky-50,
+.theme-cinema span.text-sky-600.bg-sky-50,
+.theme-cinema span[class*="bg-sky-50"] {
+  background-color: rgba(45, 34, 24, 0.95) !important;
+  border: 1px solid rgba(245, 158, 11, 0.5) !important;
+  color: #fde047 !important;
+  font-weight: 700 !important;
+}
+
+/* 2. Nghĩa tiếng Việt của từ chính */
+.theme-cinema p.text-slate-600 {
+  color: #f5ecd8 !important;
+  font-weight: 500 !important;
+}
+
+/* 3. Tiêu đề mục "CỤM TỪ HAY GẶP" */
+.theme-cinema span.text-\[11px\].font-bold.text-slate-500,
+.theme-cinema .tracking-wider.text-slate-500 {
+  color: #fbbf24 !important;
+}
+
+.theme-cinema span.text-\[11px\].font-bold.text-slate-500 svg,
+.theme-cinema .tracking-wider.text-slate-500 svg {
+  color: #f59e0b !important;
+}
+
+/* Nút Đổi khác (Refresh) cụm từ */
+.theme-cinema button.text-\[10px\].text-slate-400 {
+  color: #d4c5b3 !important;
+}
+.theme-cinema button.text-\[10px\].text-slate-400:hover {
+  color: #fde047 !important;
+}
+.theme-cinema button.text-\[10px\].text-slate-400 svg {
+  color: #f59e0b !important;
+}
+
+/* 4. Khung cụm từ đi kèm (Collocation Buttons) */
+.theme-cinema button.group\/item,
+.theme-cinema [class*="bg-sky-50\/60"] {
+  background-color: rgba(18, 14, 10, 0.95) !important;
+  border: 1px solid rgba(217, 119, 6, 0.35) !important;
+  transition: all 0.2s ease !important;
+}
+
+.theme-cinema button.group\/item:hover,
+.theme-cinema [class*="hover:bg-sky-100"]:hover {
+  background-color: rgba(38, 28, 20, 0.98) !important;
+  border-color: #f59e0b !important;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.2) !important;
+}
+
+/* Cụm từ tiếng Anh (emit an unpleasant odor, peaceful atmosphere, etc.) */
+.theme-cinema .text-sky-900,
+.theme-cinema span.text-sky-900,
+.theme-cinema [class*="text-sky-900"],
+.theme-cinema button.group\/item span.font-bold {
+  color: #fef08a !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.01em !important;
+}
+
+.theme-cinema button.group\/item:hover .text-sky-900,
+.theme-cinema button.group\/item:hover span.font-bold {
+  color: #ffffff !important;
+}
+
+/* Nghĩa tiếng Việt của cụm từ (bốc ra mùi khó chịu, etc.) */
+.theme-cinema button.group\/item span.text-slate-500,
+.theme-cinema button.group\/item span.text-\[11px\] {
+  color: #e5d7c5 !important;
+  font-weight: 500 !important;
+}
+
+/* Icon loa phát âm cụm từ */
+.theme-cinema button.group\/item svg,
+.theme-cinema button.group\/item .text-sky-500 {
+  color: #f59e0b !important;
+  opacity: 0.85 !important;
+}
+
+.theme-cinema button.group\/item:hover svg,
+.theme-cinema button.group\/item:hover .text-sky-500 {
+  color: #fde047 !important;
+  opacity: 1 !important;
+}
+
+/* Nút tìm cụm từ khi chưa có (Sparkles Find Collocations) */
+.theme-cinema button[class*="text-sky-600"][class*="bg-sky-50"],
+.theme-cinema button.inline-flex[class*="bg-sky-50"] {
+  background-color: rgba(36, 28, 20, 0.9) !important;
+  border: 1px solid rgba(245, 158, 11, 0.45) !important;
+  color: #fde047 !important;
+}
+
+.theme-cinema button[class*="text-sky-600"][class*="bg-sky-50"]:hover,
+.theme-cinema button.inline-flex[class*="bg-sky-50"]:hover {
+  background-color: rgba(48, 36, 25, 1) !important;
+  border-color: #f59e0b !important;
+  color: #ffffff !important;
+}
+
+.theme-cinema button[class*="text-sky-600"][class*="bg-sky-50"] svg,
+.theme-cinema button.inline-flex[class*="bg-sky-50"] svg {
+  color: #f59e0b !important;
+}
+
+/* Đường gạch phân cách trong card từ vựng */
+.theme-cinema .border-slate-100 {
+  border-color: rgba(217, 119, 6, 0.22) !important;
+}
+
+/* Action buttons ở footer card: nút loa và nút xóa */
+.theme-cinema .text-slate-300 {
+  color: #a39382 !important;
+}
+
+.theme-cinema .text-slate-300:hover {
+  color: #f59e0b !important;
+}
+
 /* Inputs, Textareas, Selects */
 .theme-cinema input,
 .theme-cinema textarea,
