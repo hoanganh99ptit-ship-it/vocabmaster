@@ -23,7 +23,7 @@ function AppContent() {
       <Header activeTab={activeTab} onTabChange={setActiveTab} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         {activeTab === 'add' && <AddVocabulary />}
-        {activeTab === 'chest' && <VocabChest />}
+        {activeTab === 'chest' && <VocabChest onNavigate={setActiveTab} />}
         {activeTab === 'quiz' && <Quiz />}
         {activeTab === 'typing' && <TypingTest />}
         {activeTab === 'sentence' && <SentenceBuilding />}

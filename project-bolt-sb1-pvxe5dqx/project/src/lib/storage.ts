@@ -123,15 +123,43 @@ export function getPracticeHistory(): PracticeRecord[] {
 }
 
 // ============================================================================
-// WEEKLY GOALS & STUDY STREAK
+// WEEKLY GOALS & STUDY STREAK (WITH REWARD & PENALTY COMMITMENT)
 // ============================================================================
 const WEEKLY_GOAL_KEY = 'vocabmaster_weekly_goal';
 const STREAK_KEY = 'vocabmaster_study_streak';
 
+export const DEFAULT_REWARD = 'Tự thưởng 1 ly trà sữa / bữa ăn yêu thích 🧋';
+export const DEFAULT_PENALTY = 'Chạy bộ 3km hoặc chép phạt 20 từ vựng ra giấy 🏃';
+
+export const REWARD_SUGGESTIONS = [
+  'Tự thưởng 1 ly trà sữa / cà phê yêu thích 🧋',
+  'Thưởng 1 bữa lẩu / nướng tưng bừng cuối tuần 🍲',
+  'Xem 1 bộ phim yêu thích cuối tuần không áy náy 🎬',
+  'Tự mua 1 món đồ yêu thích trong danh sách mong muốn 🛍️',
+  'Dành 2 tiếng chơi game / giải trí thả ga 🎮',
+];
+
+export const PENALTY_SUGGESTIONS = [
+  'Chép phạt 20 từ vựng ra sổ tay ghi nhớ ✍️',
+  'Chạy bộ 3km hoặc hít đất 50 cái 🏃',
+  'Không uống trà sữa / ăn vặt trong 1 tuần 🚫',
+  'Dọn dẹp sạch sẽ toàn bộ phòng ốc 🧹',
+  'Bỏ 50.000đ vào ống heo tiết kiệm 💰',
+];
+
 export interface WeeklyGoal {
-  targetWords: number; // e.g. 50 words per week
   weekKey: string;     // e.g. "2026-W42"
-  reviewedCount: number;
+  // Specific targets per feature
+  quizTarget: number;   // default: 30
+  quizReviewed: number; // completed quiz items this week
+  clozeTarget: number;  // default: 20
+  clozeReviewed: number;// completed cloze items this week
+  // Total summary
+  targetWords: number;  // default: 50 (sum of targets)
+  reviewedCount: number;// total items completed
+  // Reward & Penalty commitment contract
+  rewardText: string;
+  penaltyText: string;
   completedAt: string | null;
 }
 
@@ -165,19 +193,37 @@ export function getWeeklyGoal(): WeeklyGoal {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') {
+        const quizTarget = typeof parsed.quizTarget === 'number' ? parsed.quizTarget : 30;
+        const clozeTarget = typeof parsed.clozeTarget === 'number' ? parsed.clozeTarget : 20;
+        const targetWords = typeof parsed.targetWords === 'number' ? parsed.targetWords : (quizTarget + clozeTarget);
+        const rewardText = parsed.rewardText || DEFAULT_REWARD;
+        const penaltyText = parsed.penaltyText || DEFAULT_PENALTY;
+
         if (parsed.weekKey === currentWeek) {
           return {
-            targetWords: parsed.targetWords || 50,
             weekKey: currentWeek,
+            quizTarget,
+            quizReviewed: parsed.quizReviewed || 0,
+            clozeTarget,
+            clozeReviewed: parsed.clozeReviewed || 0,
+            targetWords,
             reviewedCount: parsed.reviewedCount || 0,
+            rewardText,
+            penaltyText,
             completedAt: parsed.completedAt || null,
           };
         }
-        // Rollover to new week, preserving chosen targetWords
+        // Rollover to new week, preserving targets and reward/penalty contract
         const newGoal: WeeklyGoal = {
-          targetWords: parsed.targetWords || 50,
           weekKey: currentWeek,
+          quizTarget,
+          quizReviewed: 0,
+          clozeTarget,
+          clozeReviewed: 0,
+          targetWords,
           reviewedCount: 0,
+          rewardText,
+          penaltyText,
           completedAt: null,
         };
         saveWeeklyGoal(newGoal);
@@ -189,9 +235,15 @@ export function getWeeklyGoal(): WeeklyGoal {
   }
 
   const defaultGoal: WeeklyGoal = {
-    targetWords: 50,
     weekKey: currentWeek,
+    quizTarget: 30,
+    quizReviewed: 0,
+    clozeTarget: 20,
+    clozeReviewed: 0,
+    targetWords: 50,
     reviewedCount: 0,
+    rewardText: DEFAULT_REWARD,
+    penaltyText: DEFAULT_PENALTY,
     completedAt: null,
   };
   saveWeeklyGoal(defaultGoal);
@@ -206,14 +258,33 @@ export function saveWeeklyGoal(goal: WeeklyGoal): void {
   }
 }
 
-export function setWeeklyTarget(targetWords: number): WeeklyGoal {
+export function updateWeeklyGoal(
+  params: Partial<Pick<WeeklyGoal, 'quizTarget' | 'clozeTarget' | 'targetWords' | 'rewardText' | 'penaltyText'>>
+): WeeklyGoal {
   const goal = getWeeklyGoal();
-  goal.targetWords = Math.max(10, targetWords);
-  if (goal.reviewedCount >= goal.targetWords && !goal.completedAt) {
-    goal.completedAt = new Date().toISOString();
+  if (params.quizTarget !== undefined) goal.quizTarget = Math.max(5, params.quizTarget);
+  if (params.clozeTarget !== undefined) goal.clozeTarget = Math.max(5, params.clozeTarget);
+  if (params.targetWords !== undefined) {
+    goal.targetWords = Math.max(10, params.targetWords);
+  } else {
+    goal.targetWords = goal.quizTarget + goal.clozeTarget;
   }
+  if (params.rewardText !== undefined) goal.rewardText = params.rewardText.trim() || DEFAULT_REWARD;
+  if (params.penaltyText !== undefined) goal.penaltyText = params.penaltyText.trim() || DEFAULT_PENALTY;
+
+  const isAchieved = goal.quizReviewed >= goal.quizTarget && goal.clozeReviewed >= goal.clozeTarget;
+  if (isAchieved && !goal.completedAt) {
+    goal.completedAt = new Date().toISOString();
+  } else if (!isAchieved && goal.completedAt) {
+    goal.completedAt = null;
+  }
+
   saveWeeklyGoal(goal);
   return goal;
+}
+
+export function setWeeklyTarget(targetWords: number): WeeklyGoal {
+  return updateWeeklyGoal({ targetWords });
 }
 
 export function getStreakData(): StreakData {
@@ -266,12 +337,24 @@ export function saveStreakData(data: StreakData): void {
   }
 }
 
-export function recordStudyActivity(wordsCount = 1): { goal: WeeklyGoal; streak: StreakData; justCompletedGoal: boolean } {
+export function recordStudyActivity(
+  wordsCount = 1,
+  type?: 'quiz' | 'cloze' | 'typing' | 'sentence'
+): { goal: WeeklyGoal; streak: StreakData; justCompletedGoal: boolean } {
   const goal = getWeeklyGoal();
-  goal.reviewedCount += Math.max(1, wordsCount);
-  let justCompletedGoal = false;
+  const wasAchieved = goal.quizReviewed >= goal.quizTarget && goal.clozeReviewed >= goal.clozeTarget;
 
-  if (goal.reviewedCount >= goal.targetWords && !goal.completedAt) {
+  if (type === 'quiz') {
+    goal.quizReviewed += Math.max(1, wordsCount);
+  } else if (type === 'cloze') {
+    goal.clozeReviewed += Math.max(1, wordsCount);
+  }
+  goal.reviewedCount += Math.max(1, wordsCount);
+
+  let justCompletedGoal = false;
+  const isNowAchieved = goal.quizReviewed >= goal.quizTarget && goal.clozeReviewed >= goal.clozeTarget;
+
+  if (!wasAchieved && isNowAchieved && !goal.completedAt) {
     goal.completedAt = new Date().toISOString();
     justCompletedGoal = true;
   }
@@ -318,8 +401,8 @@ export function addPracticeRecord(record: PracticeRecord) {
   } catch {
     // noop
   }
-  // Automatically increment weekly review count & streak
-  recordStudyActivity(1);
+  // Automatically increment weekly review count & streak with specific exercise type
+  recordStudyActivity(1, record.type);
 }
 
 export function clearPracticeHistory() {

@@ -15,6 +15,13 @@ import {
   Sparkles,
   ArrowRight,
   Zap,
+  Gift,
+  HelpCircle,
+  Layers,
+  Edit3,
+  Check,
+  X,
+  RotateCcw,
 } from 'lucide-react';
 import { useVocab } from '@/context/VocabContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -22,9 +29,11 @@ import { speak } from '@/lib/speech';
 import {
   getPracticeHistory,
   getWeeklyGoal,
-  setWeeklyTarget,
+  updateWeeklyGoal,
   getStreakData,
   getDaysLeftInWeek,
+  REWARD_SUGGESTIONS,
+  PENALTY_SUGGESTIONS,
   type PracticeRecord,
   type WeeklyGoal,
   type StreakData,
@@ -44,9 +53,34 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
   const [streakData, setStreakDataState] = useState<StreakData>(() => getStreakData());
   const daysLeft = useMemo(() => getDaysLeftInWeek(), []);
 
-  const handleSelectTarget = (target: number) => {
-    const updated = setWeeklyTarget(target);
+  // Contract editing state
+  const [isEditingContract, setIsEditingContract] = useState(false);
+  const [rewardInput, setRewardInput] = useState(weeklyGoal.rewardText);
+  const [penaltyInput, setPenaltyInput] = useState(weeklyGoal.penaltyText);
+
+  const handleSelectQuizTarget = (target: number) => {
+    const updated = updateWeeklyGoal({ quizTarget: target });
     setWeeklyGoalState({ ...updated });
+  };
+
+  const handleSelectClozeTarget = (target: number) => {
+    const updated = updateWeeklyGoal({ clozeTarget: target });
+    setWeeklyGoalState({ ...updated });
+  };
+
+  const handleSaveContract = () => {
+    const updated = updateWeeklyGoal({
+      rewardText: rewardInput,
+      penaltyText: penaltyInput,
+    });
+    setWeeklyGoalState({ ...updated });
+    setIsEditingContract(false);
+  };
+
+  const handleCancelContract = () => {
+    setRewardInput(weeklyGoal.rewardText);
+    setPenaltyInput(weeklyGoal.penaltyText);
+    setIsEditingContract(false);
   };
 
   const weekDays = useMemo(() => {
@@ -161,7 +195,7 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                    {lang === 'vi' ? 'Mục tiêu ôn tập tuần này' : 'Weekly Review Goal'}
+                    {lang === 'vi' ? 'Mục tiêu ôn tập & Khế ước tuần này' : 'Weekly Goals & Commitment'}
                   </h2>
                   <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-white/10 text-sky-200 border border-white/10">
                     {lang === 'vi' ? `Tuần ${weeklyGoal.weekKey}` : `Week ${weeklyGoal.weekKey}`}
@@ -178,101 +212,382 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
               </div>
             </div>
 
-            {/* Target Select Buttons */}
-            <div className="flex items-center gap-1.5 bg-white/10 p-1.5 rounded-2xl border border-white/10 backdrop-blur-md self-start md:self-center">
-              <span className="text-xs font-semibold text-slate-300 px-2">
-                {lang === 'vi' ? 'Chỉ tiêu:' : 'Target:'}
-              </span>
-              {[30, 50, 75, 100].map((num) => (
-                <button
-                  key={num}
-                  type="button"
-                  onClick={() => handleSelectTarget(num)}
-                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    weeklyGoal.targetWords === num
-                      ? 'bg-sky-500 text-white shadow-md shadow-sky-500/30'
-                      : 'text-slate-300 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  {num} {lang === 'vi' ? 'từ' : 'w'}
-                </button>
-              ))}
-            </div>
+            {/* Quick Contract Edit Button */}
+            <button
+              type="button"
+              onClick={() => setIsEditingContract(!isEditingContract)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 border border-white/15 text-sky-200 hover:text-white transition-all cursor-pointer self-start md:self-center"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>{isEditingContract ? (lang === 'vi' ? 'Đóng chỉnh sửa' : 'Close Editor') : (lang === 'vi' ? 'Sửa Thưởng - Phạt' : 'Edit Reward/Penalty')}</span>
+            </button>
           </div>
 
-          {/* Progress Bar & Big Numbers */}
+          {/* Victory Celebration Banner (When both goals completed) */}
+          {(() => {
+            const isWeeklyAchieved = weeklyGoal.quizReviewed >= weeklyGoal.quizTarget && weeklyGoal.clozeReviewed >= weeklyGoal.clozeTarget;
+            if (!isWeeklyAchieved) return null;
+            return (
+              <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-teal-500/20 to-amber-500/20 border border-emerald-400/40 backdrop-blur-md flex items-center gap-3.5 animate-bounce-subtle">
+                <div className="w-12 h-12 rounded-xl bg-amber-400/20 border border-amber-300/40 flex items-center justify-center text-amber-300 flex-shrink-0">
+                  <Trophy className="w-7 h-7" />
+                </div>
+                <div>
+                  <h4 className="font-black text-emerald-300 text-sm sm:text-base flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-amber-300" />
+                    <span>{lang === 'vi' ? 'XUẤT SẮC! BẠN ĐÃ ĐẠT TOÀN BỘ MỤC TIÊU TUẦN NÀY!' : 'EXCELLENT! YOU ACHIEVED ALL WEEKLY GOALS!'}</span>
+                  </h4>
+                  <p className="text-xs sm:text-sm text-slate-200 mt-0.5">
+                    {lang === 'vi'
+                      ? `Khế ước cam kết thành công — Hãy nhận phần thưởng: `
+                      : `Commitment fulfilled — Enjoy your reward: `}
+                    <strong className="text-amber-300 font-bold underline decoration-amber-400/60">{weeklyGoal.rewardText}</strong>
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Dual Per-Feature Goals Grid (Quiz & Cloze Test) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {/* Goal 1: Luyện trắc nghiệm (Quiz) */}
+            {(() => {
+              const quizPercent = Math.min(100, Math.round((weeklyGoal.quizReviewed / Math.max(1, weeklyGoal.quizTarget)) * 100));
+              const isQuizAchieved = weeklyGoal.quizReviewed >= weeklyGoal.quizTarget;
+
+              return (
+                <div className="bg-white/5 rounded-2xl p-5 border border-sky-400/20 backdrop-blur-sm relative overflow-hidden flex flex-col justify-between">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/10 rounded-full blur-2xl pointer-events-none" />
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-sky-300">
+                          <HelpCircle className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="font-black text-white text-sm sm:text-base">
+                            {lang === 'vi' ? 'Luyện trắc nghiệm (Quiz)' : 'Multiple Choice Quiz'}
+                          </h3>
+                          <span className="text-[11px] text-slate-400 block">
+                            {lang === 'vi' ? 'Ôn phản xạ nhanh nghĩa từ vựng' : 'Fast active recall practice'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Target Selectors */}
+                      <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl border border-white/10">
+                        {[15, 30, 50, 100].map((num) => (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => handleSelectQuizTarget(num)}
+                            className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                              weeklyGoal.quizTarget === num
+                                ? 'bg-sky-500 text-white shadow-xs'
+                                : 'text-slate-300 hover:text-white hover:bg-white/10'
+                            }`}
+                          >
+                            {num}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Progress Numbers */}
+                    <div className="flex items-baseline justify-between mb-2 mt-4">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-3xl font-black text-white">{weeklyGoal.quizReviewed}</span>
+                        <span className="text-sm font-semibold text-slate-400">/ {weeklyGoal.quizTarget} {lang === 'vi' ? 'từ' : 'words'}</span>
+                      </div>
+                      <span className="text-xl font-black text-sky-400">{quizPercent}%</span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden p-0.5 border border-white/5 mb-3">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          isQuizAchieved
+                            ? 'bg-gradient-to-r from-emerald-400 to-teal-400 shadow-emerald-500/40'
+                            : 'bg-gradient-to-r from-sky-400 to-indigo-500 shadow-sky-500/40'
+                        }`}
+                        style={{ width: `${quizPercent}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Footer status & Action */}
+                  <div className="flex items-center justify-between text-xs pt-2 border-t border-white/10">
+                    <span className={isQuizAchieved ? 'text-emerald-300 font-bold flex items-center gap-1' : 'text-slate-300'}>
+                      {isQuizAchieved ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>{lang === 'vi' ? 'Đã đạt chỉ tiêu tuần!' : 'Target achieved!'}</span>
+                        </>
+                      ) : (
+                        lang === 'vi'
+                          ? `Còn ${Math.max(0, weeklyGoal.quizTarget - weeklyGoal.quizReviewed)} từ nữa`
+                          : `${Math.max(0, weeklyGoal.quizTarget - weeklyGoal.quizReviewed)} words remaining`
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('quiz')}
+                      className="font-bold text-sky-400 hover:text-sky-300 flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <span>{lang === 'vi' ? 'Luyện ngay' : 'Practice'}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Goal 2: Đục lỗ ngữ cảnh (Cloze Test) */}
+            {(() => {
+              const clozePercent = Math.min(100, Math.round((weeklyGoal.clozeReviewed / Math.max(1, weeklyGoal.clozeTarget)) * 100));
+              const isClozeAchieved = weeklyGoal.clozeReviewed >= weeklyGoal.clozeTarget;
+
+              return (
+                <div className="bg-white/5 rounded-2xl p-5 border border-emerald-400/20 backdrop-blur-sm relative overflow-hidden flex flex-col justify-between">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+                          <Layers className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="font-black text-white text-sm sm:text-base">
+                            {lang === 'vi' ? 'Đục lỗ ngữ cảnh (Cloze)' : 'Context Cloze Test'}
+                          </h3>
+                          <span className="text-[11px] text-slate-400 block">
+                            {lang === 'vi' ? 'Nhớ sâu cách dùng từ trong câu' : 'In-context sentence filling'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Target Selectors */}
+                      <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl border border-white/10">
+                        {[10, 20, 40, 60].map((num) => (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => handleSelectClozeTarget(num)}
+                            className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                              weeklyGoal.clozeTarget === num
+                                ? 'bg-emerald-500 text-white shadow-xs'
+                                : 'text-slate-300 hover:text-white hover:bg-white/10'
+                            }`}
+                          >
+                            {num}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Progress Numbers */}
+                    <div className="flex items-baseline justify-between mb-2 mt-4">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-3xl font-black text-white">{weeklyGoal.clozeReviewed}</span>
+                        <span className="text-sm font-semibold text-slate-400">/ {weeklyGoal.clozeTarget} {lang === 'vi' ? 'câu' : 'sentences'}</span>
+                      </div>
+                      <span className="text-xl font-black text-emerald-400">{clozePercent}%</span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden p-0.5 border border-white/5 mb-3">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          isClozeAchieved
+                            ? 'bg-gradient-to-r from-emerald-400 to-teal-400 shadow-emerald-500/40'
+                            : 'bg-gradient-to-r from-emerald-400 to-teal-500 shadow-emerald-500/40'
+                        }`}
+                        style={{ width: `${clozePercent}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Footer status & Action */}
+                  <div className="flex items-center justify-between text-xs pt-2 border-t border-white/10">
+                    <span className={isClozeAchieved ? 'text-emerald-300 font-bold flex items-center gap-1' : 'text-slate-300'}>
+                      {isClozeAchieved ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>{lang === 'vi' ? 'Đã đạt chỉ tiêu tuần!' : 'Target achieved!'}</span>
+                        </>
+                      ) : (
+                        lang === 'vi'
+                          ? `Còn ${Math.max(0, weeklyGoal.clozeTarget - weeklyGoal.clozeReviewed)} câu nữa`
+                          : `${Math.max(0, weeklyGoal.clozeTarget - weeklyGoal.clozeReviewed)} sentences remaining`
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('cloze')}
+                      className="font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <span>{lang === 'vi' ? 'Luyện ngay' : 'Practice'}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Kế hoạch Thưởng - Phạt (Khế ước cam kết kỷ luật) */}
           <div className="bg-white/5 rounded-2xl p-5 border border-white/10 backdrop-blur-sm mb-6">
-            <div className="flex items-end justify-between gap-4 mb-3">
-              <div>
-                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-1">
-                  {lang === 'vi' ? 'Tiến độ hoàn thành' : 'Progress'}
-                </span>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl sm:text-4xl font-black text-white">
-                    {weeklyGoal.reviewedCount}
-                  </span>
-                  <span className="text-lg text-slate-400 font-semibold">
-                    / {weeklyGoal.targetWords} {lang === 'vi' ? 'từ' : 'words'}
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-pink-500/20 border border-pink-400/30 flex items-center justify-center text-pink-300">
+                  <Gift className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-white text-sm sm:text-base">
+                    {lang === 'vi' ? 'Kế hoạch Thưởng - Phạt (Khế ước cam kết)' : 'Reward & Penalty Commitment'}
+                  </h3>
+                  <span className="text-[11px] text-slate-300 block">
+                    {lang === 'vi'
+                      ? 'Tự giác duy trì kỷ luật: Thưởng khi hoàn thành cả 2 chỉ tiêu, phạt khi bỏ cuộc'
+                      : 'Self-accountability: Reward on completion, penalty on failure'}
                   </span>
                 </div>
               </div>
 
-              <div className="text-right">
-                <span className="text-2xl sm:text-3xl font-black text-sky-400">
-                  {Math.round((weeklyGoal.reviewedCount / Math.max(1, weeklyGoal.targetWords)) * 100)}%
-                </span>
-                <span className="text-xs text-slate-400 block mt-0.5">
-                  {weeklyGoal.reviewedCount >= weeklyGoal.targetWords
-                    ? (lang === 'vi' ? 'Đã đạt chỉ tiêu!' : 'Goal achieved!')
-                    : (lang === 'vi'
-                        ? `Còn ${Math.max(0, weeklyGoal.targetWords - weeklyGoal.reviewedCount)} từ nữa`
-                        : `${Math.max(0, weeklyGoal.targetWords - weeklyGoal.reviewedCount)} remaining`)}
-                </span>
-              </div>
-            </div>
-
-            {/* Glowing Progress Track */}
-            <div className="w-full bg-slate-800/80 rounded-full h-3.5 overflow-hidden p-0.5 border border-white/5">
-              <div
-                className={`h-full rounded-full transition-all duration-700 ease-out shadow-sm ${
-                  weeklyGoal.reviewedCount >= weeklyGoal.targetWords
-                    ? 'bg-gradient-to-r from-emerald-400 to-teal-400 shadow-emerald-500/50'
-                    : 'bg-gradient-to-r from-sky-400 via-indigo-400 to-pink-500 shadow-sky-500/50'
-                }`}
-                style={{
-                  width: `${Math.min(100, Math.max(3, Math.round((weeklyGoal.reviewedCount / Math.max(1, weeklyGoal.targetWords)) * 100)))}%`,
-                }}
-              />
-            </div>
-
-            {/* Motivation Badge & Tip */}
-            {weeklyGoal.reviewedCount >= weeklyGoal.targetWords ? (
-              <div className="mt-3 flex items-center gap-2 text-emerald-300 text-xs sm:text-sm font-semibold">
-                <Sparkles className="w-4 h-4 text-emerald-400" />
-                <span>
-                  {lang === 'vi'
-                    ? '🎉 Xuất sắc! Bạn đã hoàn thành toàn bộ mục tiêu tuần này. Hãy tiếp tục duy trì phong độ nhé!'
-                    : '🎉 Awesome! You have completed your weekly review goal. Keep up the momentum!'}
-                </span>
-              </div>
-            ) : (
-              <div className="mt-3 flex items-center justify-between text-xs text-slate-300">
-                <span className="flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  <span>
-                    {lang === 'vi'
-                      ? `Chỉ cần ôn thêm ~${Math.ceil((weeklyGoal.targetWords - weeklyGoal.reviewedCount) / Math.max(1, daysLeft))} từ/ngày là sẽ hoàn thành!`
-                      : `Just review ~${Math.ceil((weeklyGoal.targetWords - weeklyGoal.reviewedCount) / Math.max(1, daysLeft))} words/day to achieve it!`}
-                  </span>
-                </span>
+              {!isEditingContract && (
                 <button
                   type="button"
-                  onClick={() => onNavigate('chest')}
-                  className="font-bold text-sky-400 hover:text-sky-300 flex items-center gap-1 transition-colors cursor-pointer"
+                  onClick={() => setIsEditingContract(true)}
+                  className="text-xs font-bold text-sky-300 hover:text-white px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition-all cursor-pointer flex items-center gap-1"
                 >
-                  <span>{lang === 'vi' ? 'Ôn ngay' : 'Review now'}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>{lang === 'vi' ? 'Chỉnh sửa' : 'Edit'}</span>
                 </button>
+              )}
+            </div>
+
+            {/* View Mode */}
+            {!isEditingContract ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Reward Card */}
+                <div className="rounded-xl p-4 bg-gradient-to-br from-emerald-950/60 to-slate-900/60 border border-emerald-500/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Gift className="w-4 h-4 text-emerald-400" />
+                      <span>{lang === 'vi' ? 'Phần thưởng tự trao' : 'Reward'}</span>
+                    </span>
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      {weeklyGoal.quizReviewed >= weeklyGoal.quizTarget && weeklyGoal.clozeReviewed >= weeklyGoal.clozeTarget
+                        ? (lang === 'vi' ? '🎉 ĐÃ MỞ KHÓA' : '🎉 UNLOCKED')
+                        : (lang === 'vi' ? '⏳ Khi đạt cả 2 chỉ tiêu' : '⏳ On completion')}
+                    </span>
+                  </div>
+                  <p className="text-base font-bold text-white mt-1">
+                    {weeklyGoal.rewardText}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-2">
+                    {lang === 'vi'
+                      ? 'Đạt cả chỉ tiêu Trắc nghiệm & Đục lỗ trước chủ nhật để nhận thưởng.'
+                      : 'Achieve both Quiz & Cloze targets before Sunday to enjoy this reward.'}
+                  </p>
+                </div>
+
+                {/* Penalty Card */}
+                <div className="rounded-xl p-4 bg-gradient-to-br from-amber-950/60 to-slate-900/60 border border-amber-500/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="text-amber-400">⚡</span>
+                      <span>{lang === 'vi' ? 'Kỷ luật tự giác (Phạt)' : 'Penalty'}</span>
+                    </span>
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      {lang === 'vi' ? `Còn ${daysLeft} ngày` : `${daysLeft} days left`}
+                    </span>
+                  </div>
+                  <p className="text-base font-bold text-white mt-1">
+                    {weeklyGoal.penaltyText}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-2">
+                    {lang === 'vi'
+                      ? 'Cam kết tự giác thực hiện nếu đến hết tuần chưa hoàn thành mục tiêu.'
+                      : 'Self-commit to execute if weekly targets are not met by end of week.'}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* Edit Mode */
+              <div className="space-y-4 pt-2">
+                {/* Reward input */}
+                <div>
+                  <label className="block text-xs font-bold text-emerald-300 mb-1.5">
+                    🎁 {lang === 'vi' ? 'Phần thưởng tự trao khi hoàn thành:' : 'Reward upon completion:'}
+                  </label>
+                  <input
+                    type="text"
+                    value={rewardInput}
+                    onChange={(e) => setRewardInput(e.target.value)}
+                    placeholder={lang === 'vi' ? 'Ví dụ: Tự thưởng 1 ly trà sữa trân châu đường đen 🧋' : 'e.g. Treat myself to boba milk tea 🧋'}
+                    className="w-full bg-slate-800/90 border border-white/20 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-emerald-400 transition-colors"
+                  />
+                  <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                    <span className="text-[11px] text-slate-400">{lang === 'vi' ? 'Gợi ý nhanh:' : 'Quick ideas:'}</span>
+                    {REWARD_SUGGESTIONS.map((sug, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setRewardInput(sug)}
+                        className="text-[11px] px-2 py-0.5 rounded-lg bg-white/10 hover:bg-emerald-500/20 hover:text-emerald-300 text-slate-300 transition-colors cursor-pointer"
+                      >
+                        {sug}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Penalty input */}
+                <div>
+                  <label className="block text-xs font-bold text-amber-300 mb-1.5">
+                    ⚡ {lang === 'vi' ? 'Hình phạt tự giác nếu không đạt mục tiêu:' : 'Penalty if goal is missed:'}
+                  </label>
+                  <input
+                    type="text"
+                    value={penaltyInput}
+                    onChange={(e) => setPenaltyInput(e.target.value)}
+                    placeholder={lang === 'vi' ? 'Ví dụ: Chạy bộ 3km hoặc chép phạt 20 từ ra giấy 🏃' : 'e.g. Run 3km or copy 20 words by hand 🏃'}
+                    className="w-full bg-slate-800/90 border border-white/20 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors"
+                  />
+                  <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                    <span className="text-[11px] text-slate-400">{lang === 'vi' ? 'Gợi ý nhanh:' : 'Quick ideas:'}</span>
+                    {PENALTY_SUGGESTIONS.map((sug, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setPenaltyInput(sug)}
+                        className="text-[11px] px-2 py-0.5 rounded-lg bg-white/10 hover:bg-amber-500/20 hover:text-amber-300 text-slate-300 transition-colors cursor-pointer"
+                      >
+                        {sug}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={handleCancelContract}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 transition-all cursor-pointer"
+                  >
+                    {lang === 'vi' ? 'Hủy' : 'Cancel'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveContract}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 shadow-md shadow-emerald-500/30 transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>{lang === 'vi' ? 'Lưu khế ước cam kết' : 'Save Commitment'}</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
