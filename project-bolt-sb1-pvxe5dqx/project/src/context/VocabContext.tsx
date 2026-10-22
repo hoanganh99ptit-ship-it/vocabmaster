@@ -310,8 +310,24 @@ export function VocabProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Step C: Filter out words already in user's database
+      // Step C: Filter out words already in user's database (both local state and Supabase server)
       const existingLower = new Set(vocabs.map((v) => v.word.trim().toLowerCase()));
+      if (user) {
+        try {
+          const { data: dbExisting } = await supabase
+            .from('vocabularies')
+            .select('word')
+            .eq('user_id', user.id);
+          if (dbExisting) {
+            dbExisting.forEach((row) => {
+              if (row.word) existingLower.add(String(row.word).trim().toLowerCase());
+            });
+          }
+        } catch {
+          // continue with local state
+        }
+      }
+
       const toInsert = batchUnique.filter((v) => !existingLower.has(v.word));
 
       if (toInsert.length === 0) {
@@ -390,7 +406,35 @@ export function VocabProvider({ children }: { children: ReactNode }) {
         dbSupportsSrsColumns = true;
       }
 
+      // If batch insert encounters any conflict (e.g. unique constraint 23505),
+      // fallback to row-by-row insertion so every valid non-duplicate word is safely saved!
       if (error) {
+        console.warn('[VocabContext] Batch insert failed, executing resilient row-by-row fallback:', error.message);
+        let savedCount = 0;
+        const fallbackDbRows = buildDbRows(dbSupportsSrsColumns !== false);
+
+        for (const row of fallbackDbRows) {
+          try {
+            const { error: singleErr } = await supabase
+              .from('vocabularies')
+              .insert(row);
+
+            if (!singleErr) {
+              savedCount++;
+            } else {
+              console.info(`[VocabContext] Skipped duplicate/conflicting word "${row.word}":`, singleErr.message);
+            }
+          } catch (rowErr) {
+            console.warn(`[VocabContext] Row insertion error for "${row.word}":`, rowErr);
+          }
+        }
+
+        if (savedCount > 0) {
+          await refresh();
+          return { error: null, count: savedCount };
+        }
+
+        // If zero words could be saved
         setVocabs(prevVocabs);
         return { error: error.message, count: 0 };
       }

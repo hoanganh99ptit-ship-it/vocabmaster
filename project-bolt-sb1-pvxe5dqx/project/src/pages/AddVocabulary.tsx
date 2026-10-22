@@ -141,22 +141,38 @@ export function AddVocabulary() {
     setNormalizing(false);
   };
 
+  // Set of existing words normalized
+  const existingSet = useMemo(() => {
+    return new Set(vocabs.map((v) => v.word.trim().toLowerCase()));
+  }, [vocabs]);
+
+  const isWordDuplicate = (w: string) => existingSet.has(w.trim().toLowerCase());
+
   const handleParseText = () => {
     if (!bulkText.trim()) return;
     setParsing(true);
     const baseCat = bulkCustomChest.trim() || (bulkChestChoice === AUTO_KEY ? '' : bulkChestChoice);
     const result = parseVocabText(bulkText, baseCat || 'General');
+    let autoResult: ParsedVocab[] = [];
     if (bulkChestChoice === AUTO_KEY && !bulkCustomChest.trim()) {
-      const autoResult = result.map((v) => ({
+      autoResult = result.map((v) => ({
         ...v,
         category: autoCategorize(v.word, v.meaning),
       }));
-      setParsed(autoResult);
     } else {
       const finalCat = bulkCustomChest.trim() || getChestName(bulkChestChoice, lang);
-      setParsed(result.map((v) => ({ ...v, category: finalCat })));
+      autoResult = result.map((v) => ({ ...v, category: finalCat }));
     }
-    setSelectedIndices(new Set(result.map((_, i) => i)));
+    setParsed(autoResult);
+
+    // Auto-select ONLY new words by default; existing duplicate words remain unselected
+    const newIndices = new Set<number>();
+    autoResult.forEach((v, idx) => {
+      if (!existingSet.has(v.word.trim().toLowerCase())) {
+        newIndices.add(idx);
+      }
+    });
+    setSelectedIndices(newIndices.size > 0 ? newIndices : new Set(autoResult.map((_, i) => i)));
     setParsing(false);
     if (result.length === 0) {
       show(t('noWordsParsed'), 'error');
@@ -171,17 +187,26 @@ export function AddVocabulary() {
     try {
       const baseCat = bulkCustomChest.trim() || (bulkChestChoice === AUTO_KEY ? '' : bulkChestChoice);
       const result = await parseFile(file, baseCat || 'General');
+      let autoResult: ParsedVocab[] = [];
       if (bulkChestChoice === AUTO_KEY && !bulkCustomChest.trim()) {
-        const autoResult = result.map((v) => ({
+        autoResult = result.map((v) => ({
           ...v,
           category: autoCategorize(v.word, v.meaning),
         }));
-        setParsed(autoResult);
       } else {
         const finalCat = bulkCustomChest.trim() || getChestName(bulkChestChoice, lang);
-        setParsed(result.map((v) => ({ ...v, category: finalCat })));
+        autoResult = result.map((v) => ({ ...v, category: finalCat }));
       }
-      setSelectedIndices(new Set(result.map((_, i) => i)));
+      setParsed(autoResult);
+
+      // Auto-select ONLY new words by default; existing duplicate words remain unselected
+      const newIndices = new Set<number>();
+      autoResult.forEach((v, idx) => {
+        if (!existingSet.has(v.word.trim().toLowerCase())) {
+          newIndices.add(idx);
+        }
+      });
+      setSelectedIndices(newIndices.size > 0 ? newIndices : new Set(autoResult.map((_, i) => i)));
       if (result.length === 0) {
         show(t('noWordsParsed'), 'error');
       }
@@ -205,19 +230,24 @@ export function AddVocabulary() {
       const cleanedVocabs: ParsedVocab[] = selected.map((v, i) => {
         const norm = normalized[i];
         return {
-          word: norm?.word || v.word,
-          type: norm?.partOfSpeech || v.type,
-          meaning: norm?.meaning || v.meaning,
+          word: (norm?.word || v.word).trim(),
+          type: (norm?.partOfSpeech || v.type).trim(),
+          meaning: (norm?.meaning || v.meaning).trim(),
           category: v.category,
         };
       });
 
-      // Filter out duplicates
-      const existingLower = new Set(vocabs.map((v) => v.word.toLowerCase()));
-      const unique = cleanedVocabs.filter((v) => !existingLower.has(v.word.toLowerCase()));
+      // Filter out duplicates against current existing words
+      const unique = cleanedVocabs.filter((v) => !existingSet.has(v.word.toLowerCase()));
+      const skippedCount = cleanedVocabs.length - unique.length;
 
       if (unique.length === 0) {
-        show(t('wordExists'), 'error');
+        show(
+          lang === 'vi'
+            ? 'Tất cả các từ đã chọn đều đã có sẵn trong rương từ vựng của bạn!'
+            : 'All selected words already exist in your vocabulary chest!',
+          'error'
+        );
         setNormalizing(false);
         return;
       }
@@ -229,7 +259,13 @@ export function AddVocabulary() {
         const correctedCount = normalized.filter(
           (n) => n.wasAutoCorrected,
         ).length;
-        show(tFn2('aiBatchNormalized', count, correctedCount), 'success');
+        let msg = tFn2('aiBatchNormalized', count, correctedCount);
+        if (skippedCount > 0) {
+          msg += lang === 'vi'
+            ? ` (Đã tự động bỏ qua ${skippedCount} từ đã có trong rương)`
+            : ` (Automatically skipped ${skippedCount} existing words)`;
+        }
+        show(msg, 'success');
         setParsed([]);
         setSelectedIndices(new Set());
         setBulkText('');
@@ -238,11 +274,16 @@ export function AddVocabulary() {
     } catch (err) {
       console.warn('[AddVocabulary] Save selected AI error, fallback to selected items:', err);
       // Gemini failed: save original selected vocabs with notice (graceful fallback)
-      const existingLower = new Set(vocabs.map((v) => v.word.trim().toLowerCase()));
-      const uniqueSelected = selected.filter((v) => !existingLower.has(v.word.trim().toLowerCase()));
+      const uniqueSelected = selected.filter((v) => !existingSet.has(v.word.trim().toLowerCase()));
+      const skippedCount = selected.length - uniqueSelected.length;
 
       if (uniqueSelected.length === 0) {
-        show(t('wordExists'), 'error');
+        show(
+          lang === 'vi'
+            ? 'Tất cả các từ đã chọn đều đã có sẵn trong rương từ vựng của bạn!'
+            : 'All selected words already exist in your vocabulary chest!',
+          'error'
+        );
         setNormalizing(false);
         return;
       }
@@ -251,7 +292,13 @@ export function AddVocabulary() {
       if (error) {
         show(error || t('toastError'), 'error');
       } else {
-        show(`${tFn('toastImported', count)} — ${t('aiSavedUnvalidated')}`, 'success');
+        let msg = `${tFn('toastImported', count)} — ${t('aiSavedUnvalidated')}`;
+        if (skippedCount > 0) {
+          msg += lang === 'vi'
+            ? ` (Đã tự động bỏ qua ${skippedCount} từ đã có trong rương)`
+            : ` (Automatically skipped ${skippedCount} existing words)`;
+        }
+        show(msg, 'success');
         setParsed([]);
         setSelectedIndices(new Set());
         setBulkText('');
@@ -269,6 +316,21 @@ export function AddVocabulary() {
       return next;
     });
   };
+
+  const selectOnlyNew = () => {
+    const newIndices = new Set<number>();
+    parsed.forEach((v, idx) => {
+      if (!isWordDuplicate(v.word)) {
+        newIndices.add(idx);
+      }
+    });
+    setSelectedIndices(newIndices);
+  };
+
+  const duplicateCount = useMemo(() => {
+    return parsed.filter((v) => isWordDuplicate(v.word)).length;
+  }, [parsed, existingSet]);
+  const newCount = parsed.length - duplicateCount;
 
   const toggleSelectAll = () => {
     if (selectedIndices.size === parsed.length) {
@@ -498,27 +560,41 @@ export function AddVocabulary() {
           {/* Preview */}
           {parsed.length > 0 && (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-                <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                   <h3 className="font-bold text-slate-800">{t('preview')}</h3>
-                  <span className="text-sm font-semibold text-sky-600 bg-sky-50 px-2.5 py-1 rounded-full">
+                  <span className="text-sm font-semibold text-sky-600 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-100">
                     {parsed.length} {t('parsedWords')}
                   </span>
+                  {duplicateCount > 0 && (
+                    <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
+                      {lang === 'vi' ? `${newCount} từ mới, ${duplicateCount} đã có` : `${newCount} new, ${duplicateCount} exist`}
+                    </span>
+                  )}
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  {duplicateCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={selectOnlyNew}
+                      className="text-xs font-semibold text-sky-700 hover:text-sky-800 bg-sky-50 hover:bg-sky-100 px-2.5 py-1.5 rounded-lg border border-sky-200 transition-colors cursor-pointer"
+                    >
+                      {lang === 'vi' ? `Chỉ chọn ${newCount} từ mới` : `Select ${newCount} new only`}
+                    </button>
+                  )}
                   <label className="flex items-center gap-2 text-sm font-semibold text-slate-600 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={selectedIndices.size === parsed.length}
+                      checked={selectedIndices.size === parsed.length && parsed.length > 0}
                       onChange={toggleSelectAll}
-                      className="w-4 h-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400"
+                      className="w-4 h-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400 cursor-pointer"
                     />
                     {t('selectAll')}
                   </label>
                   <button
                     onClick={handleSaveSelected}
-                    disabled={normalizing}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-teal-500 text-white font-semibold hover:from-sky-600 hover:to-teal-600 transition-all shadow-sm disabled:opacity-50"
+                    disabled={normalizing || selectedIndices.size === 0}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-teal-500 text-white font-semibold hover:from-sky-600 hover:to-teal-600 transition-all shadow-sm disabled:opacity-50 cursor-pointer"
                   >
                     {normalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                     {normalizing ? t('aiAutoNormalizing') : `${t('saveSelected')} (${selectedIndices.size})`}
@@ -539,17 +615,28 @@ export function AddVocabulary() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {parsed.map((item, i) => (
-                      <tr key={i} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-4 py-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedIndices.has(i)}
-                            onChange={() => toggleSelect(i)}
-                            className="w-4 h-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400"
-                          />
-                        </td>
-                        <td className="px-4 py-3 text-sm font-semibold text-slate-800">{item.word}</td>
+                    {parsed.map((item, i) => {
+                      const isDup = isWordDuplicate(item.word);
+                      return (
+                        <tr key={i} className={`transition-colors ${isDup ? 'bg-amber-50/40 hover:bg-amber-50/70' : 'hover:bg-slate-50'}`}>
+                          <td className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedIndices.has(i)}
+                              onChange={() => toggleSelect(i)}
+                              className="w-4 h-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400 cursor-pointer"
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-sm font-semibold text-slate-800">
+                            <div className="flex items-center gap-2">
+                              <span>{item.word}</span>
+                              {isDup && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
+                                  {lang === 'vi' ? 'Đã có trong rương' : 'Already in chest'}
+                                </span>
+                              )}
+                            </div>
+                          </td>
                         <td className="px-4 py-3">
                           <button
                             onClick={() => speak(item.word)}
@@ -584,7 +671,8 @@ export function AddVocabulary() {
                           </button>
                         </td>
                       </tr>
-                    ))}
+                    );
+                  })}
                   </tbody>
                 </table>
               </div>
