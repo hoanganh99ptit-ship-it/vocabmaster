@@ -84,9 +84,18 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
   const [collocationAbortController, setCollocationAbortController] = useState<AbortController | null>(null);
 
   // Weekly Goal & Streak tracking
-  const weeklyGoal = useMemo(() => getWeeklyGoal(), []);
-  const streakData = useMemo(() => getStreakData(), []);
+  const [weeklyGoal, setWeeklyGoal] = useState<WeeklyGoal>(() => getWeeklyGoal());
+  const [streakData, setStreakData] = useState<StreakData>(() => getStreakData());
   const daysLeftInWeek = useMemo(() => getDaysLeftInWeek(), []);
+
+  useEffect(() => {
+    const handleSync = () => {
+      setWeeklyGoal(getWeeklyGoal());
+      setStreakData(getStreakData());
+    };
+    window.addEventListener('vocabmaster_sync_completed', handleSync);
+    return () => window.removeEventListener('vocabmaster_sync_completed', handleSync);
+  }, []);
 
   // Build chest groups with counts
   const chestGroups = useMemo(() => {

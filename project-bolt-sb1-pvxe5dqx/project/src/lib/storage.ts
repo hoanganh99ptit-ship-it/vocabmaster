@@ -268,6 +268,12 @@ export interface StreakData {
   activeDatesThisWeek: string[]; // ["2026-10-19", "2026-10-21"]
 }
 
+let storageSyncCallback: (() => void) | null = null;
+
+export function setStorageSyncCallback(cb: () => void) {
+  storageSyncCallback = cb;
+}
+
 export interface ActivePenalty {
   isActive: boolean;
   reasonWeekKey: string;
@@ -331,9 +337,10 @@ export function getActivePenalty(): ActivePenalty {
   };
 }
 
-export function saveActivePenalty(penalty: ActivePenalty): void {
+export function saveActivePenalty(penalty: ActivePenalty, skipSync = false): void {
   try {
     localStorage.setItem(PENALTY_STATE_KEY, JSON.stringify(penalty));
+    if (!skipSync) storageSyncCallback?.();
   } catch {
     // noop
   }
@@ -471,9 +478,10 @@ export function getWeeklyGoal(): WeeklyGoal {
   return defaultGoal;
 }
 
-export function saveWeeklyGoal(goal: WeeklyGoal): void {
+export function saveWeeklyGoal(goal: WeeklyGoal, skipSync = false): void {
   try {
     localStorage.setItem(WEEKLY_GOAL_KEY, JSON.stringify(goal));
+    if (!skipSync) storageSyncCallback?.();
   } catch {
     // noop
   }
@@ -571,9 +579,10 @@ export function getStreakData(): StreakData {
   };
 }
 
-export function saveStreakData(data: StreakData): void {
+export function saveStreakData(data: StreakData, skipSync = false): void {
   try {
     localStorage.setItem(STREAK_KEY, JSON.stringify(data));
+    if (!skipSync) storageSyncCallback?.();
   } catch {
     // noop
   }

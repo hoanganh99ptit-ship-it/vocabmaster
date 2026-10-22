@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { getLocalVocabs, clearLocalVocabs } from '@/lib/storage';
+import { syncUserDataWithCloud } from '@/lib/cloudSync';
 
 interface AuthContextValue {
   user: User | null;
@@ -21,36 +22,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session);
       setUser(data.session?.user ?? null);
+      if (data.session?.user) {
+        await syncUserDataWithCloud(data.session.user);
+      }
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
+      if (newSession?.user) {
+        await syncUserDataWithCloud(newSession.user);
+      }
       setLoading(false);
 
       // Migrate local data on first login
       if (newSession?.user) {
-        (async () => {
-          const localVocabs = getLocalVocabs();
-          if (localVocabs.length > 0) {
-            const userId = newSession.user.id;
-            const rows = localVocabs.map((v) => ({
-              user_id: userId,
-              word: v.word,
-              type: v.type,
-              meaning: v.meaning,
-              category: v.category || 'General',
-            }));
-            const { error } = await supabase.from('vocabularies').insert(rows);
-            if (!error) {
-              clearLocalVocabs();
-            }
+        const localVocabs = getLocalVocabs();
+        if (localVocabs.length > 0) {
+          const userId = newSession.user.id;
+          const rows = localVocabs.map((v) => ({
+            user_id: userId,
+            word: v.word,
+            type: v.type,
+            meaning: v.meaning,
+            category: v.category || 'General',
+          }));
+          const { error } = await supabase.from('vocabularies').insert(rows);
+          if (!error) {
+            clearLocalVocabs();
           }
-        })();
+        }
       }
     });
 
@@ -60,7 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (data?.user) {
+      await syncUserDataWithCloud(data.user);
+    }
     return { error: error?.message ?? null };
   }, []);
 

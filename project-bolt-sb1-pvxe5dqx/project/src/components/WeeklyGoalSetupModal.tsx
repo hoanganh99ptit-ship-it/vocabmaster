@@ -18,6 +18,7 @@ import {
   type GoalDifficulty,
   type WeeklyGoal,
 } from '@/lib/storage';
+import { pushUserDataToCloud } from '@/lib/cloudSync';
 import { useLanguage } from '@/context/LanguageContext';
 
 interface WeeklyGoalSetupModalProps {
@@ -43,6 +44,7 @@ export function WeeklyGoalSetupModal({ currentGoal, isOpen, onClose, onSaved }: 
       rewardText: rewardInput,
       difficultyChosenForWeek: true,
     });
+    pushUserDataToCloud(true);
     onSaved(updated);
     onClose();
   };

@@ -15,6 +15,7 @@ import { Analytics } from '@/pages/Analytics';
 import { PenaltyLockModal } from '@/components/PenaltyLockModal';
 import { WeeklyGoalSetupModal } from '@/components/WeeklyGoalSetupModal';
 import { getActivePenalty, getWeeklyGoal, type ActivePenalty, type WeeklyGoal } from '@/lib/storage';
+import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useTheme } from '@/context/ThemeContext';
 import { Lock } from 'lucide-react';
@@ -23,11 +24,40 @@ import type { TabKey } from '@/lib/types';
 function AppContent() {
   const { t, lang } = useLanguage();
   const { theme } = useTheme();
+  const { user, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<TabKey>('chest');
   const [activePenalty, setActivePenalty] = useState<ActivePenalty>(() => getActivePenalty());
   const [weeklyGoal, setWeeklyGoal] = useState<WeeklyGoal>(() => getWeeklyGoal());
-  const [showSetupModal, setShowSetupModal] = useState<boolean>(() => !weeklyGoal.difficultyChosenForWeek);
+  const [showSetupModal, setShowSetupModal] = useState<boolean>(false);
   const [showPenaltyModal, setShowPenaltyModal] = useState<boolean>(false);
+
+  // When auth loading finishes or user state is determined, evaluate whether setup modal is truly needed
+  useEffect(() => {
+    if (!authLoading) {
+      const current = getWeeklyGoal();
+      setWeeklyGoal(current);
+      if (!current.difficultyChosenForWeek) {
+        setShowSetupModal(true);
+      } else {
+        setShowSetupModal(false);
+      }
+    }
+  }, [authLoading]);
+
+  // Listen for real-time cloud synchronization completed events
+  useEffect(() => {
+    const handleSync = () => {
+      const currentGoal = getWeeklyGoal();
+      const currentPen = getActivePenalty();
+      setWeeklyGoal(currentGoal);
+      setActivePenalty(currentPen);
+      if (currentGoal.difficultyChosenForWeek) {
+        setShowSetupModal(false);
+      }
+    };
+    window.addEventListener('vocabmaster_sync_completed', handleSync);
+    return () => window.removeEventListener('vocabmaster_sync_completed', handleSync);
+  }, []);
 
   // Poll penalty & goal state so real-time practice deductions update immediately
   useEffect(() => {
@@ -121,7 +151,7 @@ function AppContent() {
       )}
 
       {/* Monday / New Week Goal Setup Modal */}
-      {showSetupModal && !activePenalty.isActive && (
+      {showSetupModal && !authLoading && !activePenalty.isActive && (
         <WeeklyGoalSetupModal
           currentGoal={weeklyGoal}
           isOpen={showSetupModal}

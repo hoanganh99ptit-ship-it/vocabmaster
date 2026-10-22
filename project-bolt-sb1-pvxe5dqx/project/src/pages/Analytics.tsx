@@ -44,6 +44,7 @@ import {
   type GoalDifficulty,
   type ActivePenalty,
 } from '@/lib/storage';
+import { pushUserDataToCloud } from '@/lib/cloudSync';
 import type { TabKey } from '@/lib/types';
 
 interface AnalyticsProps {
@@ -64,19 +65,35 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
   const [isEditingContract, setIsEditingContract] = useState(false);
   const [rewardInput, setRewardInput] = useState(weeklyGoal.rewardText);
 
+  // Sync state if remote updates arrive
+  useEffect(() => {
+    const handleSync = () => {
+      const g = getWeeklyGoal();
+      setWeeklyGoalState(g);
+      setStreakDataState(getStreakData());
+      setActivePenaltyState(getActivePenalty());
+      setRewardInput(g.rewardText);
+    };
+    window.addEventListener('vocabmaster_sync_completed', handleSync);
+    return () => window.removeEventListener('vocabmaster_sync_completed', handleSync);
+  }, []);
+
   const handleSelectDifficulty = (diff: GoalDifficulty) => {
     const updated = setWeeklyDifficulty(diff);
     setWeeklyGoalState({ ...updated });
+    pushUserDataToCloud(true);
   };
 
   const handleSelectQuizTarget = (target: number) => {
     const updated = updateWeeklyGoal({ quizTarget: target });
     setWeeklyGoalState({ ...updated });
+    pushUserDataToCloud(true);
   };
 
   const handleSelectClozeTarget = (target: number) => {
     const updated = updateWeeklyGoal({ clozeTarget: target });
     setWeeklyGoalState({ ...updated });
+    pushUserDataToCloud(true);
   };
 
   const handleSaveContract = () => {
@@ -85,6 +102,7 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
     });
     setWeeklyGoalState({ ...updated });
     setIsEditingContract(false);
+    pushUserDataToCloud(true);
   };
 
   const handleCancelContract = () => {
@@ -95,11 +113,13 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
   const handleTriggerTestPenalty = () => {
     const pen = activatePenalty(weeklyGoal.difficulty, weeklyGoal.weekKey);
     setActivePenaltyState(pen);
+    pushUserDataToCloud(true);
   };
 
   const handleClearPenalty = () => {
     clearActivePenalty();
     setActivePenaltyState(getActivePenalty());
+    pushUserDataToCloud(true);
   };
 
   const weekDays = useMemo(() => {
