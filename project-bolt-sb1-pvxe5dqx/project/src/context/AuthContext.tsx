@@ -45,26 +45,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // Validate session with Supabase server to detect expired or stale tokens
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError || !userData?.user) {
-          console.warn('[AuthContext] Stale or invalid session detected on server:', userError);
-          try {
-            await supabase.auth.signOut({ scope: 'local' });
-          } catch {}
-          purgeSupabaseTokens();
-          setUser(null);
-          setSession(null);
+        const session = data.session;
+        const nowSec = Math.floor(Date.now() / 1000);
+        if (session.expires_at && session.expires_at < nowSec) {
+          console.warn('[AuthContext] Session expired, attempting refresh...');
+          const refreshPromise = supabase.auth.refreshSession();
+          const timeoutPromise = new Promise<{ data: { session: null }; error: Error }>((resolve) =>
+            setTimeout(() => resolve({ data: { session: null }, error: new Error('Refresh timeout') }), 2500)
+          );
+          const { data: refData, error: refErr } = await Promise.race([refreshPromise, timeoutPromise]);
+          if (refErr || !refData?.session?.user) {
+            console.warn('[AuthContext] Refresh failed, signing out locally');
+            purgeSupabaseTokens();
+            setUser(null);
+            setSession(null);
+            setLoading(false);
+            window.dispatchEvent(new Event('vocabmaster_vocabs_updated'));
+            return;
+          }
+          setSession(refData.session);
+          setUser(refData.session.user);
+          await syncUserDataWithCloud(refData.session.user);
           setLoading(false);
-          window.dispatchEvent(new Event('vocabmaster_vocabs_updated'));
           return;
         }
 
-        setSession(data.session);
-        setUser(userData.user);
-        await syncUserDataWithCloud(userData.user);
+        setSession(session);
+        setUser(session.user);
+        await syncUserDataWithCloud(session.user);
       } catch (err) {
         console.warn('[AuthContext] initAuth catch:', err);
+        purgeSupabaseTokens();
         setUser(null);
         setSession(null);
       } finally {
@@ -137,19 +148,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    // 1. Instantly reset auth state in memory
+    setUser(null);
+    setSession(null);
+    setLoading(false);
+
+    // 2. Instantly wipe all Supabase auth storage tokens
+    purgeSupabaseTokens();
+
+    // 3. Notify components immediately
+    window.dispatchEvent(new Event('vocabmaster_vocabs_updated'));
+
+    // 4. Fire-and-forget server sign out without blocking UI
     try {
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.warn('[AuthContext] signOut remote error:', err);
-      try {
-        await supabase.auth.signOut({ scope: 'local' });
-      } catch {}
-    } finally {
-      purgeSupabaseTokens();
-      setUser(null);
-      setSession(null);
-      window.dispatchEvent(new Event('vocabmaster_vocabs_updated'));
-    }
+      await Promise.race([
+        supabase.auth.signOut({ scope: 'local' }),
+        new Promise((resolve) => setTimeout(resolve, 500)),
+      ]);
+    } catch {}
   }, []);
 
   const resetPassword = useCallback(async (email: string) => {

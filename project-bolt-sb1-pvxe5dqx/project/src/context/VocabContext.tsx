@@ -102,29 +102,6 @@ export function VocabProvider({ children }: { children: ReactNode }) {
         setVocabs(mapped);
       } else if (error) {
         console.warn('[VocabContext] Failed to load vocabs from Supabase:', error);
-        const errMsg = String(error.message || '').toLowerCase();
-        if (
-          errMsg.includes('jwt') ||
-          errMsg.includes('expired') ||
-          errMsg.includes('token') ||
-          errMsg.includes('invalid refresh') ||
-          (error as any).code === 'PGRST301'
-        ) {
-          console.warn('[VocabContext] Detected expired JWT session, signing out locally');
-          try {
-            await supabase.auth.signOut({ scope: 'local' });
-          } catch {}
-          if (typeof window !== 'undefined') {
-            try {
-              for (let i = localStorage.length - 1; i >= 0; i--) {
-                const key = localStorage.key(i);
-                if (key && (key.startsWith('sb-') || key.includes('supabase.auth') || key.includes('auth-token'))) {
-                  localStorage.removeItem(key);
-                }
-              }
-            } catch {}
-          }
-        }
         const local = getLocalVocabs();
         if (local.length > 0) {
           setVocabs(local.map((v, i) => localToVocab(v, i)));
