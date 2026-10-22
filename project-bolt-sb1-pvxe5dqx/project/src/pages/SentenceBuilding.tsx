@@ -75,14 +75,29 @@ export function SentenceBuilding() {
 
     const targetWord = questions[current].word;
     const meaning = questions[current].meaning;
+    const wordType = questions[current].type || '';
     const userSentence = sentence.trim();
 
     try {
       // 1. First attempt: deep evaluation with Gemini
-      const aiResult = await evaluateWithGemini(userSentence, targetWord, meaning);
+      const aiResult = await evaluateWithGemini({
+        sentence: userSentence,
+        targetWord,
+        wordType,
+        meaning,
+        lang,
+      });
 
       // If AI succeeded, use it; otherwise fallback to local rule-based evaluation
-      const result = aiResult || evaluateSentence(userSentence, targetWord);
+      const result =
+        aiResult ||
+        evaluateSentence({
+          sentence: userSentence,
+          targetWord,
+          wordType,
+          meaning,
+          lang,
+        });
 
       setEvaluation(result);
       setTotalAccuracy((prev) => prev + result.accuracy);
@@ -109,7 +124,13 @@ export function SentenceBuilding() {
       });
     } catch {
       // Offline / fallback to local rule-based grammar checker
-      const fallback = evaluateSentence(userSentence, targetWord);
+      const fallback = evaluateSentence({
+        sentence: userSentence,
+        targetWord,
+        wordType,
+        meaning,
+        lang,
+      });
       setEvaluation(fallback);
       setTotalAccuracy((prev) => prev + fallback.accuracy);
 

@@ -56,7 +56,7 @@ function initialRevealedIndices(word: string): Set<number> {
 
 export function TypingTest() {
   const { vocabs, incrementError, updateSRS } = useVocab();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { theme } = useTheme();
   const { show } = useToast();
 

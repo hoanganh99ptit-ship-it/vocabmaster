@@ -17,6 +17,7 @@ export interface Vocabulary {
   easeFactor?: number;
   dueDate?: string;
   repetition?: number;
+  phonetic?: string;
   collocations?: CollocationItem[];
 }
 

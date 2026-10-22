@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   Trash2,
@@ -46,6 +46,9 @@ import {
   getStreakData,
   getDaysLeftInWeek,
   DIFFICULTY_CONFIGS,
+  type WeeklyGoal,
+  type StreakData,
+  type GoalDifficulty,
 } from '@/lib/storage';
 import type { Vocabulary, CollocationItem, TabKey } from '@/lib/types';
 
@@ -375,7 +378,7 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
           lang === 'vi'
             ? `Không tìm được cụm từ cho "${vocab.word}". Kiểm tra kết nối AI.`
             : `Could not find collocations for "${vocab.word}". Check AI connection.`,
-          'warning'
+          'info'
         );
       }
     } catch (err: unknown) {
@@ -544,7 +547,9 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
                       {weeklyGoal.weekKey}
                     </span>
                     <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 border border-sky-200">
-                      {lang === 'vi' ? `Mức: ${DIFFICULTY_CONFIGS[weeklyGoal.difficulty || 'medium'].nameVi}` : `Level: ${DIFFICULTY_CONFIGS[weeklyGoal.difficulty || 'medium'].nameEn}`}
+                      {lang === 'vi'
+                        ? `Mức: ${(DIFFICULTY_CONFIGS[(weeklyGoal.difficulty as GoalDifficulty) || 'medium'] || DIFFICULTY_CONFIGS.medium).nameVi}`
+                        : `Level: ${(DIFFICULTY_CONFIGS[(weeklyGoal.difficulty as GoalDifficulty) || 'medium'] || DIFFICULTY_CONFIGS.medium).nameEn}`}
                     </span>
                     <span className="text-xs font-medium text-slate-500">
                       {lang === 'vi' ? `• Còn ${daysLeftInWeek} ngày` : `• ${daysLeftInWeek} days left`}
