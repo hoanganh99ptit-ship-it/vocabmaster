@@ -100,7 +100,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setSession(newSession);
-      setUser(newSession.user);
+      setUser((prevUser) => {
+        if (prevUser && newSession?.user && prevUser.id === newSession.user.id) {
+          return prevUser;
+        }
+        return newSession.user;
+      });
       setLoading(false);
 
       if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {

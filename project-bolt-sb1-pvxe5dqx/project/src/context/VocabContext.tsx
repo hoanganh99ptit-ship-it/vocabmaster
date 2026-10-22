@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
 import { getLocalVocabs, saveLocalVocabs, localToVocab } from '@/lib/storage';
@@ -42,6 +42,8 @@ const VocabContext = createContext<VocabContextValue | null>(null);
 
 export function VocabProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const userId = user?.id;
+  const isFirstLoadRef = useRef(true);
   const [vocabs, setVocabs] = useState<Vocabulary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -61,15 +63,18 @@ export function VocabProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refresh = useCallback(async () => {
-    if (!user) {
+    if (!userId) {
       // Load from localStorage
       const local = getLocalVocabs();
       setVocabs(local.map((v, i) => localToVocab(v, i)));
+      isFirstLoadRef.current = false;
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    if (isFirstLoadRef.current) {
+      setLoading(true);
+    }
     try {
       const fetchPromise = supabase
         .from('vocabularies')
@@ -114,9 +119,10 @@ export function VocabProvider({ children }: { children: ReactNode }) {
         setVocabs(local.map((v, i) => localToVocab(v, i)));
       }
     } finally {
+      isFirstLoadRef.current = false;
       setLoading(false);
     }
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
     checkSrsSupport();

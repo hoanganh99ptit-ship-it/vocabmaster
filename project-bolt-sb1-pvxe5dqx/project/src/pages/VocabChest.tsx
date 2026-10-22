@@ -488,13 +488,15 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
     }
   };
 
-  if (vocabLoading && !loadTimedOut) {
+  if (vocabLoading && vocabs.length === 0 && !loadTimedOut) {
     return (
-      <div className="max-w-4xl mx-auto text-center py-20 animate-fade-in">
-        <div className="w-16 h-16 mx-auto rounded-full bg-sky-50 flex items-center justify-center mb-4 text-sky-500 shadow-sm">
+      <div className={`max-w-4xl mx-auto text-center py-20 animate-fade-in ${theme === 'cinema' ? 'text-amber-100' : ''}`}>
+        <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 shadow-sm ${
+          theme === 'cinema' ? 'bg-amber-500/20 text-amber-400' : 'bg-sky-50 text-sky-500'
+        }`}>
           <Loader2 className="w-8 h-8 animate-spin" />
         </div>
-        <h3 className="text-base font-bold text-slate-700">
+        <h3 className={`text-base font-bold ${theme === 'cinema' ? 'text-amber-100' : 'text-slate-700'}`}>
           {lang === 'vi' ? 'Đang đồng bộ và tải kho từ vựng...' : 'Loading vocabulary chest...'}
         </h3>
       </div>
