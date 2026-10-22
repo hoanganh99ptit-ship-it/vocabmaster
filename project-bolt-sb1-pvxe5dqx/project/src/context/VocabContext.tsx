@@ -92,6 +92,12 @@ export function VocabProvider({ children }: { children: ReactNode }) {
         repetition: Number(row.repetition) || 0,
       }));
       setVocabs(mapped);
+    } else if (error) {
+      console.warn('[VocabContext] Failed to load vocabs from Supabase:', error);
+      const local = getLocalVocabs();
+      if (local.length > 0) {
+        setVocabs(local.map((v, i) => localToVocab(v, i)));
+      }
     }
     setLoading(false);
   }, [user]);
@@ -100,6 +106,14 @@ export function VocabProvider({ children }: { children: ReactNode }) {
     checkSrsSupport();
     refresh();
   }, [checkSrsSupport, refresh]);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      refresh();
+    };
+    window.addEventListener('vocabmaster_vocabs_updated', handleUpdate);
+    return () => window.removeEventListener('vocabmaster_vocabs_updated', handleUpdate);
+  }, [refresh]);
 
   const existingWords = new Set(vocabs.map((v) => v.word.trim().toLowerCase()));
 

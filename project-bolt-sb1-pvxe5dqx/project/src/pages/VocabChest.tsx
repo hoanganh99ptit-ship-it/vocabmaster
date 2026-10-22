@@ -24,6 +24,7 @@ import {
   Film,
 } from 'lucide-react';
 import { RetroFilmRollModal } from '@/components/RetroFilmRollModal';
+import { useAuth } from '@/context/AuthContext';
 import { useVocab } from '@/context/VocabContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useToast } from '@/components/Toast';
@@ -57,7 +58,8 @@ interface VocabChestProps {
 }
 
 export function VocabChest({ onNavigate }: VocabChestProps = {}) {
-  const { vocabs, deleteVocabs, updateVocab, refresh, deduplicateVocabs } = useVocab();
+  const { user } = useAuth();
+  const { vocabs, loading: vocabLoading, deleteVocabs, updateVocab, refresh, deduplicateVocabs } = useVocab();
   const { t, tFn, tFn2, lang } = useLanguage();
   const { show } = useToast();
 
@@ -469,14 +471,39 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
     }
   };
 
+  if (vocabLoading) {
+    return (
+      <div className="max-w-4xl mx-auto text-center py-20 animate-fade-in">
+        <div className="w-16 h-16 mx-auto rounded-full bg-sky-50 flex items-center justify-center mb-4 text-sky-500 shadow-sm">
+          <Loader2 className="w-8 h-8 animate-spin" />
+        </div>
+        <h3 className="text-base font-bold text-slate-700">
+          {lang === 'vi' ? 'Đang đồng bộ và tải kho từ vựng...' : 'Loading vocabulary chest...'}
+        </h3>
+      </div>
+    );
+  }
+
   if (vocabs.length === 0) {
     return (
-      <div className="max-w-4xl mx-auto text-center py-20">
+      <div className="max-w-4xl mx-auto text-center py-20 animate-fade-in">
         <div className="w-20 h-20 mx-auto rounded-full bg-slate-100 flex items-center justify-center mb-4">
           <FolderOpen className="w-10 h-10 text-slate-400" />
         </div>
         <h3 className="text-lg font-bold text-slate-700">{t('noWords')}</h3>
-        <p className="text-sm text-slate-500 mt-1">{t('noWordsDesc')}</p>
+        <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">{t('noWordsDesc')}</p>
+        {!user && (
+          <div className="mt-6 p-4 rounded-2xl bg-amber-50 border border-amber-200/80 max-w-md mx-auto text-amber-900 text-xs text-left shadow-xs">
+            <span className="font-bold block mb-1">
+              {lang === 'vi' ? '💡 Bạn đang ở chế độ khách (chưa đăng nhập):' : '💡 You are browsing as a guest:'}
+            </span>
+            <span>
+              {lang === 'vi'
+                ? 'Nếu bạn đã từng lưu từ vựng vào tài khoản trước đó, vui lòng bấm nút "Đăng nhập" ở góc trên bên phải để tải lại toàn bộ từ vựng của bạn.'
+                : 'If you have saved vocabulary to an account previously, please click "Sign In" at the top right to restore all your words.'}
+            </span>
+          </div>
+        )}
       </div>
     );
   }

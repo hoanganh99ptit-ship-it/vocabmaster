@@ -54,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const { error } = await supabase.from('vocabularies').insert(rows);
           if (!error) {
             clearLocalVocabs();
+            window.dispatchEvent(new Event('vocabmaster_vocabs_updated'));
           }
         }
       }
@@ -68,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (data?.user) {
       await syncUserDataWithCloud(data.user);
+      window.dispatchEvent(new Event('vocabmaster_vocabs_updated'));
     }
     return { error: error?.message ?? null };
   }, []);
