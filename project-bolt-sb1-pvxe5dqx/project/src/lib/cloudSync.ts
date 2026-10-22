@@ -16,6 +16,8 @@ import type { User } from '@supabase/supabase-js';
 
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
 let isSyncing = false;
+let isPushing = false;
+let lastPushedPayload = '';
 
 /**
  * Pushes the current local WeeklyGoal, ActivePenalty, and StreakData to Supabase user_metadata.
@@ -28,6 +30,7 @@ export async function pushUserDataToCloud(immediate = false): Promise<void> {
   }
 
   const executePush = async () => {
+    if (isPushing) return;
     try {
       const { data } = await supabase.auth.getSession();
       if (!data.session?.user) return;
@@ -36,6 +39,12 @@ export async function pushUserDataToCloud(immediate = false): Promise<void> {
       const penalty = getActivePenalty();
       const streak = getStreakData();
 
+      const payload = JSON.stringify({ goal, penalty, streak });
+      if (payload === lastPushedPayload) {
+        return;
+      }
+
+      isPushing = true;
       await supabase.auth.updateUser({
         data: {
           weekly_goal: goal,
@@ -44,9 +53,12 @@ export async function pushUserDataToCloud(immediate = false): Promise<void> {
           last_synced_at: new Date().toISOString(),
         },
       });
+      lastPushedPayload = payload;
     } catch (err) {
       // Silently fail if offline or network error
       console.warn('[cloudSync] Push failed:', err);
+    } finally {
+      isPushing = false;
     }
   };
 
@@ -184,6 +196,13 @@ export async function syncUserDataWithCloud(currentUser?: User | null): Promise<
 
     if (pushNeeded) {
       await pushUserDataToCloud(true);
+    } else {
+      // Data is already in sync with remote, memorize payload to avoid spurious pushes
+      lastPushedPayload = JSON.stringify({
+        goal: getWeeklyGoal(),
+        penalty: getActivePenalty(),
+        streak: getStreakData(),
+      });
     }
 
     // Dispatch event so UI instantly rerenders

@@ -31,30 +31,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      // Ignore USER_UPDATED and TOKEN_REFRESHED to break recursive push-sync loops
+      if (event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
+        return;
+      }
+
       setSession(newSession);
       setUser(newSession?.user ?? null);
-      if (newSession?.user) {
-        await syncUserDataWithCloud(newSession.user);
-      }
       setLoading(false);
 
-      // Migrate local data on first login
-      if (newSession?.user) {
-        const localVocabs = getLocalVocabs();
-        if (localVocabs.length > 0) {
-          const userId = newSession.user.id;
-          const rows = localVocabs.map((v) => ({
-            user_id: userId,
-            word: v.word,
-            type: v.type,
-            meaning: v.meaning,
-            category: v.category || 'General',
-          }));
-          const { error } = await supabase.from('vocabularies').insert(rows);
-          if (!error) {
-            clearLocalVocabs();
-            window.dispatchEvent(new Event('vocabmaster_vocabs_updated'));
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        if (newSession?.user) {
+          await syncUserDataWithCloud(newSession.user);
+
+          // Migrate local data on first login
+          const localVocabs = getLocalVocabs();
+          if (localVocabs.length > 0) {
+            const userId = newSession.user.id;
+            const rows = localVocabs.map((v) => ({
+              user_id: userId,
+              word: v.word,
+              type: v.type,
+              meaning: v.meaning,
+              category: v.category || 'General',
+            }));
+            const { error } = await supabase.from('vocabularies').insert(rows);
+            if (!error) {
+              clearLocalVocabs();
+              window.dispatchEvent(new Event('vocabmaster_vocabs_updated'));
+            }
           }
         }
       }

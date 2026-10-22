@@ -93,6 +93,19 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
   const [streakData, setStreakData] = useState<StreakData>(() => getStreakData());
   const daysLeftInWeek = useMemo(() => getDaysLeftInWeek(), []);
 
+  // Fallback safety timeout: if vocabLoading takes more than 3 seconds, stop showing the loader
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
+  useEffect(() => {
+    if (!vocabLoading) {
+      setLoadTimedOut(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setLoadTimedOut(true);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [vocabLoading]);
+
   useEffect(() => {
     const handleSync = () => {
       setWeeklyGoal(getWeeklyGoal());
@@ -471,7 +484,7 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
     }
   };
 
-  if (vocabLoading) {
+  if (vocabLoading && !loadTimedOut) {
     return (
       <div className="max-w-4xl mx-auto text-center py-20 animate-fade-in">
         <div className="w-16 h-16 mx-auto rounded-full bg-sky-50 flex items-center justify-center mb-4 text-sky-500 shadow-sm">

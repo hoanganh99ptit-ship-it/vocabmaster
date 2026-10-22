@@ -70,36 +70,52 @@ export function VocabProvider({ children }: { children: ReactNode }) {
     }
 
     setLoading(true);
-    const { data, error } = await supabase
-      .from('vocabularies')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      const fetchPromise = supabase
+        .from('vocabularies')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (!error && data) {
-      // Map DB snake_case to camelCase SRS properties
-      const mapped: Vocabulary[] = (data as Array<Record<string, unknown>>).map((row) => ({
-        id: String(row.id),
-        user_id: String(row.user_id || ''),
-        word: String(row.word || '').trim().toLowerCase(),
-        type: String(row.type || '').trim().toLowerCase(),
-        meaning: String(row.meaning || '').trim(),
-        category: String(row.category || 'General').trim(),
-        error_count: Number(row.error_count) || 0,
-        created_at: String(row.created_at || new Date().toISOString()),
-        interval: Number(row.interval) || 1,
-        easeFactor: Number(row.ease_factor) || 2.5,
-        dueDate: String(row.due_date || row.created_at || new Date().toISOString()),
-        repetition: Number(row.repetition) || 0,
-      }));
-      setVocabs(mapped);
-    } else if (error) {
-      console.warn('[VocabContext] Failed to load vocabs from Supabase:', error);
+      const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) =>
+        setTimeout(() => resolve({ data: null, error: { message: 'Supabase fetch timed out' } }), 5000)
+      );
+
+      const result = await Promise.race([fetchPromise, timeoutPromise]);
+      const { data, error } = result;
+
+      if (!error && data) {
+        // Map DB snake_case to camelCase SRS properties
+        const mapped: Vocabulary[] = (data as Array<Record<string, unknown>>).map((row) => ({
+          id: String(row.id),
+          user_id: String(row.user_id || ''),
+          word: String(row.word || '').trim().toLowerCase(),
+          type: String(row.type || '').trim().toLowerCase(),
+          meaning: String(row.meaning || '').trim(),
+          category: String(row.category || 'General').trim(),
+          error_count: Number(row.error_count) || 0,
+          created_at: String(row.created_at || new Date().toISOString()),
+          interval: Number(row.interval) || 1,
+          easeFactor: Number(row.ease_factor) || 2.5,
+          dueDate: String(row.due_date || row.created_at || new Date().toISOString()),
+          repetition: Number(row.repetition) || 0,
+        }));
+        setVocabs(mapped);
+      } else if (error) {
+        console.warn('[VocabContext] Failed to load vocabs from Supabase:', error);
+        const local = getLocalVocabs();
+        if (local.length > 0) {
+          setVocabs(local.map((v, i) => localToVocab(v, i)));
+        }
+      }
+    } catch (err) {
+      console.warn('[VocabContext] Unexpected error during refresh:', err);
       const local = getLocalVocabs();
       if (local.length > 0) {
         setVocabs(local.map((v, i) => localToVocab(v, i)));
       }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [user]);
 
   useEffect(() => {
