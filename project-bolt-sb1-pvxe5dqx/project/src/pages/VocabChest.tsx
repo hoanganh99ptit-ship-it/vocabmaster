@@ -37,6 +37,7 @@ import {
   normalizeSelectedVocabs,
   fetchCollocationsForWord,
   batchFetchCollocations,
+  CHUNK_SIZE,
   type BatchAuditProgress,
 } from '@/services/geminiService';
 import { isDueForReview, getSRSStage } from '@/lib/srs';
@@ -270,7 +271,7 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
       total: wordsToAudit.length,
       errorsFound: 0,
       currentChunk: 1,
-      totalChunks: Math.ceil(wordsToAudit.length / 15),
+      totalChunks: Math.ceil(wordsToAudit.length / CHUNK_SIZE),
     });
 
     try {
@@ -328,7 +329,7 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
       total: selectedVocabs.length,
       errorsFound: 0,
       currentChunk: 1,
-      totalChunks: Math.ceil(selectedVocabs.length / 15),
+      totalChunks: Math.ceil(selectedVocabs.length / CHUNK_SIZE),
     });
 
     try {
@@ -813,8 +814,8 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
                   theme === 'cinema' ? 'text-amber-200/80' : 'text-slate-600'
                 }`}>
                   {lang === 'vi'
-                    ? `Đang kiểm tra từ ${auditProgress.scanned} / ${auditProgress.total}... (Cụm ${auditProgress.currentChunk}/${auditProgress.totalChunks} • 15 từ/lượt)`
-                    : `Checking word ${auditProgress.scanned} / ${auditProgress.total}... (Chunk ${auditProgress.currentChunk}/${auditProgress.totalChunks} • 15 words/batch)`}
+                    ? `Đang kiểm tra từ ${auditProgress.scanned} / ${auditProgress.total}... (Cụm ${auditProgress.currentChunk}/${auditProgress.totalChunks} • ${CHUNK_SIZE} từ/lượt)`
+                    : `Checking word ${auditProgress.scanned} / ${auditProgress.total}... (Chunk ${auditProgress.currentChunk}/${auditProgress.totalChunks} • ${CHUNK_SIZE} words/batch)`}
                 </p>
               </div>
             </div>
@@ -938,11 +939,15 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
       {/* Search, Deduplicate, AI Audit, Collocations & Filter toolbar */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 ${theme === 'cinema' ? 'text-amber-400/70' : 'text-slate-400'}`} />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all"
+            className={`w-full pl-11 pr-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+              theme === 'cinema'
+                ? 'border-amber-500/40 bg-[#1a140f] text-amber-100 placeholder-stone-500 focus:ring-amber-400'
+                : 'border-slate-200 bg-white text-slate-800 placeholder-slate-400 focus:ring-sky-400'
+            }`}
             placeholder={t('searchWords')}
           />
         </div>
@@ -951,10 +956,18 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
         <button
           onClick={handleDeduplicate}
           disabled={deduplicating || vocabs.length === 0}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold text-sm hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm disabled:opacity-50 whitespace-nowrap"
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-sm disabled:opacity-50 whitespace-nowrap cursor-pointer ${
+            theme === 'cinema'
+              ? 'bg-[#1e1711] border border-amber-500/40 text-amber-200 hover:bg-[#281f17] hover:border-amber-400 hover:text-amber-100 shadow-md shadow-amber-950/30'
+              : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
+          }`}
           title={lang === 'vi' ? 'Quét và dọn dẹp các từ vựng trùng lặp' : 'Scan and clean duplicate vocabulary'}
         >
-          {deduplicating ? <Loader2 className="w-4 h-4 animate-spin text-sky-500" /> : <Layers className="w-4 h-4 text-sky-500" />}
+          {deduplicating ? (
+            <Loader2 className={`w-4 h-4 animate-spin ${theme === 'cinema' ? 'text-amber-400' : 'text-sky-500'}`} />
+          ) : (
+            <Layers className={`w-4 h-4 ${theme === 'cinema' ? 'text-amber-400' : 'text-sky-500'}`} />
+          )}
           <span>{lang === 'vi' ? 'Dọn dẹp từ trùng' : 'Clean Duplicates'}</span>
         </button>
 
@@ -962,23 +975,21 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
         <button
           onClick={handleBatchAudit}
           disabled={auditing || vocabs.length === 0}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold text-sm hover:from-amber-600 hover:to-orange-600 transition-all shadow-sm disabled:opacity-50 whitespace-nowrap"
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-sm disabled:opacity-50 whitespace-nowrap cursor-pointer ${
+            theme === 'cinema'
+              ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-stone-950 font-bold border border-amber-400/50 shadow-md shadow-amber-950/40 hover:scale-[1.01] active:scale-[0.99]'
+              : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 shadow-sm hover:scale-[1.01] active:scale-[0.99]'
+          }`}
           title={lang === 'vi' ? 'Quét chính tả và chuẩn hóa từ vựng với Gemini AI' : 'Scan and fix spelling with Gemini AI'}
         >
           {auditing ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>
-                {auditProgress
-                  ? (lang === 'vi'
-                      ? `Đang kiểm tra từ ${auditProgress.scanned} / ${auditProgress.total}...`
-                      : `Checking ${auditProgress.scanned}/${auditProgress.total}...`)
-                  : t('aiBatchAuditing')}
-              </span>
+              <Loader2 className={`w-4 h-4 animate-spin ${theme === 'cinema' ? 'text-stone-950' : 'text-white'}`} />
+              <span>{lang === 'vi' ? 'Đang dọn dẹp...' : 'Auditing...'}</span>
             </>
           ) : (
             <>
-              <Wand2 className="w-4 h-4" />
+              <Wand2 className={`w-4 h-4 ${theme === 'cinema' ? 'text-stone-950' : 'text-white'}`} />
               <span>{t('aiCleanupSpellErrors')}</span>
             </>
           )}
@@ -988,23 +999,21 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
         <button
           onClick={() => handleBatchCollocations()}
           disabled={batchCollocationLoading || auditing || vocabs.length === 0}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-semibold text-sm hover:from-sky-600 hover:to-indigo-700 transition-all shadow-sm disabled:opacity-50 whitespace-nowrap"
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-sm disabled:opacity-50 whitespace-nowrap cursor-pointer ${
+            theme === 'cinema'
+              ? 'bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-400 hover:to-yellow-400 text-stone-950 font-bold border border-amber-400/50 shadow-md shadow-amber-950/40 hover:scale-[1.01] active:scale-[0.99]'
+              : 'bg-gradient-to-r from-sky-500 to-indigo-600 text-white hover:from-sky-600 hover:to-indigo-700 shadow-sm hover:scale-[1.01] active:scale-[0.99]'
+          }`}
           title={lang === 'vi' ? 'AI tự động bổ sung 2 cụm từ thường đi kèm nhất (Collocations & Phrasal Pairing)' : 'AI find common collocations'}
         >
           {batchCollocationLoading ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>
-                {collocationProgress
-                  ? (lang === 'vi'
-                      ? `Tìm cụm từ ${collocationProgress.done}/${collocationProgress.total}...`
-                      : `Collocations ${collocationProgress.done}/${collocationProgress.total}...`)
-                  : (lang === 'vi' ? 'Đang tìm...' : 'Loading...')}
-              </span>
+              <Loader2 className={`w-4 h-4 animate-spin ${theme === 'cinema' ? 'text-stone-950' : 'text-white'}`} />
+              <span>{lang === 'vi' ? 'Đang tìm...' : 'Loading...'}</span>
             </>
           ) : (
             <>
-              <Link2 className="w-4 h-4" />
+              <Link2 className={`w-4 h-4 ${theme === 'cinema' ? 'text-stone-950' : 'text-white'}`} />
               <span>{lang === 'vi' ? 'Tìm cụm từ (Collocations)' : 'Find Collocations'}</span>
             </>
           )}
@@ -1014,7 +1023,11 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
         <select
           value={filterCategory}
           onChange={(e) => setFilterCategory(e.target.value)}
-          className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-sky-400 cursor-pointer"
+          className={`px-4 py-2.5 rounded-xl border font-medium focus:outline-none focus:ring-2 cursor-pointer transition-all ${
+            theme === 'cinema'
+              ? 'border-amber-500/40 bg-[#1a140f] text-amber-100 focus:ring-amber-400'
+              : 'border-slate-200 bg-white text-slate-700 focus:ring-sky-400'
+          }`}
         >
           <option value="all">{t('allCategories')}</option>
           <option value="srs_due">

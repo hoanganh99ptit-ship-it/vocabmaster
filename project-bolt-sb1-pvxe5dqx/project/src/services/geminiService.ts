@@ -15,10 +15,10 @@ import {
 // ============================================================================
 
 export const USER_KEY_STORAGE = 'vocabmaster_gemini_api_key';
-export const TARGET_MODEL = 'gemini-3.5-flash-lite';
-export const FALLBACK_MODEL = 'gemini-3.5-flash';
+export const TARGET_MODEL = 'gemini-3.5-flash';
+export const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
 export const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
-export const CHUNK_SIZE = 20; // 20 items per prompt for optimal throughput & quota efficiency
+export const CHUNK_SIZE = 25; // 25 items per prompt for optimal throughput, speed & quota efficiency
 
 // Runtime preferred model (automatically switches to FALLBACK_MODEL if TARGET_MODEL returns 404/503)
 let currentPreferredModel: string = TARGET_MODEL;
@@ -139,12 +139,12 @@ interface EndpointCandidate {
 
 export const ENDPOINT_CANDIDATES: EndpointCandidate[] = [
   {
-    name: 'gemini-3.5-flash-lite (v1beta)',
-    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent',
-  },
-  {
     name: 'gemini-3.5-flash (v1beta)',
     url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
+  },
+  {
+    name: 'gemini-3.5-flash-lite (v1beta)',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent',
   },
   {
     name: 'gemini-flash-lite-latest (v1beta)',
@@ -715,59 +715,45 @@ export async function batchAuditVocabWithGemini(
   const total = vocabs.length;
   const totalChunks = Math.ceil(total / CHUNK_SIZE);
 
+  const chunks: Array<{ chunk: typeof vocabs; chunkIndex: number; startIndex: number }> = [];
   for (let i = 0; i < vocabs.length; i += CHUNK_SIZE) {
-    if (signal?.aborted) {
-      throw new Error('Đã hủy quá trình kiểm tra.');
-    }
+    chunks.push({
+      chunk: vocabs.slice(i, i + CHUNK_SIZE),
+      chunkIndex: Math.floor(i / CHUNK_SIZE) + 1,
+      startIndex: i,
+    });
+  }
 
-    const chunk = vocabs.slice(i, i + CHUNK_SIZE);
-    const chunkIndex = Math.floor(i / CHUNK_SIZE) + 1;
+  const CONCURRENCY = 2;
+  let nextChunkIdx = 0;
 
-    // Small delay between chunks to respect API rate limits (avoiding HTTP 429)
-    if (i > 0) {
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(resolve, 1200);
-        if (signal) {
-          signal.addEventListener(
-            'abort',
-            () => {
-              clearTimeout(timeout);
-              reject(new Error('Đã hủy quá trình kiểm tra.'));
-            },
-            { once: true }
-          );
-        }
-      });
-    }
+  async function worker() {
+    while (nextChunkIdx < chunks.length) {
+      if (signal?.aborted) {
+        throw new Error('Đã hủy quá trình kiểm tra.');
+      }
 
-    const entriesText = chunk
-      .map(
-        (e, idx) =>
-          `${idx + 1}. [id="${e.id}"] Word: "${e.word}", Meaning: "${e.meaning}", Type: "${e.type || ''}"`
-      )
-      .join('\n');
+      const c = chunks[nextChunkIdx++];
+      if (!c) break;
 
-    const prompt = `You are a strict English lexicographer and dictionary spellchecker.
-Analyze this list of English-Vietnamese vocabulary pairs. Identify any English spelling errors, non-existent words, typos, meaning mismatches, or invalid parts of speech.
+      const entriesText = c.chunk
+        .map(
+          (e, idx) =>
+            `${idx + 1}. [id="${e.id}"] Word: "${e.word}", Meaning: "${e.meaning}", Type: "${e.type || ''}"`
+        )
+        .join('\n');
+
+      const prompt = `You are a strict English lexicographer and dictionary spellchecker.
+Analyze this list of English-Vietnamese vocabulary pairs. Identify any English spelling errors, typos, repeated characters, meaning mismatches, or invalid parts of speech.
 
 Input entries:
 ${entriesText}
 
 CRITICAL SPELLCHECK RULES:
-1. Scrutinize EVERY letter of every word for typos and extra characters:
-   - "protecttt" (extra 't's) -> MUST fix to "protect", set hasIssue: true
-   - "protectet" (misspelling) -> MUST fix to "protect", set hasIssue: true
-   - "enviroment" -> MUST fix to "environment", set hasIssue: true
-   - "definitiely" -> MUST fix to "definitely", set hasIssue: true
-   - "succesful" -> MUST fix to "successful", set hasIssue: true
-   - Any word with repeated characters, typos, or slang MUST be corrected to its canonical dictionary form.
-2. Meaning verification:
-   - If the Vietnamese translation does not match the English word (e.g., word "apple" but meaning "Bảo vệ"), correct meaning to "Quả táo" and set hasIssue: true.
-3. If an entry is already 100% correct in spelling, meaning, and part of speech, set hasIssue: false.
-4. Return exactly ${chunk.length} entries in the same order.
-5. All correctedWord values must be in lowercase and trimmed.
-
-Respond strictly in JSON array format:
+1. Fix all spelling typos and repeated chars (e.g. "protecttt" -> "protect", "enviroment" -> "environment").
+2. Verify Vietnamese translation matches the English word.
+3. If entry is 100% correct in spelling, meaning, and part of speech, set hasIssue: false.
+4. Return exactly ${c.chunk.length} entries in the same order in JSON format:
 [
   {
     "id": "the exact id from input",
@@ -780,82 +766,90 @@ Respond strictly in JSON array format:
   }
 ]`;
 
-    // DO NOT SILENTLY CATCH: propagate errors with context so caller can show red Toast
-    let text: string;
-    try {
-      text = await geminiGenerate(prompt, {
-        temperature: 0.1,
-        responseMimeType: 'application/json',
-        signal,
-      });
-    } catch (apiErr) {
-      const msg = apiErr instanceof Error ? apiErr.message : String(apiErr);
-      throw new Error(`Lỗi kết nối Gemini ở từ ${i + 1} - ${i + chunk.length} / ${total}: ${msg}`);
-    }
-
-    let parsed: Array<{
-      id: string;
-      originalWord: string;
-      correctedWord: string;
-      correctedMeaning: string;
-      partOfSpeech: string;
-      hasIssue: boolean;
-      notes?: string[];
-    }>;
-
-    try {
-      parsed = cleanAndParseJSON<typeof parsed>(text);
-    } catch (parseErr) {
-      const msg = parseErr instanceof Error ? parseErr.message : String(parseErr);
-      throw new Error(`Lỗi phân tích JSON ở từ ${i + 1} - ${i + chunk.length}: ${msg}`);
-    }
-
-    for (let j = 0; j < chunk.length; j++) {
-      const orig = chunk[j];
-      const item = parsed.find((p) => p.id === orig.id) || parsed[j];
-      if (!item) continue;
-
-      let correctedWord = (item.correctedWord || orig.word).trim().toLowerCase();
-      const correctedMeaning = (item.correctedMeaning || orig.meaning).trim();
-      const correctedType = (item.partOfSpeech || orig.type || '').trim().toLowerCase();
-
-      // Heuristic fallback: detect 3+ identical consecutive characters (e.g., "protecttt" -> "protect")
-      const hasObviousRepetition = /(.)\1{2,}/i.test(orig.word);
-      if (hasObviousRepetition && correctedWord === orig.word.trim().toLowerCase()) {
-        correctedWord = orig.word.trim().toLowerCase().replace(/(.)\1{2,}/g, '$1');
-      }
-
-      const wordChanged = correctedWord !== orig.word.trim().toLowerCase();
-      const meaningChanged = correctedMeaning !== orig.meaning.trim();
-      const typeChanged = correctedType !== (orig.type || '').trim().toLowerCase();
-
-      if (item.hasIssue || wordChanged || meaningChanged || typeChanged || hasObviousRepetition) {
-        items.push({
-          vocabId: orig.id,
-          original: { word: orig.word, meaning: orig.meaning, type: orig.type },
-          corrected: {
-            word: correctedWord,
-            meaning: correctedMeaning,
-            partOfSpeech: correctedType,
-            ipa: '',
-          },
-          notes:
-            item.notes && item.notes.length > 0
-              ? item.notes
-              : [wordChanged || hasObviousRepetition ? `Sửa chính tả: "${orig.word}" → "${correctedWord}"` : 'Chuẩn hóa định dạng'],
+      let text: string;
+      try {
+        text = await geminiGenerate(prompt, {
+          temperature: 0.1,
+          responseMimeType: 'application/json',
+          signal,
         });
+      } catch (apiErr) {
+        const msg = apiErr instanceof Error ? apiErr.message : String(apiErr);
+        throw new Error(`Lỗi kết nối Gemini ở từ ${c.startIndex + 1} - ${c.startIndex + c.chunk.length} / ${total}: ${msg}`);
+      }
+
+      let parsed: Array<{
+        id: string;
+        originalWord: string;
+        correctedWord: string;
+        correctedMeaning: string;
+        partOfSpeech: string;
+        hasIssue: boolean;
+        notes?: string[];
+      }>;
+
+      try {
+        parsed = cleanAndParseJSON<typeof parsed>(text);
+      } catch (parseErr) {
+        const msg = parseErr instanceof Error ? parseErr.message : String(parseErr);
+        throw new Error(`Lỗi phân tích JSON ở từ ${c.startIndex + 1} - ${c.startIndex + c.chunk.length}: ${msg}`);
+      }
+
+      for (let j = 0; j < c.chunk.length; j++) {
+        const orig = c.chunk[j];
+        const item = parsed.find((p) => p.id === orig.id) || parsed[j];
+        if (!item) continue;
+
+        let correctedWord = (item.correctedWord || orig.word).trim().toLowerCase();
+        const correctedMeaning = (item.correctedMeaning || orig.meaning).trim();
+        const correctedType = (item.partOfSpeech || orig.type || '').trim().toLowerCase();
+
+        // Heuristic fallback: detect 3+ identical consecutive characters (e.g., "protecttt" -> "protect")
+        const hasObviousRepetition = /(.)\1{2,}/i.test(orig.word);
+        if (hasObviousRepetition && correctedWord === orig.word.trim().toLowerCase()) {
+          correctedWord = orig.word.trim().toLowerCase().replace(/(.)\1{2,}/g, '$1');
+        }
+
+        const wordChanged = correctedWord !== orig.word.trim().toLowerCase();
+        const meaningChanged = correctedMeaning !== orig.meaning.trim();
+        const typeChanged = correctedType !== (orig.type || '').trim().toLowerCase();
+
+        if (item.hasIssue || wordChanged || meaningChanged || typeChanged || hasObviousRepetition) {
+          items.push({
+            vocabId: orig.id,
+            original: { word: orig.word, meaning: orig.meaning, type: orig.type },
+            corrected: {
+              word: correctedWord,
+              meaning: correctedMeaning,
+              partOfSpeech: correctedType,
+              ipa: '',
+            },
+            notes:
+              item.notes && item.notes.length > 0
+                ? item.notes
+                : [wordChanged || hasObviousRepetition ? `Sửa chính tả: "${orig.word}" → "${correctedWord}"` : 'Chuẩn hóa định dạng'],
+          });
+        }
+      }
+
+      scanned += c.chunk.length;
+      onProgress?.({
+        scanned: Math.min(total, scanned),
+        total,
+        errorsFound: items.length,
+        currentChunk: Math.min(totalChunks, Math.ceil(scanned / CHUNK_SIZE)),
+        totalChunks,
+      });
+
+      // Small delay between calls from the same worker
+      if (nextChunkIdx < chunks.length) {
+        await new Promise((r) => setTimeout(r, 200));
       }
     }
-
-    scanned += chunk.length;
-    onProgress?.({
-      scanned,
-      total,
-      errorsFound: items.length,
-      currentChunk: chunkIndex,
-      totalChunks,
-    });
   }
+
+  const workers = Array.from({ length: Math.min(CONCURRENCY, chunks.length) }, () => worker());
+  await Promise.all(workers);
 
   return {
     items,
@@ -886,43 +880,39 @@ export async function normalizeSelectedVocabs(
   if (vocabs.length === 0) return [];
 
   const results: SelectedNormalizationResult[] = [];
-  const correctedWordMap = new Map<string, string>(); // lowercase word -> first id
   let scanned = 0;
   const total = vocabs.length;
   const totalChunks = Math.ceil(total / CHUNK_SIZE);
 
+  const chunks: Array<{ chunk: typeof vocabs; chunkIndex: number; startIndex: number }> = [];
   for (let i = 0; i < vocabs.length; i += CHUNK_SIZE) {
-    if (signal?.aborted) {
-      throw new Error('Đã hủy quá trình kiểm tra.');
-    }
+    chunks.push({
+      chunk: vocabs.slice(i, i + CHUNK_SIZE),
+      chunkIndex: Math.floor(i / CHUNK_SIZE) + 1,
+      startIndex: i,
+    });
+  }
 
-    const chunk = vocabs.slice(i, i + CHUNK_SIZE);
-    const chunkIndex = Math.floor(i / CHUNK_SIZE) + 1;
+  const CONCURRENCY = 2;
+  let nextChunkIdx = 0;
 
-    if (i > 0) {
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(resolve, 800);
-        if (signal) {
-          signal.addEventListener(
-            'abort',
-            () => {
-              clearTimeout(timeout);
-              reject(new Error('Đã hủy quá trình kiểm tra.'));
-            },
-            { once: true }
-          );
-        }
-      });
-    }
+  async function worker() {
+    while (nextChunkIdx < chunks.length) {
+      if (signal?.aborted) {
+        throw new Error('Đã hủy quá trình kiểm tra.');
+      }
 
-    const entriesText = chunk
-      .map(
-        (e, idx) =>
-          `${idx + 1}. [id="${e.id}"] Word: "${e.word}", Meaning: "${e.meaning}", POS: "${e.type || ''}"`
-      )
-      .join('\n');
+      const c = chunks[nextChunkIdx++];
+      if (!c) break;
 
-    const prompt = `You are a strict English lexicographer and dictionary spellchecker.
+      const entriesText = c.chunk
+        .map(
+          (e, idx) =>
+            `${idx + 1}. [id="${e.id}"] Word: "${e.word}", Meaning: "${e.meaning}", POS: "${e.type || ''}"`
+        )
+        .join('\n');
+
+      const prompt = `You are a strict English lexicographer and dictionary spellchecker.
 Review these English-Vietnamese vocabulary pairs. Identify any spelling typos, repetitive letters (e.g., 'protecttt' -> 'protect'), incorrect translations, or wrong parts of speech.
 
 Input:
@@ -941,93 +931,106 @@ Return raw JSON array:
 ]
 
 RULES:
-- Return exactly ${chunk.length} entries in order.
+- Return exactly ${c.chunk.length} entries in order.
 - Lowercase and trim all words.`;
 
-    let text: string;
-    try {
-      text = await geminiGenerate(prompt, {
-        temperature: 0.1,
-        responseMimeType: 'application/json',
-        signal,
-      });
-    } catch (apiErr) {
-      const msg = apiErr instanceof Error ? apiErr.message : String(apiErr);
-      throw new Error(`Lỗi kết nối Gemini ở từ ${i + 1} - ${i + chunk.length} / ${total}: ${msg}`);
-    }
+      let text: string;
+      try {
+        text = await geminiGenerate(prompt, {
+          temperature: 0.1,
+          responseMimeType: 'application/json',
+          signal,
+        });
+      } catch (apiErr) {
+        const msg = apiErr instanceof Error ? apiErr.message : String(apiErr);
+        throw new Error(`Lỗi kết nối Gemini ở từ ${c.startIndex + 1} - ${c.startIndex + c.chunk.length} / ${total}: ${msg}`);
+      }
 
-    let parsed: Array<{
-      id: string;
-      originalWord: string;
-      correctedWord: string;
-      correctedMeaning: string;
-      partOfSpeech: string;
-      hasIssue: boolean;
-    }>;
+      let parsed: Array<{
+        id: string;
+        originalWord: string;
+        correctedWord: string;
+        correctedMeaning: string;
+        partOfSpeech: string;
+        hasIssue: boolean;
+      }>;
 
-    try {
-      parsed = cleanAndParseJSON<typeof parsed>(text);
-    } catch (parseErr) {
-      const msg = parseErr instanceof Error ? parseErr.message : String(parseErr);
-      throw new Error(`Lỗi phân tích JSON ở từ ${i + 1} - ${i + chunk.length}: ${msg}`);
-    }
+      try {
+        parsed = cleanAndParseJSON<typeof parsed>(text);
+      } catch (parseErr) {
+        const msg = parseErr instanceof Error ? parseErr.message : String(parseErr);
+        throw new Error(`Lỗi phân tích JSON ở từ ${c.startIndex + 1} - ${c.startIndex + c.chunk.length}: ${msg}`);
+      }
 
-    for (let j = 0; j < chunk.length; j++) {
-      const vocab = chunk[j];
-      const item = parsed.find((p) => p.id === vocab.id) || parsed[j];
+      for (let j = 0; j < c.chunk.length; j++) {
+        const vocab = c.chunk[j];
+        const item = parsed.find((p) => p.id === vocab.id) || parsed[j];
 
-      if (!item) {
+        if (!item) {
+          results.push({
+            id: vocab.id,
+            originalWord: vocab.word,
+            correctedWord: vocab.word.trim().toLowerCase(),
+            correctedMeaning: vocab.meaning.trim(),
+            partOfSpeech: (vocab.type || '').trim().toLowerCase(),
+            wasChanged: false,
+          });
+          continue;
+        }
+
+        let correctedWord = (item.correctedWord || vocab.word).trim().toLowerCase();
+        const correctedMeaning = (item.correctedMeaning || vocab.meaning).trim();
+        const correctedType = (item.partOfSpeech || vocab.type || '').trim().toLowerCase();
+
+        // Heuristic check: triple repeated characters like "protecttt"
+        const hasObviousRepetition = /(.)\1{2,}/i.test(vocab.word);
+        if (hasObviousRepetition && correctedWord === vocab.word.trim().toLowerCase()) {
+          correctedWord = vocab.word.trim().toLowerCase().replace(/(.)\1{2,}/g, '$1');
+        }
+
+        const wasChanged =
+          item.hasIssue ??
+          (correctedWord !== vocab.word.trim().toLowerCase() ||
+            correctedMeaning !== vocab.meaning.trim() ||
+            hasObviousRepetition);
+
         results.push({
           id: vocab.id,
           originalWord: vocab.word,
-          correctedWord: vocab.word.trim().toLowerCase(),
-          correctedMeaning: vocab.meaning.trim(),
-          partOfSpeech: (vocab.type || '').trim().toLowerCase(),
-          wasChanged: false,
+          correctedWord,
+          correctedMeaning,
+          partOfSpeech: correctedType,
+          wasChanged,
         });
-        continue;
       }
 
-      let correctedWord = (item.correctedWord || vocab.word).trim().toLowerCase();
-      const correctedMeaning = (item.correctedMeaning || vocab.meaning).trim();
-      const correctedType = (item.partOfSpeech || vocab.type || '').trim().toLowerCase();
-
-      // Heuristic check: triple repeated characters like "protecttt"
-      const hasObviousRepetition = /(.)\1{2,}/i.test(vocab.word);
-      if (hasObviousRepetition && correctedWord === vocab.word.trim().toLowerCase()) {
-        correctedWord = vocab.word.trim().toLowerCase().replace(/(.)\1{2,}/g, '$1');
-      }
-
-      const isDuplicateOf = correctedWordMap.get(correctedWord);
-      const wasChanged =
-        item.hasIssue ??
-        (correctedWord !== vocab.word.trim().toLowerCase() ||
-          correctedMeaning !== vocab.meaning.trim() ||
-          hasObviousRepetition);
-
-      results.push({
-        id: vocab.id,
-        originalWord: vocab.word,
-        correctedWord,
-        correctedMeaning,
-        partOfSpeech: correctedType,
-        wasChanged,
-        isDuplicateOf,
+      scanned += c.chunk.length;
+      onProgress?.({
+        scanned: Math.min(total, scanned),
+        total,
+        errorsFound: results.filter((r) => r.wasChanged).length,
+        currentChunk: Math.min(totalChunks, Math.ceil(scanned / CHUNK_SIZE)),
+        totalChunks,
       });
 
-      if (!isDuplicateOf) {
-        correctedWordMap.set(correctedWord, vocab.id);
+      if (nextChunkIdx < chunks.length) {
+        await new Promise((r) => setTimeout(r, 200));
       }
     }
+  }
 
-    scanned += chunk.length;
-    onProgress?.({
-      scanned,
-      total,
-      errorsFound: results.filter((r) => r.wasChanged).length,
-      currentChunk: chunkIndex,
-      totalChunks,
-    });
+  const workers = Array.from({ length: Math.min(CONCURRENCY, chunks.length) }, () => worker());
+  await Promise.all(workers);
+
+  // Mark cross-chunk duplicates
+  const seenMap = new Map<string, string>();
+  for (const r of results) {
+    const existingId = seenMap.get(r.correctedWord);
+    if (existingId && existingId !== r.id) {
+      r.isDuplicateOf = existingId;
+    } else {
+      seenMap.set(r.correctedWord, r.id);
+    }
   }
 
   return results;

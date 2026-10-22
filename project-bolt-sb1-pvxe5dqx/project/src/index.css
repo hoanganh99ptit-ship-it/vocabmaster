@@ -315,14 +315,16 @@ select {
   border: 1px solid rgba(217, 119, 6, 0.3) !important;
 }
 
-.theme-cinema [class*="bg-indigo-50"],
-.theme-cinema [class*="bg-teal-50"],
-.theme-cinema [class*="from-indigo-50"],
-.theme-cinema [class*="from-amber-50"],
-.theme-cinema [class*="from-orange-50"],
-.theme-cinema [class*="from-sky-50"],
-.theme-cinema [class*="bg-amber-50"],
-.theme-cinema [class*="bg-orange-50"] {
+.theme-cinema .bg-indigo-50,
+.theme-cinema .bg-teal-50,
+.theme-cinema .from-indigo-50,
+.theme-cinema .from-amber-50,
+.theme-cinema .from-orange-50,
+.theme-cinema .from-sky-50,
+.theme-cinema .bg-amber-50,
+.theme-cinema .bg-orange-50,
+.theme-cinema div[class*="from-amber-50"]:not([class*="500"]),
+.theme-cinema div[class*="from-orange-50"]:not([class*="500"]) {
   background-color: #17120e !important;
   background-image: none !important;
   border-color: rgba(217, 119, 6, 0.4) !important;
@@ -637,6 +639,14 @@ select {
   color: #0c0a08 !important;
   font-weight: 800 !important;
   border-color: #fbbf24 !important;
+  box-shadow: 0 4px 18px rgba(217, 119, 6, 0.4) !important;
+}
+
+.theme-cinema .bg-gradient-to-r.from-amber-500.to-orange-500 {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
+  color: #fffbeb !important;
+  font-weight: 700 !important;
+  border: 1px solid rgba(251, 191, 36, 0.5) !important;
   box-shadow: 0 4px 18px rgba(217, 119, 6, 0.4) !important;
 }
 
