@@ -720,23 +720,77 @@ export function ClozeTest() {
         >
           {renderSentenceWithBlank()}
 
-          {/* Full Sentence Audio & Translation (when answered) */}
+          {/* Full Sentence Audio & Translation & Word Meaning (when answered) */}
           {answered && (
             <div className="mt-5 pt-4 border-t border-slate-200/40 space-y-3 animate-fade-in">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => speak(currentQ.fullSentence, rate)}
-                  className={`flex items-center gap-2 text-xs font-bold px-3.5 py-2 rounded-xl transition-all cursor-pointer ${
-                    theme === 'cinema'
-                      ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40'
-                      : 'bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200'
-                  }`}
-                >
-                  <Volume2 className="w-4 h-4 text-amber-500" />
-                  <span>{t('clozeListenFull')}</span>
-                </button>
+              {/* Target Word Meaning Showcase */}
+              <div
+                className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                  theme === 'cinema'
+                    ? 'bg-amber-950/40 border-amber-500/35 text-amber-100'
+                    : theme === 'retro'
+                    ? 'bg-amber-50 border-amber-200 text-stone-900'
+                    : 'bg-emerald-50/80 border-emerald-200 text-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
+                    {lang === 'vi' ? 'Nghĩa của từ:' : 'Word meaning:'}
+                  </span>
+                  <span
+                    className={`text-base font-bold ${
+                      theme === 'cinema' ? 'text-amber-300' : 'text-slate-900'
+                    }`}
+                  >
+                    {currentQ.vocab.word}
+                  </span>
+                  {currentQ.vocab.type && (
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-white/20 border border-current/20">
+                      {currentQ.vocab.type}
+                    </span>
+                  )}
+                  <span className="text-slate-400">•</span>
+                  <span
+                    className={`text-sm font-bold ${
+                      theme === 'cinema' ? 'text-emerald-300' : 'text-emerald-700'
+                    }`}
+                  >
+                    {currentQ.vocab.meaning}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 flex-shrink-0 self-start sm:self-center">
+                  <button
+                    type="button"
+                    onClick={() => speak(currentQ.vocab.word, rate)}
+                    className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
+                      theme === 'cinema'
+                        ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-500/40'
+                        : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                    }`}
+                    title={lang === 'vi' ? 'Phát âm từ vựng' : 'Pronounce word'}
+                  >
+                    <Volume2 className="w-3.5 h-3.5 text-amber-500" />
+                    <span>{currentQ.vocab.word}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => speak(currentQ.fullSentence, rate)}
+                    className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
+                      theme === 'cinema'
+                        ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-500/40'
+                        : 'bg-sky-50 hover:bg-sky-100 text-sky-700 border-sky-200'
+                    }`}
+                    title={lang === 'vi' ? 'Phát âm cả câu' : 'Pronounce sentence'}
+                  >
+                    <Volume2 className="w-3.5 h-3.5 text-amber-500" />
+                    <span>{t('clozeListenFull')}</span>
+                  </button>
+                </div>
               </div>
+
+              {/* Sentence Translation */}
               {currentQ.translation && (
                 <div
                   className={`text-sm p-3.5 rounded-xl border leading-relaxed ${
