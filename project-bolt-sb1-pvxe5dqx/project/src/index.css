@@ -136,7 +136,8 @@ select {
   border-color: #ebdccb !important;
 }
 
-.theme-retro .bg-slate-50 {
+.theme-retro .bg-slate-50,
+.theme-retro [class*="bg-slate-50"] {
   background-color: #f7f1e7 !important;
 }
 
@@ -302,8 +303,32 @@ select {
   color: #fffbeb !important;
 }
 
-.theme-cinema .bg-slate-50 {
+.theme-cinema .bg-slate-50,
+.theme-cinema [class*="bg-slate-50"] {
   background-color: #14100c !important;
+}
+
+/* Feedback states in Cinema Mode */
+.theme-cinema .bg-emerald-50,
+.theme-cinema [class*="bg-emerald-50"] {
+  background-color: rgba(6, 78, 59, 0.45) !important;
+  border-color: rgba(16, 185, 129, 0.6) !important;
+  color: #6ee7b7 !important;
+}
+
+.theme-cinema .bg-rose-50,
+.theme-cinema [class*="bg-rose-50"] {
+  background-color: rgba(136, 19, 55, 0.45) !important;
+  border-color: rgba(244, 63, 94, 0.6) !important;
+  color: #fda4af !important;
+}
+
+.theme-cinema .border-emerald-400 {
+  border-color: rgba(16, 185, 129, 0.7) !important;
+}
+
+.theme-cinema .border-rose-400 {
+  border-color: rgba(244, 63, 94, 0.7) !important;
 }
 
 .theme-cinema .border-slate-200,

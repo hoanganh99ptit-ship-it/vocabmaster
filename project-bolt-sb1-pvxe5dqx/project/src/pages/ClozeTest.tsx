@@ -1,6 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import {
-  FileEdit,
   Sparkles,
   ChevronRight,
   RotateCcw,
@@ -9,7 +8,6 @@ import {
   CheckCircle2,
   XCircle,
   Lightbulb,
-  HelpCircle,
   Flame,
   ArrowRight,
   Keyboard,
@@ -19,11 +17,13 @@ import {
 } from 'lucide-react';
 import { useVocab } from '@/context/VocabContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/components/Toast';
 import { speak, speedOptions, getGlobalRate, setGlobalRate } from '@/lib/speech';
 import { addPracticeRecord } from '@/lib/storage';
 import { generateClozeQuestions } from '@/services/geminiService';
 import type { Vocabulary, ClozeQuestion } from '@/lib/types';
+import type { TranslationKey } from '@/lib/i18n';
 
 const QUESTION_COUNTS = [5, 10, 15, 20];
 
@@ -31,7 +31,7 @@ function shuffle<T>(arr: T[]): T[] {
   const copy = [...arr];
   for (let i = copy.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
+    [copy[j], copy[i]] = [copy[i], copy[j]];
   }
   return copy;
 }
@@ -39,10 +39,11 @@ function shuffle<T>(arr: T[]): T[] {
 export function ClozeTest() {
   const { vocabs, incrementError, updateSRS } = useVocab();
   const { t, lang } = useLanguage();
+  const { theme } = useTheme();
   const { show } = useToast();
 
   const [phase, setPhase] = useState<'setup' | 'loading' | 'playing' | 'done'>('setup');
-  const [mode, setMode] = useState<'typing' | 'choice'>('typing');
+  const [mode, setMode] = useState<'choice' | 'typing'>('choice');
   const [count, setCount] = useState(10);
   const [selectedChest, setSelectedChest] = useState<string>('ALL');
 
@@ -109,7 +110,6 @@ export function ClozeTest() {
 
     setPhase('loading');
 
-    // Pick words for practice (prioritize weak words or random shuffle)
     const targetCount = Math.min(count, filteredVocabs.length);
     const chosenVocabs = shuffle(filteredVocabs).slice(0, targetCount);
 
@@ -223,27 +223,55 @@ export function ClozeTest() {
     const after = parts.slice(1).join('______');
 
     let blankContent = '______';
-    let blankClass = 'text-indigo-600 font-bold border-b-2 border-indigo-400 px-2 py-0.5 mx-1 inline-block';
+    let blankClass =
+      theme === 'cinema'
+        ? 'text-amber-400 font-bold border-b-2 border-amber-400 px-2.5 py-0.5 mx-1 inline-block tracking-widest'
+        : 'text-sky-600 font-bold border-b-2 border-sky-500 px-2.5 py-0.5 mx-1 inline-block tracking-widest';
 
     if (answered) {
       if (isCorrect) {
         blankContent = currentQ.vocab.word;
-        blankClass = 'text-emerald-700 bg-emerald-100 font-bold px-2.5 py-0.5 rounded-lg border border-emerald-300 mx-1 inline-block animate-pulse';
+        blankClass =
+          theme === 'cinema'
+            ? 'text-emerald-300 bg-emerald-950/70 font-bold px-3 py-0.5 rounded-lg border border-emerald-500/60 mx-1 inline-block animate-pulse'
+            : 'text-emerald-700 bg-emerald-100 font-bold px-3 py-0.5 rounded-lg border border-emerald-300 mx-1 inline-block animate-pulse';
       } else {
-        blankContent = `${currentQ.vocab.word}`;
-        blankClass = 'text-rose-700 bg-rose-100 font-bold px-2.5 py-0.5 rounded-lg border border-rose-300 mx-1 inline-block line-through';
+        const userWord =
+          mode === 'typing'
+            ? typedAnswer.trim() || '...'
+            : selectedChoice !== null
+            ? currentQ.options[selectedChoice] || '...'
+            : '...';
+        blankContent = userWord;
+        blankClass =
+          theme === 'cinema'
+            ? 'text-rose-400 bg-rose-950/70 font-bold px-3 py-0.5 rounded-lg border border-rose-500/60 mx-1 inline-block line-through'
+            : 'text-rose-700 bg-rose-100 font-bold px-3 py-0.5 rounded-lg border border-rose-300 mx-1 inline-block line-through';
       }
     } else if (mode === 'typing' && typedAnswer.trim()) {
       blankContent = typedAnswer.trim();
-      blankClass = 'text-indigo-700 bg-indigo-50 font-bold px-2.5 py-0.5 rounded-lg border border-indigo-300 mx-1 inline-block';
+      blankClass =
+        theme === 'cinema'
+          ? 'text-amber-300 bg-amber-950/40 font-bold px-2.5 py-0.5 rounded-lg border border-amber-500/50 mx-1 inline-block'
+          : 'text-sky-700 bg-sky-50 font-bold px-2.5 py-0.5 rounded-lg border border-sky-300 mx-1 inline-block';
     }
 
     return (
-      <div className="text-xl sm:text-2xl text-slate-800 leading-relaxed font-medium">
+      <div
+        className={`text-xl sm:text-2xl leading-relaxed font-medium ${
+          theme === 'cinema' ? 'text-[#fffbeb]' : 'text-slate-800'
+        }`}
+      >
         <span>{before}</span>
         <span className={blankClass}>{blankContent}</span>
         {answered && !isCorrect && (
-          <span className="text-emerald-700 bg-emerald-100 font-bold px-2.5 py-0.5 rounded-lg border border-emerald-300 mx-1 inline-block">
+          <span
+            className={
+              theme === 'cinema'
+                ? 'text-emerald-300 bg-emerald-950/70 font-bold px-3 py-0.5 rounded-lg border border-emerald-500/60 mx-1 inline-block'
+                : 'text-emerald-700 bg-emerald-100 font-bold px-3 py-0.5 rounded-lg border border-emerald-300 mx-1 inline-block'
+            }
+          >
             {currentQ.vocab.word}
           </span>
         )}
@@ -256,68 +284,89 @@ export function ClozeTest() {
   if (phase === 'setup') {
     return (
       <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-8 sm:p-10 shadow-sm text-center relative overflow-hidden">
-          {/* Decorative ambient gradient */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-72 h-32 bg-gradient-to-b from-indigo-500/10 to-transparent blur-2xl pointer-events-none" />
-
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center mb-5 shadow-md shadow-indigo-500/20">
-            <FileEdit className="w-8 h-8 text-white" />
+        <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm text-center relative overflow-hidden">
+          <div
+            className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${
+              theme === 'cinema'
+                ? 'bg-amber-500/15 border border-amber-500/30 text-amber-400'
+                : 'bg-sky-100 text-sky-500'
+            }`}
+          >
+            <Layers className="w-8 h-8" />
           </div>
 
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            {t('clozeTitle')}
-          </h2>
-          <p className="text-slate-500 mt-2 text-base max-w-md mx-auto">
-            {t('clozeDesc')}
-          </p>
+          <h2 className="text-2xl font-bold text-slate-800">{t('clozeTitle')}</h2>
+          <p className="text-slate-500 mt-1">{t('clozeDesc')}</p>
 
           {/* Mode Selector */}
-          <div className="mt-8 text-left bg-slate-50 border border-slate-200 rounded-2xl p-4">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+          <div
+            className={`mt-8 text-left rounded-xl p-4 border ${
+              theme === 'cinema'
+                ? 'bg-[#15100c] border-amber-600/30'
+                : 'bg-slate-50 border-slate-200'
+            }`}
+          >
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
               {t('clozeMode')}
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => setMode('typing')}
-                className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all ${
-                  mode === 'typing'
-                    ? 'border-indigo-600 bg-white shadow-sm ring-2 ring-indigo-500/20'
-                    : 'border-slate-200 hover:border-slate-300 bg-white/60'
-                }`}
-              >
-                <div
-                  className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                    mode === 'typing' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'
-                  }`}
-                >
-                  <Keyboard className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="font-bold text-sm text-slate-800">{t('clozeModeTyping')}</div>
-                  <div className="text-xs text-slate-500">Gợi nhớ chủ động, gõ từ vào ô trống</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
                 onClick={() => setMode('choice')}
-                className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all ${
+                className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                   mode === 'choice'
-                    ? 'border-indigo-600 bg-white shadow-sm ring-2 ring-indigo-500/20'
+                    ? theme === 'cinema'
+                      ? 'border-amber-500 bg-amber-500/10 shadow-sm ring-1 ring-amber-500/30'
+                      : 'border-sky-500 bg-white shadow-sm ring-2 ring-sky-500/20'
                     : 'border-slate-200 hover:border-slate-300 bg-white/60'
                 }`}
               >
                 <div
                   className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                    mode === 'choice' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'
+                    mode === 'choice'
+                      ? theme === 'cinema'
+                        ? 'bg-amber-500 text-stone-950 font-bold'
+                        : 'bg-sky-500 text-white'
+                      : 'bg-slate-100 text-slate-500'
                   }`}
                 >
                   <ListFilter className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="font-bold text-sm text-slate-800">{t('clozeModeChoice')}</div>
-                  <div className="text-xs text-slate-500">Chọn 1 trong 4 đáp án theo ngữ cảnh</div>
+                  <div className="text-xs text-slate-500">
+                    {lang === 'vi' ? 'Chọn 1 trong 4 đáp án theo ngữ cảnh' : 'Pick 1 of 4 choices in context'}
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMode('typing')}
+                className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                  mode === 'typing'
+                    ? theme === 'cinema'
+                      ? 'border-amber-500 bg-amber-500/10 shadow-sm ring-1 ring-amber-500/30'
+                      : 'border-sky-500 bg-white shadow-sm ring-2 ring-sky-500/20'
+                    : 'border-slate-200 hover:border-slate-300 bg-white/60'
+                }`}
+              >
+                <div
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    mode === 'typing'
+                      ? theme === 'cinema'
+                        ? 'bg-amber-500 text-stone-950 font-bold'
+                        : 'bg-sky-500 text-white'
+                      : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  <Keyboard className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="font-bold text-sm text-slate-800">{t('clozeModeTyping')}</div>
+                  <div className="text-xs text-slate-500">
+                    {lang === 'vi' ? 'Gợi nhớ chủ động, gõ từ vào ô trống' : 'Type the missing word from memory'}
+                  </div>
                 </div>
               </button>
             </div>
@@ -325,21 +374,29 @@ export function ClozeTest() {
 
           {/* Filter Chest */}
           {availableChests.length > 1 && (
-            <div className="mt-5 text-left bg-slate-50 border border-slate-200 rounded-2xl p-4">
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+            <div
+              className={`mt-4 text-left rounded-xl p-4 border ${
+                theme === 'cinema'
+                  ? 'bg-[#15100c] border-amber-600/30'
+                  : 'bg-slate-50 border-slate-200'
+              }`}
+            >
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
                 {t('chest')}
               </label>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => setSelectedChest('ALL')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     selectedChest === 'ALL'
-                      ? 'bg-indigo-600 text-white shadow-sm'
+                      ? theme === 'cinema'
+                        ? 'bg-amber-500 text-stone-950 font-bold'
+                        : 'bg-sky-500 text-white shadow-xs'
                       : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300'
                   }`}
                 >
-                  Tất cả rương ({vocabs.length})
+                  {lang === 'vi' ? 'Tất cả rương' : 'All chests'} ({vocabs.length})
                 </button>
                 {availableChests.map((cat) => {
                   const countInCat = vocabs.filter((v) => v.category === cat).length;
@@ -348,9 +405,11 @@ export function ClozeTest() {
                       key={cat}
                       type="button"
                       onClick={() => setSelectedChest(cat)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                         selectedChest === cat
-                          ? 'bg-indigo-600 text-white shadow-sm'
+                          ? theme === 'cinema'
+                            ? 'bg-amber-500 text-stone-950 font-bold'
+                            : 'bg-sky-500 text-white shadow-xs'
                           : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300'
                       }`}
                     >
@@ -365,15 +424,17 @@ export function ClozeTest() {
           {/* Question Count Selection */}
           <div className="mt-6">
             <p className="text-sm font-semibold text-slate-600 mb-3">{t('questionCount')}</p>
-            <div className="flex gap-2.5 justify-center flex-wrap">
+            <div className="flex gap-2 justify-center flex-wrap">
               {QUESTION_COUNTS.map((n) => (
                 <button
                   key={n}
                   onClick={() => setCount(n)}
-                  className={`w-14 h-14 rounded-2xl font-bold text-base transition-all ${
+                  className={`w-16 h-16 rounded-2xl font-bold text-lg transition-all cursor-pointer ${
                     count === n
-                      ? 'bg-gradient-to-tr from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/20 scale-105'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                      ? theme === 'cinema'
+                        ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-stone-950 shadow-md shadow-amber-500/20'
+                        : 'bg-gradient-to-br from-sky-500 to-teal-500 text-white shadow-md shadow-sky-500/20'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
                   {n}
@@ -386,10 +447,10 @@ export function ClozeTest() {
           <button
             onClick={handleStart}
             disabled={filteredVocabs.length === 0}
-            className="mt-8 w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-700 hover:via-indigo-600 hover:to-violet-700 text-white font-bold text-lg shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
+            className="mt-8 px-8 py-3.5 rounded-xl bg-gradient-to-r from-sky-500 to-teal-500 text-white font-semibold hover:from-sky-600 hover:to-teal-600 transition-all shadow-md disabled:opacity-50 inline-flex items-center justify-center gap-2 cursor-pointer"
           >
             <span>{t('startSentence')}</span>
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            <ArrowRight className="w-5 h-5" />
           </button>
         </div>
       </div>
@@ -400,13 +461,23 @@ export function ClozeTest() {
   if (phase === 'loading') {
     return (
       <div className="max-w-md mx-auto text-center py-20">
-        <div className="w-16 h-16 mx-auto rounded-3xl bg-indigo-100 flex items-center justify-center text-indigo-600 mb-4 animate-bounce">
+        <div
+          className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 animate-bounce ${
+            theme === 'cinema'
+              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+              : 'bg-sky-100 text-sky-600'
+          }`}
+        >
           <Sparkles className="w-8 h-8" />
         </div>
         <h3 className="text-xl font-bold text-slate-800">{t('clozeGenerating')}</h3>
         <p className="text-slate-500 text-sm mt-2">{t('clozeGeneratingDesc')}</p>
         <div className="mt-6 flex justify-center">
-          <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+          <Loader2
+            className={`w-6 h-6 animate-spin ${
+              theme === 'cinema' ? 'text-amber-500' : 'text-sky-500'
+            }`}
+          />
         </div>
       </div>
     );
@@ -414,32 +485,53 @@ export function ClozeTest() {
 
   // 3. DONE PHASE (RESULTS)
   if (phase === 'done') {
-    const accuracy = Math.round((score / questions.length) * 100);
+    const percentage = Math.round((score / questions.length) * 100);
     return (
       <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-3xl border border-slate-200 p-8 sm:p-10 shadow-sm text-center">
-          <div className="w-20 h-20 mx-auto rounded-3xl bg-amber-100 text-amber-500 flex items-center justify-center mb-5 shadow-sm">
-            <Trophy className="w-10 h-10" />
+        <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm text-center">
+          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-amber-400 to-orange-400 flex items-center justify-center mb-4 shadow-md">
+            <Trophy className="w-10 h-10 text-white" />
           </div>
 
-          <h2 className="text-3xl font-extrabold text-slate-800">{t('clozeComplete')}</h2>
+          <h2 className="text-2xl font-bold text-slate-800">{t('clozeComplete')}</h2>
           <p className="text-slate-500 mt-1">{t('clozeScore')}</p>
 
-          <div className="my-6 inline-flex items-baseline gap-2 bg-gradient-to-r from-indigo-50 to-violet-50 px-8 py-4 rounded-3xl border border-indigo-100">
-            <span className="text-5xl font-black text-indigo-600">{score}</span>
-            <span className="text-2xl font-bold text-slate-400">/ {questions.length}</span>
-            <span className="text-lg font-bold text-indigo-500 ml-3">({accuracy}%)</span>
+          <div className="mt-6 flex items-center justify-center gap-8">
+            <div>
+              <p
+                className={`text-4xl font-bold ${
+                  theme === 'cinema' ? 'text-amber-400' : 'text-sky-600'
+                }`}
+              >
+                {score}
+              </p>
+              <p className="text-sm text-slate-500">{t('correct')}</p>
+            </div>
+            <div className="w-px h-12 bg-slate-200" />
+            <div>
+              <p className="text-4xl font-bold text-slate-400">{questions.length - score}</p>
+              <p className="text-sm text-slate-500">{t('incorrect')}</p>
+            </div>
+            <div className="w-px h-12 bg-slate-200" />
+            <div>
+              <p className="text-4xl font-bold text-teal-600">{percentage}%</p>
+              <p className="text-sm text-slate-500">{t('score')}</p>
+            </div>
           </div>
 
           {maxStreak > 1 && (
-            <div className="flex items-center justify-center gap-2 text-sm font-semibold text-amber-600 mb-6">
+            <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-amber-500 mt-4">
               <Flame className="w-4 h-4 fill-amber-500" />
-              <span>Chuỗi đúng liên tiếp dài nhất: {maxStreak} câu!</span>
+              <span>
+                {lang === 'vi'
+                  ? `Chuỗi đúng dài nhất: ${maxStreak} câu liên tiếp!`
+                  : `Best streak: ${maxStreak} in a row!`}
+              </span>
             </div>
           )}
 
           {/* Results Review list */}
-          <div className="mt-8 text-left divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden max-h-96 overflow-y-auto">
+          <div className="mt-8 text-left divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden max-h-96 overflow-y-auto">
             {historyResults.map((r, i) => (
               <div key={i} className="p-4 bg-white hover:bg-slate-50 transition-colors">
                 <div className="flex items-start justify-between gap-3">
@@ -454,7 +546,7 @@ export function ClozeTest() {
                   </div>
                   <button
                     onClick={() => speak(r.fullSentence, rate)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors cursor-pointer"
                     title={t('playAudio')}
                   >
                     <Volume2 className="w-4 h-4" />
@@ -466,7 +558,7 @@ export function ClozeTest() {
                 )}
                 {!r.correct && r.userAnswer && (
                   <div className="text-xs text-rose-600 font-semibold mt-1">
-                    Bạn đã điền: &quot;{r.userAnswer}&quot;
+                    {lang === 'vi' ? 'Bạn đã chọn/điền:' : 'You answered:'} &quot;{r.userAnswer}&quot;
                   </div>
                 )}
               </div>
@@ -477,7 +569,7 @@ export function ClozeTest() {
           <div className="mt-8 flex gap-3 justify-center">
             <button
               onClick={() => setPhase('setup')}
-              className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold hover:from-indigo-700 hover:to-violet-700 transition-all shadow-md shadow-indigo-500/20"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-sky-500 to-teal-500 text-white font-semibold hover:from-sky-600 hover:to-teal-600 transition-all shadow-md cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
               {t('clozeRetry')}
@@ -489,107 +581,173 @@ export function ClozeTest() {
   }
 
   // 4. PLAYING PHASE
+  const progress = ((current + 1) / questions.length) * 100;
+
   return (
     <div className="max-w-2xl mx-auto">
       {/* Top Header / Stats */}
-      <div className="flex items-center justify-between mb-4 px-1">
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-200">
-            {t('question')} {current + 1} / {questions.length}
-          </span>
-          {streak > 1 && (
-            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 animate-pulse">
-              <Flame className="w-3.5 h-3.5 fill-amber-500" />
-              <span>{streak} Streak!</span>
-            </div>
-          )}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold text-slate-600">
+              {t('question')} {current + 1} {t('of')} {questions.length}
+            </span>
+            {streak > 1 && (
+              <span
+                className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${
+                  theme === 'cinema'
+                    ? 'bg-amber-950/60 border-amber-500/40 text-amber-300'
+                    : 'bg-amber-50 border-amber-200 text-amber-700'
+                } animate-pulse`}
+              >
+                <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                <span>{streak} Streak!</span>
+              </span>
+            )}
+          </div>
+
+          {/* Speech Speed Setting */}
+          <div className="flex items-center gap-1.5">
+            <Volume2 className="w-4 h-4 text-slate-400" />
+            <select
+              value={rate}
+              onChange={(e) => {
+                const r = parseFloat(e.target.value);
+                setRate(r);
+                setGlobalRate(r);
+              }}
+              className="text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-sky-400 cursor-pointer"
+            >
+              {speedOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {t(opt.key as TranslationKey)}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        {/* Speech Speed Setting */}
-        <div className="flex items-center gap-1.5">
-          <Volume2 className="w-4 h-4 text-slate-400" />
-          <select
-            value={rate}
-            onChange={(e) => {
-              const r = parseFloat(e.target.value);
-              setRate(r);
-              setGlobalRate(r);
-            }}
-            className="text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          >
-            {speedOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+        {/* Progress Bar */}
+        <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-300 ${
+              theme === 'cinema'
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-400'
+                : theme === 'retro'
+                ? 'bg-gradient-to-r from-amber-600 to-orange-500'
+                : 'bg-gradient-to-r from-sky-500 to-teal-500'
+            }`}
+            style={{ width: `${progress}%` }}
+          />
         </div>
-      </div>
-
-      {/* Progress Bar */}
-      <div className="w-full bg-slate-200/80 rounded-full h-2 mb-6 overflow-hidden">
-        <div
-          className="bg-gradient-to-r from-indigo-500 to-violet-500 h-2 rounded-full transition-all duration-300"
-          style={{ width: `${((current + 1) / questions.length) * 100}%` }}
-        />
       </div>
 
       {/* Main Question Card */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm relative">
-        {/* Category tag */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
+        {/* Category tag & Hint Button */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
               {currentQ.vocab.category || 'General'}
             </span>
             <span className="text-xs text-slate-300">•</span>
-            <span className="text-xs font-semibold text-slate-500">{currentQ.vocab.type || 'word'}</span>
+            {currentQ.vocab.type && (
+              <span
+                className={`inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full border ${
+                  theme === 'cinema'
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                    : 'bg-sky-50 border-sky-100 text-sky-600'
+                }`}
+              >
+                {currentQ.vocab.type}
+              </span>
+            )}
           </div>
 
           <button
+            type="button"
             onClick={() => setShowHint(!showHint)}
-            className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors ${
-              showHint ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${
+              showHint
+                ? theme === 'cinema'
+                  ? 'bg-amber-950/70 border-amber-500/60 text-amber-300'
+                  : 'bg-amber-100 border-amber-300 text-amber-800'
+                : theme === 'cinema'
+                ? 'bg-stone-900/80 border-amber-500/20 text-stone-300 hover:text-amber-200 hover:border-amber-500/40'
+                : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            <Lightbulb className="w-3.5 h-3.5" />
+            <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
             <span>{showHint ? t('clozeHintActive') : t('clozeHint')}</span>
           </button>
         </div>
 
-        {/* Hint Accordion */}
+        {/* Hint Box */}
         {showHint && (
-          <div className="mb-5 p-3.5 rounded-2xl bg-amber-50 border border-amber-200/70 text-amber-900 text-xs sm:text-sm animate-fadeIn">
-            <div className="font-semibold flex items-center gap-1.5 mb-1">
-              <Lightbulb className="w-4 h-4 text-amber-600" />
-              <span>{t('clozeMeaningLabel')}: {currentQ.vocab.meaning}</span>
+          <div
+            className={`mb-6 p-4 rounded-xl border text-xs sm:text-sm animate-fade-in ${
+              theme === 'cinema'
+                ? 'bg-amber-950/40 border-amber-500/30 text-amber-200'
+                : 'bg-amber-50/90 border-amber-200 text-amber-900'
+            }`}
+          >
+            <div className="font-semibold flex items-center gap-1.5 mb-1.5">
+              <Lightbulb className="w-4 h-4 text-amber-500 flex-shrink-0" />
+              <span>
+                {t('clozeMeaningLabel')}:{' '}
+                <strong className="text-sm sm:text-base">{currentQ.vocab.meaning}</strong>
+              </span>
             </div>
-            <div className="text-amber-700">
-              {t('clozeFirstLetter')}: <strong className="uppercase">{currentQ.vocab.word.charAt(0)}...</strong> ({currentQ.vocab.word.length} {t('letters')})
+            <div className="opacity-90 pl-5">
+              {t('clozeFirstLetter')}:{' '}
+              <strong className="uppercase font-mono text-sm sm:text-base">
+                {currentQ.vocab.word.charAt(0)}...
+              </strong>{' '}
+              ({currentQ.vocab.word.length} {t('letters')})
             </div>
           </div>
         )}
 
-        {/* The Sentence with Blank */}
-        <div className="my-6 p-6 rounded-2xl bg-slate-50/80 border border-slate-100 relative">
+        {/* The Sentence with Blank (Designed with Perfect Contrast) */}
+        <div
+          className={`my-6 p-6 sm:p-7 rounded-2xl border transition-all ${
+            theme === 'cinema'
+              ? 'bg-[#15100c] border-amber-600/35 shadow-inner'
+              : theme === 'retro'
+              ? 'bg-[#fbf6ee] border-[#ebdccb]'
+              : 'bg-slate-50 border-slate-200'
+          }`}
+        >
           {renderSentenceWithBlank()}
 
           {/* Full Sentence Audio & Translation (when answered) */}
           {answered && (
-            <div className="mt-4 pt-3 border-t border-slate-200/60 space-y-2.5">
+            <div className="mt-5 pt-4 border-t border-slate-200/40 space-y-3 animate-fade-in">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => speak(currentQ.fullSentence, rate)}
-                  className="flex items-center gap-2 text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition-colors shadow-sm"
+                  className={`flex items-center gap-2 text-xs font-bold px-3.5 py-2 rounded-xl transition-all cursor-pointer ${
+                    theme === 'cinema'
+                      ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40'
+                      : 'bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200'
+                  }`}
                 >
-                  <Volume2 className="w-4 h-4" />
+                  <Volume2 className="w-4 h-4 text-amber-500" />
                   <span>{t('clozeListenFull')}</span>
                 </button>
               </div>
               {currentQ.translation && (
-                <div className="text-sm text-slate-700 italic bg-white/80 p-3 rounded-xl border border-slate-200/70 leading-relaxed shadow-xs">
-                  <span className="font-semibold text-slate-800 not-italic mr-1.5">Dịch nghĩa câu:</span>
+                <div
+                  className={`text-sm p-3.5 rounded-xl border leading-relaxed ${
+                    theme === 'cinema'
+                      ? 'bg-stone-900/80 border-amber-500/25 text-stone-200'
+                      : 'bg-white border-slate-200 text-slate-700'
+                  }`}
+                >
+                  <span className="font-semibold text-amber-500 mr-2">
+                    {lang === 'vi' ? 'Dịch nghĩa câu:' : 'Sentence Translation:'}
+                  </span>
                   {currentQ.translation}
                 </div>
               )}
@@ -597,89 +755,120 @@ export function ClozeTest() {
           )}
         </div>
 
-        {/* Input Mechanism: Mode Typing vs Choice */}
-        {!answered ? (
-          mode === 'typing' ? (
-            <div className="mt-6">
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleCheck();
-                }}
-                className="flex gap-2"
-              >
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={typedAnswer}
-                  onChange={(e) => setTypedAnswer(e.target.value)}
-                  placeholder={t('clozeTypePlaceholder')}
-                  autoComplete="off"
-                  autoCorrect="off"
-                  spellCheck="false"
-                  className="flex-1 px-4 py-3.5 rounded-2xl border border-slate-200 bg-white text-slate-900 text-base font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all shadow-sm"
-                />
+        {/* Interaction: Mode Typing vs Choice */}
+        {mode === 'typing' ? (
+          <div className="mt-6">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!answered) handleCheck();
+              }}
+              className="flex gap-2"
+            >
+              <input
+                ref={inputRef}
+                type="text"
+                disabled={answered}
+                value={typedAnswer}
+                onChange={(e) => setTypedAnswer(e.target.value)}
+                placeholder={t('clozeTypePlaceholder')}
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck="false"
+                className={`flex-1 px-4 py-3.5 rounded-xl border text-base font-semibold focus:outline-none focus:ring-2 transition-all ${
+                  answered
+                    ? isCorrect
+                      ? 'border-emerald-500 bg-emerald-950/20 text-emerald-400'
+                      : 'border-rose-500 bg-rose-950/20 text-rose-400'
+                    : 'border-slate-200 bg-white text-slate-900 focus:ring-sky-400'
+                }`}
+              />
+              {!answered && (
                 <button
                   type="submit"
                   disabled={!typedAnswer.trim()}
-                  className="px-6 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md shadow-indigo-500/20 transition-all disabled:opacity-40"
+                  className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-sky-500 to-teal-500 text-white font-semibold hover:from-sky-600 hover:to-teal-600 shadow-md transition-all disabled:opacity-40 cursor-pointer"
                 >
                   {t('clozeCheck')}
                 </button>
-              </form>
-            </div>
-          ) : (
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {currentQ.options.map((opt, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleCheck(idx)}
-                  className="flex items-center justify-between p-4 rounded-2xl border border-slate-200 bg-white hover:border-indigo-400 hover:bg-indigo-50/40 text-left transition-all font-bold text-slate-800 shadow-sm hover:shadow"
-                >
-                  <span className="text-base">{opt}</span>
-                  <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 text-xs flex items-center justify-center font-bold">
-                    {String.fromCharCode(65 + idx)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )
+              )}
+            </form>
+          </div>
         ) : (
-          /* Post-Answer Feedback Banner & Next Button */
-          <div className="mt-6">
-            <div
-              className={`p-4 rounded-2xl border flex items-center justify-between ${
-                isCorrect
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                  : 'bg-rose-50 border-rose-200 text-rose-800'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                {isCorrect ? (
-                  <CheckCircle2 className="w-6 h-6 text-emerald-600 flex-shrink-0" />
-                ) : (
-                  <XCircle className="w-6 h-6 text-rose-600 flex-shrink-0" />
-                )}
-                <div>
-                  <div className="font-bold text-sm">
-                    {isCorrect ? t('correct') + '! 🎉' : `${t('incorrect')}! Đáp án đúng: "${currentQ.vocab.word}"`}
-                  </div>
-                  <div className="text-xs opacity-80 mt-0.5">
-                    Nghĩa: {currentQ.vocab.meaning}
+          /* Choice Mode: Synchronized exactly with Quiz.tsx */
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {currentQ.options.map((option, idx) => {
+              const isCorrectOpt = idx === currentQ.correctIndex;
+              const isSelectedOpt = idx === selectedChoice;
+
+              let style = 'border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50 text-slate-700';
+
+              if (answered) {
+                if (isCorrectOpt) {
+                  style = 'border-emerald-400 bg-emerald-50 text-emerald-700';
+                } else if (isSelectedOpt) {
+                  style = 'border-rose-400 bg-rose-50 text-rose-700';
+                } else {
+                  style = 'border-slate-200 bg-white text-slate-400 opacity-50';
+                }
+              }
+
+              return (
+                <div
+                  key={idx}
+                  className={`flex items-center justify-between px-5 py-4 rounded-xl border-2 font-semibold transition-all ${style}`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleCheck(idx)}
+                    disabled={answered}
+                    className="flex-1 text-left cursor-pointer"
+                  >
+                    <span className="text-base">{option}</span>
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        speak(option, rate);
+                      }}
+                      className="w-7 h-7 rounded-full bg-sky-50 hover:bg-sky-100 text-sky-500 flex items-center justify-center transition-colors flex-shrink-0 cursor-pointer"
+                      title={t('playAudio')}
+                    >
+                      <Volume2 className="w-3.5 h-3.5" />
+                    </button>
+
+                    {answered && isCorrectOpt && (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                    )}
+                    {answered && isSelectedOpt && !isCorrectOpt && (
+                      <XCircle className="w-5 h-5 text-rose-500 flex-shrink-0" />
+                    )}
+
+                    {!answered && (
+                      <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 text-xs flex items-center justify-center font-bold">
+                        {String.fromCharCode(65 + idx)}
+                      </span>
+                    )}
                   </div>
                 </div>
-              </div>
-
-              <button
-                onClick={handleNext}
-                autoFocus
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-sm hover:bg-black transition-all shadow-sm"
-              >
-                <span>{t('clozeNext')}</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+              );
+            })}
           </div>
+        )}
+
+        {/* Next Question / Finish Button (Consistent with Quiz.tsx) */}
+        {answered && (
+          <button
+            onClick={handleNext}
+            autoFocus
+            className="mt-6 w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-sky-500 to-teal-500 text-white font-semibold hover:from-sky-600 hover:to-teal-600 transition-all shadow-md animate-fade-in cursor-pointer"
+          >
+            <span>{current + 1 >= questions.length ? t('finishQuiz') : t('clozeNext')}</span>
+            <ChevronRight className="w-5 h-5" />
+          </button>
         )}
       </div>
     </div>
