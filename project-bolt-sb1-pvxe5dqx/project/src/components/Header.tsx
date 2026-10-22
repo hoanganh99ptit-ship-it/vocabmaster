@@ -182,10 +182,12 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
                   </div>
                   <button
                     onClick={handleSignOut}
-                    className="p-1.5 rounded-xl text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
+                    className="flex items-center gap-1 p-1.5 px-2 rounded-xl text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all shrink-0 cursor-pointer"
                     title={t('logout')}
+                    aria-label={t('logout')}
                   >
                     <LogOut className="w-4 h-4" />
+                    <span className="text-[11px] font-bold hidden xl:inline">{t('logout')}</span>
                   </button>
                 </div>
               ) : (
@@ -262,9 +264,22 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
                 </div>
               )}
               {user && (
-                <div className="pt-2 border-t border-slate-100 flex items-center gap-2 px-4 py-2">
-                  <UserIcon className="w-4 h-4 text-slate-400" />
-                  <span className="text-sm text-slate-600 truncate flex-1">{user.email}</span>
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between px-4 py-2">
+                  <div className="flex items-center gap-2 truncate flex-1 min-w-0 mr-2">
+                    <UserIcon className="w-4 h-4 text-slate-400 shrink-0" />
+                    <span className="text-sm text-slate-600 truncate">{user.email}</span>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      setMobileOpen(false);
+                      await handleSignOut();
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors shrink-0 cursor-pointer"
+                    title={t('logout')}
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>{t('logout')}</span>
+                  </button>
                 </div>
               )}
             </nav>

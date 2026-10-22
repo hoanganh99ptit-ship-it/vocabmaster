@@ -22,6 +22,7 @@ import {
   Trophy,
   HelpCircle,
   Film,
+  RotateCw,
 } from 'lucide-react';
 import { RetroFilmRollModal } from '@/components/RetroFilmRollModal';
 import { useAuth } from '@/context/AuthContext';
@@ -505,6 +506,20 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
         </div>
         <h3 className="text-lg font-bold text-slate-700">{t('noWords')}</h3>
         <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">{t('noWordsDesc')}</p>
+        {user && (
+          <div className="mt-6 flex flex-col items-center gap-2">
+            <button
+              onClick={() => refresh()}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-sky-700 bg-sky-50 border border-sky-200 hover:bg-sky-100 hover:border-sky-300 transition-all cursor-pointer shadow-xs"
+            >
+              <RotateCw className="w-4 h-4" />
+              <span>{lang === 'vi' ? 'Đồng bộ & tải lại từ Cloud' : 'Sync & reload from Cloud'}</span>
+            </button>
+            <p className="text-xs text-slate-400">
+              {lang === 'vi' ? `Tài khoản: ${user.email}` : `Account: ${user.email}`}
+            </p>
+          </div>
+        )}
         {!user && (
           <div className="mt-6 p-4 rounded-2xl bg-amber-50 border border-amber-200/80 max-w-md mx-auto text-amber-900 text-xs text-left shadow-xs">
             <span className="font-bold block mb-1">
