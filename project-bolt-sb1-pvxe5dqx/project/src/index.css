@@ -317,10 +317,33 @@ select {
 
 .theme-cinema [class*="bg-indigo-50"],
 .theme-cinema [class*="bg-teal-50"],
-.theme-cinema [class*="from-indigo-50"] {
-  background-color: #15100c !important;
+.theme-cinema [class*="from-indigo-50"],
+.theme-cinema [class*="from-amber-50"],
+.theme-cinema [class*="from-orange-50"],
+.theme-cinema [class*="from-sky-50"],
+.theme-cinema [class*="bg-amber-50"],
+.theme-cinema [class*="bg-orange-50"] {
+  background-color: #17120e !important;
   background-image: none !important;
-  border-color: rgba(217, 119, 6, 0.3) !important;
+  border-color: rgba(217, 119, 6, 0.4) !important;
+  color: #fffbeb !important;
+}
+
+.theme-cinema [class*="border-amber-200"],
+.theme-cinema [class*="border-sky-200"] {
+  border-color: rgba(217, 119, 6, 0.38) !important;
+}
+
+.theme-cinema [class*="bg-amber-200"] {
+  background-color: rgba(217, 119, 6, 0.25) !important;
+  border-color: rgba(245, 158, 11, 0.45) !important;
+  color: #fde047 !important;
+}
+
+.theme-cinema [class*="bg-amber-200/60"],
+.theme-cinema [class*="bg-indigo-200/60"] {
+  background-color: #261e17 !important;
+  border: 1px solid rgba(217, 119, 6, 0.3) !important;
 }
 
 /* Feedback states in Cinema Mode */
@@ -630,6 +653,15 @@ select {
   background-color: #1a140f !important;
   border: 1.5px solid rgba(217, 119, 6, 0.45) !important;
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95) !important;
+}
+
+/* Floating Toolbar in Cinema Mode */
+.theme-cinema .fixed.bottom-6 {
+  background: rgba(24, 19, 14, 0.96) !important;
+  border: 1.5px solid rgba(245, 158, 11, 0.4) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85), 0 0 20px rgba(217, 119, 6, 0.2) !important;
+  backdrop-filter: blur(12px) !important;
+  color: #fffbeb !important;
 }
 
 /* Cinema Scrollbar */

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Mail, Lock, BookOpen, User as UserIcon } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { useTheme } from '@/context/ThemeContext';
 import type { TranslationKey } from '@/lib/i18n';
 
 type AuthMode = 'login' | 'signup' | 'reset';
@@ -15,6 +16,7 @@ interface AuthModalProps {
 export function AuthModal({ open, initialMode, onClose }: AuthModalProps) {
   const { signIn, signUp, resetPassword } = useAuth();
   const { t } = useLanguage();
+  const { theme } = useTheme();
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -96,46 +98,80 @@ export function AuthModal({ open, initialMode, onClose }: AuthModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-scale-in">
+    <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div className={`rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-scale-in border ${
+        theme === 'cinema'
+          ? 'bg-[#18130e] border-amber-500/40 text-amber-100 shadow-black/80'
+          : 'bg-white border-slate-200'
+      }`}>
         {/* Header */}
-        <div className="relative bg-gradient-to-br from-sky-500 to-teal-500 px-8 pt-8 pb-6">
+        <div className={`relative px-8 pt-8 pb-6 ${
+          theme === 'cinema'
+            ? 'bg-gradient-to-r from-stone-900 via-neutral-900 to-amber-950 border-b border-amber-500/30 text-amber-100'
+            : 'bg-gradient-to-br from-sky-500 to-teal-500 text-white'
+        }`}>
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors"
+            className={`absolute top-4 right-4 transition-colors cursor-pointer ${
+              theme === 'cinema' ? 'text-amber-300/80 hover:text-amber-100' : 'text-white/80 hover:text-white'
+            }`}
           >
             <X className="w-5 h-5" />
           </button>
-          <div className="flex items-center gap-2 text-white mb-2">
-            <BookOpen className="w-7 h-7" />
-            <span className="text-xl font-bold">{t('appName')}</span>
+          <div className="flex items-center gap-2 mb-2">
+            <BookOpen className={`w-7 h-7 ${theme === 'cinema' ? 'text-amber-400' : 'text-white'}`} />
+            <span className={`text-xl font-bold ${theme === 'cinema' ? 'text-amber-100 font-serif' : 'text-white'}`}>
+              {t('appName')}
+            </span>
           </div>
-          <h2 className="text-2xl font-bold text-white">{t(titles[mode])}</h2>
-          <p className="text-sm text-white/80 mt-1">{t(subtitles[mode])}</p>
+          <h2 className={`text-2xl font-bold ${theme === 'cinema' ? 'text-amber-100 font-serif' : 'text-white'}`}>
+            {t(titles[mode])}
+          </h2>
+          <p className={`text-sm mt-1 ${theme === 'cinema' ? 'text-stone-300' : 'text-white/80'}`}>
+            {t(subtitles[mode])}
+          </p>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-8 space-y-4">
           {error && (
-            <div className="bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 text-sm text-rose-700">
+            <div className={`rounded-xl px-4 py-3 text-sm border ${
+              theme === 'cinema'
+                ? 'bg-rose-950/60 border-rose-500/40 text-rose-300'
+                : 'bg-rose-50 border-rose-200 text-rose-700'
+            }`}>
               {error}
             </div>
           )}
           {successMsg && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-sm text-emerald-700">
+            <div className={`rounded-xl px-4 py-3 text-sm border ${
+              theme === 'cinema'
+                ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+            }`}>
               {successMsg}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">{t('email')}</label>
+            <label className={`block text-sm font-semibold mb-1.5 ${
+              theme === 'cinema' ? 'text-amber-300/90' : 'text-slate-700'
+            }`}>
+              {t('email')}
+            </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <Mail className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 ${
+                theme === 'cinema' ? 'text-stone-500' : 'text-slate-400'
+              }`} />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all"
+                className={`w-full pl-11 pr-4 py-3 rounded-xl border transition-all focus:outline-none focus:ring-2 ${
+                  theme === 'cinema'
+                    ? 'border-amber-500/40 bg-stone-900 text-amber-100 placeholder-stone-500 focus:ring-amber-400'
+                    : 'border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400 focus:ring-sky-400'
+                }`}
                 placeholder="you@example.com"
                 autoComplete="email"
               />
@@ -144,14 +180,24 @@ export function AuthModal({ open, initialMode, onClose }: AuthModalProps) {
 
           {mode !== 'reset' && (
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">{t('password')}</label>
+              <label className={`block text-sm font-semibold mb-1.5 ${
+                theme === 'cinema' ? 'text-amber-300/90' : 'text-slate-700'
+              }`}>
+                {t('password')}
+              </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <Lock className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 ${
+                  theme === 'cinema' ? 'text-stone-500' : 'text-slate-400'
+                }`} />
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all"
+                  className={`w-full pl-11 pr-4 py-3 rounded-xl border transition-all focus:outline-none focus:ring-2 ${
+                    theme === 'cinema'
+                      ? 'border-amber-500/40 bg-stone-900 text-amber-100 placeholder-stone-500 focus:ring-amber-400'
+                      : 'border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400 focus:ring-sky-400'
+                  }`}
                   placeholder="••••••••"
                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 />
@@ -162,7 +208,11 @@ export function AuthModal({ open, initialMode, onClose }: AuthModalProps) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-sky-500 to-teal-500 text-white font-semibold hover:from-sky-600 hover:to-teal-600 transition-all shadow-md shadow-sky-500/20 disabled:opacity-60"
+            className={`w-full py-3 rounded-xl font-semibold transition-all shadow-md disabled:opacity-60 cursor-pointer ${
+              theme === 'cinema'
+                ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-950 font-bold hover:from-amber-500 hover:to-amber-400 shadow-amber-950/40'
+                : 'bg-gradient-to-r from-sky-500 to-teal-500 text-white hover:from-sky-600 hover:to-teal-600 shadow-sky-500/20'
+            }`}
           >
             {loading ? t('loading') : mode === 'login' ? t('login') : mode === 'signup' ? t('createAccount') : t('sendResetLink')}
           </button>
@@ -174,29 +224,49 @@ export function AuthModal({ open, initialMode, onClose }: AuthModalProps) {
                 <button
                   type="button"
                   onClick={() => { setMode('reset'); setError(null); setSuccessMsg(null); }}
-                  className="text-sm text-sky-600 hover:text-sky-700 font-medium"
+                  className={`text-sm font-medium ${
+                    theme === 'cinema' ? 'text-amber-400 hover:text-amber-300' : 'text-sky-600 hover:text-sky-700'
+                  }`}
                 >
                   {t('forgotPassword')}
                 </button>
-                <p className="text-sm text-slate-500">
+                <p className={`text-sm ${theme === 'cinema' ? 'text-stone-400' : 'text-slate-500'}`}>
                   {t('noAccount')}{' '}
-                  <button type="button" onClick={() => { setMode('signup'); setError(null); setSuccessMsg(null); }} className="text-sky-600 hover:text-sky-700 font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => { setMode('signup'); setError(null); setSuccessMsg(null); }}
+                    className={`font-semibold ${
+                      theme === 'cinema' ? 'text-amber-400 hover:text-amber-300' : 'text-sky-600 hover:text-sky-700'
+                    }`}
+                  >
                     {t('signUp')}
                   </button>
                 </p>
               </>
             )}
             {mode === 'signup' && (
-              <p className="text-sm text-slate-500">
+              <p className={`text-sm ${theme === 'cinema' ? 'text-stone-400' : 'text-slate-500'}`}>
                 {t('haveAccount')}{' '}
-                <button type="button" onClick={() => { setMode('login'); setError(null); setSuccessMsg(null); }} className="text-sky-600 hover:text-sky-700 font-semibold">
+                <button
+                  type="button"
+                  onClick={() => { setMode('login'); setError(null); setSuccessMsg(null); }}
+                  className={`font-semibold ${
+                    theme === 'cinema' ? 'text-amber-400 hover:text-amber-300' : 'text-sky-600 hover:text-sky-700'
+                  }`}
+                >
                   {t('login')}
                 </button>
               </p>
             )}
             {mode === 'reset' && (
-              <p className="text-sm text-slate-500">
-                <button type="button" onClick={() => { setMode('login'); setError(null); setSuccessMsg(null); }} className="text-sky-600 hover:text-sky-700 font-semibold">
+              <p className={`text-sm ${theme === 'cinema' ? 'text-stone-400' : 'text-slate-500'}`}>
+                <button
+                  type="button"
+                  onClick={() => { setMode('login'); setError(null); setSuccessMsg(null); }}
+                  className={`font-semibold ${
+                    theme === 'cinema' ? 'text-amber-400 hover:text-amber-300' : 'text-sky-600 hover:text-sky-700'
+                  }`}
+                >
                   {t('backToLogin')}
                 </button>
               </p>

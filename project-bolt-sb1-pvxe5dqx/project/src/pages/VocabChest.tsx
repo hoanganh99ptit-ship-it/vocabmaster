@@ -52,6 +52,7 @@ import {
   type StreakData,
   type GoalDifficulty,
 } from '@/lib/storage';
+import { useTheme } from '@/context/ThemeContext';
 import type { Vocabulary, CollocationItem, TabKey } from '@/lib/types';
 
 interface VocabChestProps {
@@ -63,6 +64,7 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
   const { vocabs, loading: vocabLoading, deleteVocabs, updateVocab, refresh, deduplicateVocabs } = useVocab();
   const { t, tFn, tFn2, lang } = useLanguage();
   const { show } = useToast();
+  const { theme } = useTheme();
 
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
@@ -780,24 +782,36 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
 
       {/* Sticky / Prominent AI Progress Bar Banner */}
       {(auditing || normalizingSelected) && auditProgress && (
-        <div className="mb-5 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border border-amber-200 shadow-md animate-slide-up">
+        <div className={`mb-5 p-4 sm:p-5 rounded-2xl border shadow-md animate-slide-up ${
+          theme === 'cinema'
+            ? 'bg-[#18130e]/95 border-amber-500/40 text-amber-100 shadow-2xl shadow-amber-950/40'
+            : 'bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border-amber-200'
+        }`}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-sm flex-shrink-0">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0 ${
+                theme === 'cinema' ? 'bg-amber-600 text-stone-950' : 'bg-amber-500 text-white'
+              }`}>
                 <Loader2 className="w-5 h-5 animate-spin" />
               </div>
               <div>
-                <h4 className="font-bold text-slate-800 text-sm sm:text-base flex items-center gap-2">
+                <h4 className={`font-bold text-sm sm:text-base flex items-center gap-2 ${
+                  theme === 'cinema' ? 'text-amber-100' : 'text-slate-800'
+                }`}>
                   <span>
                     {auditing
                       ? (lang === 'vi' ? 'Đang dọn dẹp lỗi chính tả với AI...' : 'Cleaning spelling errors with AI...')
                       : (lang === 'vi' ? 'Đang chuẩn hóa các từ đã chọn...' : 'Normalizing selected vocabulary...')}
                   </span>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                    theme === 'cinema' ? 'bg-amber-500/30 text-amber-300 border border-amber-500/40' : 'bg-amber-200 text-amber-900'
+                  }`}>
                     {Math.round((auditProgress.scanned / Math.max(1, auditProgress.total)) * 100)}%
                   </span>
                 </h4>
-                <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+                <p className={`text-xs sm:text-sm mt-0.5 ${
+                  theme === 'cinema' ? 'text-amber-200/80' : 'text-slate-600'
+                }`}>
                   {lang === 'vi'
                     ? `Đang kiểm tra từ ${auditProgress.scanned} / ${auditProgress.total}... (Cụm ${auditProgress.currentChunk}/${auditProgress.totalChunks} • 15 từ/lượt)`
                     : `Checking word ${auditProgress.scanned} / ${auditProgress.total}... (Chunk ${auditProgress.currentChunk}/${auditProgress.totalChunks} • 15 words/batch)`}
@@ -807,7 +821,9 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
 
             <div className="flex items-center gap-2.5 self-end sm:self-center">
               {auditProgress.errorsFound > 0 && (
-                <span className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg">
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
+                  theme === 'cinema' ? 'text-rose-300 bg-rose-950/60 border border-rose-500/40' : 'text-rose-600 bg-rose-50 border border-rose-200'
+                }`}>
                   {lang === 'vi' ? `Đã phát hiện: ${auditProgress.errorsFound} lỗi` : `Found: ${auditProgress.errorsFound} issues`}
                 </span>
               )}
@@ -815,7 +831,11 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
                 <button
                   type="button"
                   onClick={handleCancelAudit}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 bg-white hover:bg-slate-100 hover:text-slate-900 transition-colors shadow-sm"
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors shadow-sm ${
+                    theme === 'cinema'
+                      ? 'bg-stone-900 border-amber-500/40 text-amber-200 hover:bg-stone-800 hover:text-white'
+                      : 'border-slate-300 text-slate-700 bg-white hover:bg-slate-100 hover:text-slate-900'
+                  }`}
                 >
                   {lang === 'vi' ? 'Dừng lại' : 'Stop'}
                 </button>
@@ -824,9 +844,15 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
           </div>
 
           {/* Progress track */}
-          <div className="w-full bg-amber-200/60 rounded-full h-3 overflow-hidden shadow-inner p-0.5">
+          <div className={`w-full rounded-full h-3 overflow-hidden shadow-inner p-0.5 ${
+            theme === 'cinema' ? 'bg-stone-900/90 border border-amber-500/30' : 'bg-amber-200/60'
+          }`}>
             <div
-              className="bg-gradient-to-r from-amber-500 to-orange-500 h-full rounded-full transition-all duration-300 ease-out shadow-sm"
+              className={`h-full rounded-full transition-all duration-300 ease-out shadow-sm ${
+                theme === 'cinema'
+                  ? 'bg-gradient-to-r from-amber-600 via-amber-400 to-yellow-300'
+                  : 'bg-gradient-to-r from-amber-500 to-orange-500'
+              }`}
               style={{
                 width: `${Math.min(100, Math.max(3, Math.round((auditProgress.scanned / Math.max(1, auditProgress.total)) * 100)))}%`,
               }}
@@ -837,24 +863,36 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
 
       {/* Prominent AI Collocation Progress Banner */}
       {batchCollocationLoading && collocationProgress && (
-        <div className="mb-5 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-sky-50 via-indigo-50 to-sky-50 border border-sky-200 shadow-md animate-slide-up">
+        <div className={`mb-5 p-4 sm:p-5 rounded-2xl border shadow-md animate-slide-up ${
+          theme === 'cinema'
+            ? 'bg-[#18130e]/95 border-amber-500/40 text-amber-100 shadow-2xl shadow-amber-950/40'
+            : 'bg-gradient-to-r from-sky-50 via-indigo-50 to-sky-50 border-sky-200'
+        }`}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm flex-shrink-0">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0 ${
+                theme === 'cinema' ? 'bg-amber-600 text-stone-950' : 'bg-indigo-600 text-white'
+              }`}>
                 <Loader2 className="w-5 h-5 animate-spin" />
               </div>
               <div>
-                <h4 className="font-bold text-slate-800 text-sm sm:text-base flex items-center gap-2">
+                <h4 className={`font-bold text-sm sm:text-base flex items-center gap-2 ${
+                  theme === 'cinema' ? 'text-amber-100' : 'text-slate-800'
+                }`}>
                   <span>
                     {lang === 'vi'
                       ? 'AI đang tìm cụm từ cố định (Collocations & Phrasal Pairing)...'
                       : 'AI is finding natural collocations & phrasal pairings...'}
                   </span>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-indigo-200 text-indigo-900">
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                    theme === 'cinema' ? 'bg-amber-500/30 text-amber-300 border border-amber-500/40' : 'bg-indigo-200 text-indigo-900'
+                  }`}>
                     {Math.round((collocationProgress.done / Math.max(1, collocationProgress.total)) * 100)}%
                   </span>
                 </h4>
-                <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+                <p className={`text-xs sm:text-sm mt-0.5 ${
+                  theme === 'cinema' ? 'text-amber-200/80' : 'text-slate-600'
+                }`}>
                   {lang === 'vi'
                     ? `Đang tìm cụm từ cho từ ${collocationProgress.done} / ${collocationProgress.total}...`
                     : `Finding collocations for word ${collocationProgress.done} / ${collocationProgress.total}...`}
@@ -867,7 +905,11 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
                 <button
                   type="button"
                   onClick={handleCancelCollocation}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 bg-white hover:bg-slate-100 hover:text-slate-900 transition-colors shadow-sm"
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors shadow-sm ${
+                    theme === 'cinema'
+                      ? 'bg-stone-900 border-amber-500/40 text-amber-200 hover:bg-stone-800 hover:text-white'
+                      : 'border-slate-300 text-slate-700 bg-white hover:bg-slate-100 hover:text-slate-900'
+                  }`}
                 >
                   {lang === 'vi' ? 'Dừng lại' : 'Stop'}
                 </button>
@@ -876,9 +918,15 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
           </div>
 
           {/* Progress track */}
-          <div className="w-full bg-indigo-200/60 rounded-full h-3 overflow-hidden shadow-inner p-0.5">
+          <div className={`w-full rounded-full h-3 overflow-hidden shadow-inner p-0.5 ${
+            theme === 'cinema' ? 'bg-stone-900/90 border border-amber-500/30' : 'bg-indigo-200/60'
+          }`}>
             <div
-              className="bg-gradient-to-r from-sky-500 to-indigo-600 h-full rounded-full transition-all duration-300 ease-out shadow-sm"
+              className={`h-full rounded-full transition-all duration-300 ease-out shadow-sm ${
+                theme === 'cinema'
+                  ? 'bg-gradient-to-r from-amber-600 via-amber-400 to-yellow-300'
+                  : 'bg-gradient-to-r from-sky-500 to-indigo-600'
+              }`}
               style={{
                 width: `${Math.min(100, Math.max(3, Math.round((collocationProgress.done / Math.max(1, collocationProgress.total)) * 100)))}%`,
               }}
@@ -1173,44 +1221,62 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
 
       {/* Floating action bar for selected items */}
       {selected.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-slate-800 text-white px-5 py-3 rounded-2xl shadow-2xl animate-slide-up">
-          <span className="text-sm font-semibold">{selected.size} {t('deleteSelected').toLowerCase()}</span>
-          <div className="w-px h-6 bg-slate-600" />
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 sm:gap-3 px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl shadow-2xl animate-slide-up ${
+          theme === 'cinema'
+            ? 'bg-[#18130e]/95 text-amber-100 border border-amber-500/40 backdrop-blur-md shadow-amber-950/60 ring-1 ring-amber-500/20'
+            : 'bg-slate-800 text-white'
+        }`}>
+          <span className={`text-xs sm:text-sm font-bold flex items-center gap-1.5 ${
+            theme === 'cinema' ? 'text-amber-300' : 'text-white'
+          }`}>
+            <span className={`w-2 h-2 rounded-full ${theme === 'cinema' ? 'bg-amber-400 animate-pulse' : 'bg-sky-400'}`} />
+            {lang === 'vi' ? `Đã chọn ${selected.size}` : `Selected ${selected.size}`}
+          </span>
+          <div className={`w-px h-5 ${theme === 'cinema' ? 'bg-amber-500/30' : 'bg-slate-600'}`} />
           <button
             onClick={handleNormalizeSelected}
             disabled={normalizingSelected}
-            className="flex items-center gap-1.5 text-sm font-semibold text-amber-300 hover:text-amber-200 transition-colors"
+            className={`flex items-center gap-1.5 text-xs sm:text-sm font-semibold transition-colors ${
+              theme === 'cinema' ? 'text-amber-300 hover:text-amber-100' : 'text-amber-300 hover:text-amber-200'
+            }`}
           >
             {normalizingSelected ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {tFn('aiFixSelectedCount', selected.size)}
+            <span>{tFn('aiFixSelectedCount', selected.size)}</span>
           </button>
-          <div className="w-px h-6 bg-slate-600" />
+          <div className={`w-px h-5 ${theme === 'cinema' ? 'bg-amber-500/30' : 'bg-slate-600'}`} />
           <button
             onClick={() => handleBatchCollocations(vocabs.filter((v) => selected.has(v.id)))}
             disabled={batchCollocationLoading}
-            className="flex items-center gap-1.5 text-sm font-semibold text-indigo-300 hover:text-indigo-200 transition-colors"
+            className={`flex items-center gap-1.5 text-xs sm:text-sm font-semibold transition-colors ${
+              theme === 'cinema' ? 'text-amber-200 hover:text-yellow-200' : 'text-indigo-300 hover:text-indigo-200'
+            }`}
           >
             {batchCollocationLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-            {lang === 'vi' ? `Cụm từ (${selected.size})` : `Collocations (${selected.size})`}
+            <span>{lang === 'vi' ? `Cụm từ (${selected.size})` : `Collocations (${selected.size})`}</span>
           </button>
-          <div className="w-px h-6 bg-slate-600" />
+          <div className={`w-px h-5 ${theme === 'cinema' ? 'bg-amber-500/30' : 'bg-slate-600'}`} />
           <button
             onClick={() => setMoveOpen(true)}
-            className="flex items-center gap-1.5 text-sm font-semibold text-sky-300 hover:text-sky-200 transition-colors"
+            className={`flex items-center gap-1.5 text-xs sm:text-sm font-semibold transition-colors ${
+              theme === 'cinema' ? 'text-amber-300 hover:text-amber-100' : 'text-sky-300 hover:text-sky-200'
+            }`}
           >
             <ArrowRight className="w-4 h-4" />
-            {t('moveSelected')}
+            <span>{t('moveSelected')}</span>
           </button>
+          <div className={`w-px h-5 ${theme === 'cinema' ? 'bg-amber-500/30' : 'bg-slate-600'}`} />
           <button
             onClick={() => setConfirmOpen(true)}
-            className="flex items-center gap-1.5 text-sm font-semibold text-rose-300 hover:text-rose-200 transition-colors"
+            className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-rose-400 hover:text-rose-300 transition-colors"
           >
             <Trash2 className="w-4 h-4" />
-            {t('deleteSelected')}
+            <span>{t('deleteSelected')}</span>
           </button>
           <button
             onClick={() => setSelected(new Set())}
-            className="text-slate-400 hover:text-white transition-colors"
+            className={`ml-1 transition-colors ${
+              theme === 'cinema' ? 'text-stone-400 hover:text-amber-200' : 'text-slate-400 hover:text-white'
+            }`}
           >
             <X className="w-4 h-4" />
           </button>
@@ -1219,53 +1285,91 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
 
       {/* Edit modal */}
       {editTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xl max-w-md w-full">
-            <h3 className="text-lg font-bold text-slate-800 mb-4">{t('editWord')}</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className={`rounded-2xl border p-6 shadow-2xl max-w-md w-full ${
+            theme === 'cinema'
+              ? 'bg-[#1a140f] border-amber-500/40 text-amber-100'
+              : 'bg-white border-slate-200 text-slate-800'
+          }`}>
+            <h3 className={`text-lg font-bold mb-4 ${theme === 'cinema' ? 'text-amber-100 font-serif' : 'text-slate-800'}`}>
+              {t('editWord')}
+            </h3>
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-semibold text-slate-500 mb-1 block">{t('word')}</label>
+                <label className={`text-xs font-semibold mb-1 block ${theme === 'cinema' ? 'text-amber-300/80' : 'text-slate-500'}`}>
+                  {t('word')}
+                </label>
                 <input
                   value={editTarget.word}
                   onChange={(e) => setEditTarget({ ...editTarget, word: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+                  className={`w-full px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 ${
+                    theme === 'cinema'
+                      ? 'bg-stone-900 border border-amber-500/40 text-amber-100 focus:ring-amber-400'
+                      : 'border border-slate-200 text-slate-800 focus:ring-sky-400'
+                  }`}
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-500 mb-1 block">{t('type')}</label>
+                <label className={`text-xs font-semibold mb-1 block ${theme === 'cinema' ? 'text-amber-300/80' : 'text-slate-500'}`}>
+                  {t('type')}
+                </label>
                 <input
                   value={editTarget.type}
                   onChange={(e) => setEditTarget({ ...editTarget, type: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+                  className={`w-full px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 ${
+                    theme === 'cinema'
+                      ? 'bg-stone-900 border border-amber-500/40 text-amber-100 focus:ring-amber-400'
+                      : 'border border-slate-200 text-slate-800 focus:ring-sky-400'
+                  }`}
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-500 mb-1 block">{t('meaning')}</label>
+                <label className={`text-xs font-semibold mb-1 block ${theme === 'cinema' ? 'text-amber-300/80' : 'text-slate-500'}`}>
+                  {t('meaning')}
+                </label>
                 <input
                   value={editTarget.meaning}
                   onChange={(e) => setEditTarget({ ...editTarget, meaning: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+                  className={`w-full px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 ${
+                    theme === 'cinema'
+                      ? 'bg-stone-900 border border-amber-500/40 text-amber-100 focus:ring-amber-400'
+                      : 'border border-slate-200 text-slate-800 focus:ring-sky-400'
+                  }`}
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-500 mb-1 block">{t('category')}</label>
+                <label className={`text-xs font-semibold mb-1 block ${theme === 'cinema' ? 'text-amber-300/80' : 'text-slate-500'}`}>
+                  {t('category')}
+                </label>
                 <input
                   value={editTarget.category}
                   onChange={(e) => setEditTarget({ ...editTarget, category: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+                  className={`w-full px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 ${
+                    theme === 'cinema'
+                      ? 'bg-stone-900 border border-amber-500/40 text-amber-100 focus:ring-amber-400'
+                      : 'border border-slate-200 text-slate-800 focus:ring-sky-400'
+                  }`}
                 />
               </div>
             </div>
             <div className="flex items-center justify-end gap-2 mt-6">
               <button
                 onClick={() => setEditTarget(null)}
-                className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                  theme === 'cinema'
+                    ? 'text-stone-300 hover:bg-stone-800 hover:text-white'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
               >
                 {t('cancel')}
               </button>
               <button
                 onClick={() => handleSaveEdit(editTarget)}
-                className="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-sky-500 hover:bg-sky-600 transition-colors shadow-sm"
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm ${
+                  theme === 'cinema'
+                    ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-950 font-bold hover:from-amber-500 hover:to-amber-400'
+                    : 'text-white bg-sky-500 hover:bg-sky-600'
+                }`}
               >
                 {t('saveChanges')}
               </button>
@@ -1276,34 +1380,52 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
 
       {/* Move category modal */}
       {moveOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xl max-w-sm w-full">
-            <h3 className="text-lg font-bold text-slate-800 mb-4">{t('moveTo')}</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className={`rounded-2xl border p-6 shadow-2xl max-w-sm w-full ${
+            theme === 'cinema'
+              ? 'bg-[#1a140f] border-amber-500/40 text-amber-100'
+              : 'bg-white border-slate-200 text-slate-800'
+          }`}>
+            <h3 className={`text-lg font-bold mb-4 ${theme === 'cinema' ? 'text-amber-100 font-serif' : 'text-slate-800'}`}>
+              {t('moveTo')}
+            </h3>
             <div className="space-y-2 max-h-60 overflow-y-auto mb-4">
               {categories.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setMoveCategory(cat)}
                   className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium transition-colors flex items-center justify-between ${
-                    moveCategory === cat ? 'bg-sky-50 text-sky-700 font-semibold' : 'hover:bg-slate-50 text-slate-700'
+                    moveCategory === cat
+                      ? (theme === 'cinema' ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40 font-bold' : 'bg-sky-50 text-sky-700 font-semibold')
+                      : (theme === 'cinema' ? 'hover:bg-stone-800/80 text-stone-300' : 'hover:bg-slate-50 text-slate-700')
                   }`}
                 >
                   <span>{chestDisplayName(cat)}</span>
-                  {moveCategory === cat && <Check className="w-4 h-4 text-sky-600" />}
+                  {moveCategory === cat && (
+                    <Check className={`w-4 h-4 ${theme === 'cinema' ? 'text-amber-400' : 'text-sky-600'}`} />
+                  )}
                 </button>
               ))}
             </div>
             <div className="flex items-center justify-end gap-2">
               <button
                 onClick={() => setMoveOpen(false)}
-                className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                  theme === 'cinema'
+                    ? 'text-stone-300 hover:bg-stone-800 hover:text-white'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
               >
                 {t('cancel')}
               </button>
               <button
                 onClick={handleMoveSelected}
                 disabled={!moveCategory.trim()}
-                className="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-sky-500 hover:bg-sky-600 transition-colors shadow-sm disabled:opacity-50"
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm disabled:opacity-50 ${
+                  theme === 'cinema'
+                    ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-950 font-bold hover:from-amber-500 hover:to-amber-400'
+                    : 'text-white bg-sky-500 hover:bg-sky-600'
+                }`}
               >
                 {t('moveSelected')}
               </button>

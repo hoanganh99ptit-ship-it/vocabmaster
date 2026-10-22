@@ -20,6 +20,7 @@ import {
 } from '@/lib/storage';
 import { pushUserDataToCloud } from '@/lib/cloudSync';
 import { useLanguage } from '@/context/LanguageContext';
+import { useTheme } from '@/context/ThemeContext';
 
 interface WeeklyGoalSetupModalProps {
   currentGoal: WeeklyGoal;
@@ -30,6 +31,7 @@ interface WeeklyGoalSetupModalProps {
 
 export function WeeklyGoalSetupModal({ currentGoal, isOpen, onClose, onSaved }: WeeklyGoalSetupModalProps) {
   const { lang } = useLanguage();
+  const { theme } = useTheme();
   const [selectedDifficulty, setSelectedDifficulty] = useState<GoalDifficulty>(currentGoal.difficulty || 'medium');
   const [rewardInput, setRewardInput] = useState(currentGoal.rewardText);
 
@@ -52,8 +54,12 @@ export function WeeklyGoalSetupModal({ currentGoal, isOpen, onClose, onSaved }: 
   const difficulties: GoalDifficulty[] = ['easy', 'medium', 'hard', 'nightmare'];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-      <div className="bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-900 border border-indigo-700/50 rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl text-white relative overflow-hidden max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in">
+      <div className={`border rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl relative overflow-hidden max-h-[90vh] overflow-y-auto ${
+        theme === 'cinema'
+          ? 'bg-gradient-to-b from-[#18130e] via-[#241a12] to-[#140f0b] border-amber-500/40 text-amber-100 shadow-black/90'
+          : 'bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-900 border-indigo-700/50 text-white'
+      }`}>
         {/* Glow decoration */}
         <div className="absolute -top-24 -right-24 w-72 h-72 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
@@ -100,8 +106,12 @@ export function WeeklyGoalSetupModal({ currentGoal, isOpen, onClose, onSaved }: 
                   onClick={() => setSelectedDifficulty(diffKey)}
                   className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
                     isSelected
-                      ? 'bg-indigo-900/60 border-sky-400 shadow-lg shadow-sky-500/20 scale-[1.01]'
-                      : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
+                      ? (theme === 'cinema'
+                          ? 'bg-amber-950/60 border-amber-400 shadow-lg shadow-amber-500/20 scale-[1.01]'
+                          : 'bg-indigo-900/60 border-sky-400 shadow-lg shadow-sky-500/20 scale-[1.01]')
+                      : (theme === 'cinema'
+                          ? 'bg-stone-900/60 border-amber-500/20 hover:bg-stone-800/60 hover:border-amber-500/40'
+                          : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20')
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -116,7 +126,9 @@ export function WeeklyGoalSetupModal({ currentGoal, isOpen, onClose, onSaved }: 
                       </h4>
                     </div>
                     {isSelected && (
-                      <span className="w-5 h-5 rounded-full bg-sky-400 text-slate-950 flex items-center justify-center">
+                      <span className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                        theme === 'cinema' ? 'bg-amber-400 text-stone-950' : 'bg-sky-400 text-slate-950'
+                      }`}>
                         <Check className="w-3.5 h-3.5 stroke-[3]" />
                       </span>
                     )}
@@ -206,7 +218,11 @@ export function WeeklyGoalSetupModal({ currentGoal, isOpen, onClose, onSaved }: 
             <button
               type="button"
               onClick={handleConfirm}
-              className="px-6 py-2.5 rounded-xl text-xs sm:text-sm font-black text-white bg-gradient-to-r from-sky-500 via-indigo-500 to-emerald-500 hover:from-sky-400 hover:to-emerald-400 shadow-lg shadow-indigo-500/30 transition-all cursor-pointer flex items-center gap-2"
+              className={`px-6 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer flex items-center gap-2 ${
+                theme === 'cinema'
+                  ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-stone-950 shadow-lg shadow-amber-500/30'
+                  : 'text-white bg-gradient-to-r from-sky-500 via-indigo-500 to-emerald-500 hover:from-sky-400 hover:to-emerald-400 shadow-lg shadow-indigo-500/30'
+              }`}
             >
               <Award className="w-4 h-4" />
               <span>{lang === 'vi' ? 'Ký cam kết & Bắt đầu tuần này ✍️' : 'Commit & Start Week ✍️'}</span>
