@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Keyboard, CheckCircle2, XCircle, RotateCcw, ChevronRight, Lightbulb, Trophy, Volume2 } from 'lucide-react';
 import { useVocab } from '@/context/VocabContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/components/Toast';
 import { speak, speedOptions, getGlobalRate, setGlobalRate } from '@/lib/speech';
 import { addPracticeRecord } from '@/lib/storage';
@@ -29,7 +30,7 @@ function initialRevealedIndices(word: string): Set<number> {
 
   if (len <= 4) {
     indices.add(0);
-  return indices;
+    return indices;
   }
 
   // Always reveal first and last letter
@@ -56,6 +57,7 @@ function initialRevealedIndices(word: string): Set<number> {
 export function TypingTest() {
   const { vocabs, incrementError, updateSRS } = useVocab();
   const { t } = useLanguage();
+  const { theme } = useTheme();
   const { show } = useToast();
 
   const [phase, setPhase] = useState<'setup' | 'playing' | 'done'>('setup');
@@ -102,6 +104,7 @@ export function TypingTest() {
       finalScore = score + 1;
       if (hintPenaltyApplied) finalScore = Math.max(0, finalScore - 0.5);
       setScore(finalScore);
+      speak(questions[current].word, rate);
     } else {
       incrementError(questions[current].word);
     }
@@ -163,8 +166,14 @@ export function TypingTest() {
     return (
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm text-center">
-          <div className="w-16 h-16 mx-auto rounded-full bg-teal-100 flex items-center justify-center mb-4">
-            <Keyboard className="w-8 h-8 text-teal-500" />
+          <div
+            className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${
+              theme === 'cinema'
+                ? 'bg-amber-500/15 border border-amber-500/30 text-amber-400'
+                : 'bg-sky-100 text-sky-500'
+            }`}
+          >
+            <Keyboard className="w-8 h-8" />
           </div>
           <h2 className="text-2xl font-bold text-slate-800">{t('typingTitle')}</h2>
           <p className="text-slate-500 mt-1">{t('typingDesc')}</p>
@@ -175,9 +184,13 @@ export function TypingTest() {
                 <button
                   key={n}
                   onClick={() => setCount(n)}
-                  className={`w-16 h-16 rounded-2xl font-bold text-lg transition-all ${
+                  className={`w-16 h-16 rounded-2xl font-bold text-lg transition-all cursor-pointer ${
                     count === n
-                      ? 'bg-gradient-to-br from-teal-500 to-sky-500 text-white shadow-md shadow-teal-500/20'
+                      ? theme === 'cinema'
+                        ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-stone-950 shadow-md shadow-amber-500/20'
+                        : 'bg-gradient-to-br from-sky-500 to-teal-500 text-white shadow-md shadow-sky-500/20'
+                      : theme === 'cinema'
+                      ? 'bg-stone-900 border border-amber-500/25 text-stone-300 hover:border-amber-500/50 hover:text-amber-200'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
@@ -189,7 +202,7 @@ export function TypingTest() {
           <button
             onClick={start}
             disabled={vocabs.length < 1}
-            className="mt-8 px-8 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-sky-500 text-white font-semibold hover:from-teal-600 hover:to-sky-600 transition-all shadow-md disabled:opacity-50"
+            className="mt-8 px-8 py-3.5 rounded-xl bg-gradient-to-r from-sky-500 to-teal-500 text-white font-semibold hover:from-sky-600 hover:to-teal-600 transition-all shadow-md disabled:opacity-50 cursor-pointer"
           >
             {t('startQuiz')}
           </button>
@@ -203,13 +216,19 @@ export function TypingTest() {
     return (
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm text-center">
-          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-teal-400 to-sky-400 flex items-center justify-center mb-4 shadow-md">
+          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-amber-400 to-orange-400 flex items-center justify-center mb-4 shadow-md">
             <Trophy className="w-10 h-10 text-white" />
           </div>
           <h2 className="text-2xl font-bold text-slate-800">{t('typingComplete')}</h2>
           <div className="mt-6 flex items-center justify-center gap-8">
             <div>
-              <p className="text-4xl font-bold text-teal-600">{Math.round(score)}</p>
+              <p
+                className={`text-4xl font-bold ${
+                  theme === 'cinema' ? 'text-amber-400' : 'text-sky-600'
+                }`}
+              >
+                {Math.round(score)}
+              </p>
               <p className="text-sm text-slate-500">{t('correct')}</p>
             </div>
             <div className="w-px h-12 bg-slate-200" />
@@ -219,13 +238,13 @@ export function TypingTest() {
             </div>
             <div className="w-px h-12 bg-slate-200" />
             <div>
-              <p className="text-4xl font-bold text-sky-600">{percentage}%</p>
+              <p className="text-4xl font-bold text-teal-600">{percentage}%</p>
               <p className="text-sm text-slate-500">{t('score')}</p>
             </div>
           </div>
           <button
             onClick={() => setPhase('setup')}
-            className="mt-8 flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200 transition-colors mx-auto"
+            className="mt-8 flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-sky-500 to-teal-500 text-white font-semibold hover:from-sky-600 hover:to-teal-600 transition-all shadow-md mx-auto cursor-pointer"
           >
             <RotateCcw className="w-5 h-5" />
             {t('retryQuiz')}
@@ -252,38 +271,55 @@ export function TypingTest() {
           <span className="text-sm font-semibold text-slate-600">
             {t('question')} {current + 1} {t('of')} {questions.length}
           </span>
-          <span className="text-sm font-semibold text-teal-600">
+          <span
+            className={`text-sm font-semibold ${
+              theme === 'cinema' ? 'text-amber-400' : 'text-sky-600'
+            }`}
+          >
             {t('score')}: {Math.round(score)}
           </span>
         </div>
         <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-teal-500 to-sky-500 rounded-full transition-all duration-300"
+            className={`h-full rounded-full transition-all duration-300 ${
+              theme === 'cinema'
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-400'
+                : theme === 'retro'
+                ? 'bg-gradient-to-r from-amber-600 to-orange-500'
+                : 'bg-gradient-to-r from-sky-500 to-teal-500'
+            }`}
             style={{ width: `${progress}%` }}
           />
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
         <div className="text-center mb-6">
-          <div className="flex items-center justify-center gap-3 mb-2">
-            <p className="text-sm text-slate-400">{t('meaningLabel')}</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">{t('meaningLabel')}</p>
+          <h2 className="text-3xl font-bold text-slate-800">{q.meaning}</h2>
+          <div className="flex items-center justify-center gap-3 mt-3">
+            {q.type && (
+              <span
+                className={`inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full border ${
+                  theme === 'cinema'
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                    : 'bg-sky-50 border-sky-100 text-sky-600'
+                }`}
+              >
+                {q.type}
+              </span>
+            )}
             <button
               onClick={() => speak(q.word, rate)}
-              className="w-8 h-8 rounded-full bg-teal-50 hover:bg-teal-100 text-teal-500 flex items-center justify-center transition-colors"
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+                theme === 'cinema'
+                  ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40'
+                  : 'bg-sky-50 hover:bg-sky-100 text-sky-600'
+              }`}
               title={t('playAudio')}
             >
               <Volume2 className="w-4 h-4" />
             </button>
-          </div>
-          <h2 className="text-3xl font-bold text-slate-800">{q.meaning}</h2>
-          <div className="flex items-center justify-center gap-3 mt-2">
-            {q.type && (
-              <span className="inline-block text-sm font-semibold text-teal-600 bg-teal-50 px-3 py-1 rounded-full">
-                {q.type}
-              </span>
-            )}
-            {/* Speed control */}
             <select
               value={rate}
               onChange={(e) => {
@@ -291,7 +327,7 @@ export function TypingTest() {
                 setRate(newRate);
                 setGlobalRate(newRate);
               }}
-              className="text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-teal-400 cursor-pointer"
+              className="text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-sky-400 cursor-pointer"
             >
               {speedOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -303,38 +339,62 @@ export function TypingTest() {
         </div>
 
         {/* Hint */}
-        <div className="flex flex-col items-center gap-2 mb-4">
+        <div className="flex flex-col items-center gap-2 mb-5">
           <div className="flex items-center gap-2">
             <button
               onClick={toggleHint}
-              className="flex items-center gap-1.5 text-sm font-semibold text-amber-600 hover:text-amber-700 transition-colors"
+              className={`flex items-center gap-1.5 text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${
+                showHint
+                  ? theme === 'cinema'
+                    ? 'bg-amber-950/70 border-amber-500/60 text-amber-300'
+                    : 'bg-amber-100 border-amber-300 text-amber-800'
+                  : theme === 'cinema'
+                  ? 'bg-stone-900/80 border-amber-500/20 text-stone-300 hover:text-amber-200 hover:border-amber-500/40'
+                  : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+              }`}
             >
-              <Lightbulb className="w-4 h-4" />
-              {t('hint')}
+              <Lightbulb className="w-4 h-4 text-amber-500" />
+              <span>{t('hint')}</span>
             </button>
             {showHint && hasUnrevealed && result === null && (
               <button
                 onClick={revealMore}
-                className="flex items-center gap-1 text-xs font-semibold text-amber-500 hover:text-amber-600 bg-amber-50 px-2 py-1 rounded-full transition-colors"
+                className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${
+                  theme === 'cinema'
+                    ? 'bg-amber-950/40 border-amber-500/30 text-amber-300'
+                    : 'bg-amber-50 border-amber-200 text-amber-700'
+                }`}
               >
-                {t('showMoreHints')}
-                <span className="text-rose-400">{t('hintPenalty')}</span>
+                <span>{t('showMoreHints')}</span>
+                <span className="text-rose-400 font-bold">{t('hintPenalty')}</span>
               </button>
             )}
           </div>
           {showHint && (
-            <div className="text-center">
-              <p className="text-sm text-slate-500 mb-2">{q.word.length} {t('letters')}</p>
+            <div
+              className={`mt-2 p-3.5 rounded-xl border text-center animate-fade-in ${
+                theme === 'cinema'
+                  ? 'bg-amber-950/30 border-amber-500/25'
+                  : 'bg-amber-50 border-amber-200'
+              }`}
+            >
+              <p className="text-xs text-slate-400 mb-2">
+                {q.word.length} {t('letters')}
+              </p>
               <div className="flex flex-row gap-2 justify-center font-mono text-xl tracking-widest">
                 {wordChars.map((ch, i) => {
                   const isRevealed = revealedIndices.has(i) || ch === ' ' || ch === '-';
                   return (
                     <span
                       key={i}
-                      className={`inline-block w-6 text-center ${
+                      className={`inline-block w-7 py-1 text-center rounded-lg border font-bold ${
                         isRevealed
-                          ? 'text-slate-700 font-bold'
-                          : 'text-slate-300'
+                          ? theme === 'cinema'
+                            ? 'text-amber-300 bg-amber-500/20 border-amber-500/40'
+                            : 'text-slate-800 bg-white border-slate-300 shadow-2xs'
+                          : theme === 'cinema'
+                          ? 'text-stone-600 bg-stone-900 border-stone-800'
+                          : 'text-slate-300 bg-slate-100 border-slate-200'
                       }`}
                     >
                       {isRevealed ? ch : '_'}
@@ -363,7 +423,9 @@ export function TypingTest() {
               ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
               : result === 'incorrect'
               ? 'border-rose-400 bg-rose-50 text-rose-700'
-              : 'border-slate-200 bg-slate-50 text-slate-800 focus:ring-2 focus:ring-teal-400 focus:border-transparent'
+              : theme === 'cinema'
+              ? 'border-amber-500/40 bg-[#15100c] text-[#fffbeb] placeholder-stone-600 focus:border-amber-400 focus:ring-2 focus:ring-amber-500/30'
+              : 'border-slate-200 bg-slate-50 text-slate-800 focus:ring-2 focus:ring-sky-400 focus:border-transparent'
           }`}
           placeholder={t('typeHere')}
           autoComplete="off"
@@ -372,13 +434,23 @@ export function TypingTest() {
         />
 
         {result === 'incorrect' && (
-          <div className="mt-2 text-center flex items-center justify-center gap-2">
-            <p className="text-sm text-rose-500 font-semibold">{q.word}</p>
+          <div
+            className={`mt-3 p-3 rounded-xl border flex items-center justify-center gap-2 animate-fade-in ${
+              theme === 'cinema'
+                ? 'bg-rose-950/40 border-rose-500/40 text-rose-300'
+                : 'bg-rose-50 border-rose-200 text-rose-700'
+            }`}
+          >
+            <span className="text-xs uppercase font-bold tracking-wider opacity-75">
+              {lang === 'vi' ? 'Đáp án đúng:' : 'Correct word:'}
+            </span>
+            <p className="text-base font-bold">{q.word}</p>
             <button
               onClick={() => speak(q.word, rate)}
-              className="w-7 h-7 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center transition-colors"
+              className="p-1 rounded-full hover:bg-rose-500/20 transition-colors cursor-pointer"
+              title={t('playAudio')}
             >
-              <Volume2 className="w-3.5 h-3.5" />
+              <Volume2 className="w-4 h-4" />
             </button>
           </div>
         )}
@@ -387,7 +459,7 @@ export function TypingTest() {
           <button
             onClick={handleCheck}
             disabled={!input.trim()}
-            className="mt-4 w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-sky-500 text-white font-semibold hover:from-teal-600 hover:to-sky-600 transition-all shadow-sm disabled:opacity-50"
+            className="mt-5 w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-sky-500 to-teal-500 text-white font-semibold hover:from-sky-600 hover:to-teal-600 transition-all shadow-md disabled:opacity-50 cursor-pointer"
           >
             <CheckCircle2 className="w-5 h-5" />
             {t('checkAnswer')}
@@ -395,21 +467,22 @@ export function TypingTest() {
         ) : (
           <button
             onClick={nextQuestion}
-            className="mt-4 w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-sky-500 text-white font-semibold hover:from-teal-600 hover:to-sky-600 transition-all shadow-sm animate-fade-in"
+            autoFocus
+            className="mt-5 w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-sky-500 to-teal-500 text-white font-semibold hover:from-sky-600 hover:to-teal-600 transition-all shadow-md animate-fade-in cursor-pointer"
           >
-            {current + 1 >= questions.length ? t('finishQuiz') : t('nextQuestion')}
+            <span>{current + 1 >= questions.length ? t('finishQuiz') : t('nextQuestion')}</span>
             <ChevronRight className="w-5 h-5" />
           </button>
         )}
 
         {result !== null && (
-          <div className="mt-4 flex items-center justify-center gap-2">
+          <div className="mt-3 flex items-center justify-center gap-2">
             {result === 'correct' ? (
-              <span className="flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
-                <CheckCircle2 className="w-5 h-5" /> {t('correct')}!
+              <span className="flex items-center gap-1.5 text-sm font-bold text-emerald-500">
+                <CheckCircle2 className="w-5 h-5" /> {t('correct')}! 🎉
               </span>
             ) : (
-              <span className="flex items-center gap-1.5 text-sm font-semibold text-rose-600">
+              <span className="flex items-center gap-1.5 text-sm font-bold text-rose-500">
                 <XCircle className="w-5 h-5" /> {t('incorrect')}
               </span>
             )}
