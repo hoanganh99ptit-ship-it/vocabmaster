@@ -1235,12 +1235,12 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
                               ? 'Từ này đã đến hạn cần ôn lại!'
                               : 'Due for review now!'
                             : lang === 'vi'
-                            ? `Giai đoạn: ${srsStage}`
-                            : `Stage: ${srsStage}`
+                            ? `Giai đoạn: ${srsStage.labelVi}`
+                            : `Stage: ${srsStage.labelEn}`
                         }
                       >
                         {isDue && <Clock className="w-3 h-3 text-amber-500 animate-pulse flex-shrink-0" />}
-                        <span>{srsStage}</span>
+                        <span>{lang === 'vi' ? srsStage.labelVi : srsStage.labelEn}</span>
                       </span>
 
                       {vocab.error_count > 0 && (
@@ -1389,7 +1389,7 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
                       ? 'text-amber-400/50 hover:text-rose-400 hover:bg-rose-500/10'
                       : 'text-slate-300 hover:text-rose-500'
                   }`}
-                  title={t('deleteWord')}
+                  title={lang === 'vi' ? 'Xóa từ' : 'Delete word'}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

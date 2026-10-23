@@ -19,6 +19,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useTheme } from '@/context/ThemeContext';
 import { Lock } from 'lucide-react';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import type { TabKey } from '@/lib/types';
 
 function AppContent() {
@@ -172,16 +173,18 @@ function AppContent() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <LanguageProvider>
-        <ToastProvider>
-          <AuthProvider>
-            <VocabProvider>
-              <AppContent />
-            </VocabProvider>
-          </AuthProvider>
-        </ToastProvider>
-      </LanguageProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <LanguageProvider>
+          <ToastProvider>
+            <AuthProvider>
+              <VocabProvider>
+                <AppContent />
+              </VocabProvider>
+            </AuthProvider>
+          </ToastProvider>
+        </LanguageProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
