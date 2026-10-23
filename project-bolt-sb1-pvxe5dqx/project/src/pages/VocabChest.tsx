@@ -543,27 +543,29 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
 
   return (
     <div className="max-w-6xl mx-auto">
-      {/* Stats bar */}
-      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-6">
-        <div className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border shadow-sm ${
+      {/* Stats bar - Clean responsive grid on mobile, flex on desktop */}
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center gap-2.5 sm:gap-3 mb-6">
+        <div className={`flex items-center justify-between sm:justify-start gap-2 px-3.5 py-2.5 rounded-xl border shadow-sm ${
           theme === 'cinema'
             ? 'bg-[#18130e] border-amber-500/35 text-amber-100'
             : 'bg-white border-slate-200'
         }`}>
           <span className={`text-xs sm:text-sm font-semibold ${theme === 'cinema' ? 'text-amber-300/80 font-mono' : 'text-slate-500'}`}>{t('totalWords')}</span>
-          <span className={`text-base sm:text-lg font-bold ${theme === 'cinema' ? 'text-amber-300 font-mono' : 'text-sky-600'}`}>{vocabs.length}</span>
+          <span className={`text-base sm:text-lg font-black ${theme === 'cinema' ? 'text-amber-300 font-mono' : 'text-sky-600'}`}>{vocabs.length}</span>
         </div>
-        <div className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border shadow-sm ${
+
+        <div className={`flex items-center justify-between sm:justify-start gap-2 px-3.5 py-2.5 rounded-xl border shadow-sm ${
           theme === 'cinema'
             ? 'bg-[#18130e] border-amber-500/35 text-amber-100'
             : 'bg-white border-slate-200'
         }`}>
           <span className={`text-xs sm:text-sm font-semibold ${theme === 'cinema' ? 'text-amber-300/80 font-mono' : 'text-slate-500'}`}>{t('categories')}</span>
-          <span className={`text-base sm:text-lg font-bold ${theme === 'cinema' ? 'text-amber-400 font-mono' : 'text-teal-600'}`}>{chestGroups.length}</span>
+          <span className={`text-base sm:text-lg font-black ${theme === 'cinema' ? 'text-amber-400 font-mono' : 'text-teal-600'}`}>{chestGroups.length}</span>
         </div>
+
         <button
           onClick={() => setFilterCategory(filterCategory === 'srs_due' ? 'all' : 'srs_due')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all shadow-sm cursor-pointer ${
+          className={`col-span-2 sm:col-span-1 flex items-center justify-between sm:justify-start gap-2 px-3.5 py-2.5 rounded-xl border transition-all shadow-sm cursor-pointer ${
             filterCategory === 'srs_due'
               ? (theme === 'cinema'
                   ? 'bg-amber-500 text-stone-950 font-black border-amber-400 ring-2 ring-amber-500/40'
@@ -573,10 +575,12 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
                   : 'bg-white border-slate-200 text-slate-700 hover:border-amber-300')
           }`}
         >
-          <Clock className={`w-4 h-4 ${theme === 'cinema' ? 'text-amber-400' : 'text-amber-500'}`} />
-          <span className="text-xs sm:text-sm font-semibold">
-            {lang === 'vi' ? 'Cần ôn tập hôm nay (SRS)' : 'Due for Review (SRS)'}
-          </span>
+          <div className="flex items-center gap-2">
+            <Clock className={`w-4 h-4 ${theme === 'cinema' ? 'text-amber-400' : 'text-amber-500'}`} />
+            <span className="text-xs sm:text-sm font-semibold">
+              {lang === 'vi' ? 'Cần ôn tập hôm nay (SRS)' : 'Due for Review (SRS)'}
+            </span>
+          </div>
           <span className={`px-2 py-0.5 rounded-full text-xs font-bold font-mono ${
             filterCategory === 'srs_due'
               ? (theme === 'cinema' ? 'bg-stone-950 text-amber-300' : 'bg-amber-700 text-white')
@@ -589,7 +593,7 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
         {/* 35mm Retro Film Roll Vlog View Button */}
         <button
           onClick={() => setFilmRollOpen(true)}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all shadow-sm font-mono text-xs font-bold cursor-pointer hover:scale-[1.02] ml-auto ${
+          className={`col-span-2 sm:col-span-1 sm:ml-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border transition-all shadow-sm font-mono text-xs font-bold cursor-pointer hover:scale-[1.01] ${
             theme === 'cinema'
               ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 text-stone-950 font-black border-amber-400 shadow-amber-950/40'
               : 'bg-gradient-to-r from-stone-900 via-neutral-900 to-amber-950 text-amber-300 border-amber-500/40 hover:border-amber-400'
@@ -816,15 +820,19 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
                 </div>
               ) : (
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full justify-between">
-                  <div className="flex items-center gap-1.5 truncate">
-                    <Gift className={`w-3.5 h-3.5 flex-shrink-0 ${theme === 'cinema' ? 'text-amber-400' : 'text-pink-500'}`} />
-                    <span className={`font-semibold flex-shrink-0 ${theme === 'cinema' ? 'text-amber-400/80' : 'text-slate-500'}`}>{lang === 'vi' ? 'Thưởng:' : 'Reward:'}</span>
-                    <span className={`font-bold truncate ${theme === 'cinema' ? 'text-amber-100' : 'text-slate-800'}`}>{weeklyGoal.rewardText}</span>
+                  <div className="flex items-start gap-1.5 flex-1 min-w-0">
+                    <Gift className={`w-3.5 h-3.5 flex-shrink-0 mt-0.5 ${theme === 'cinema' ? 'text-amber-400' : 'text-pink-500'}`} />
+                    <div className="text-xs leading-snug">
+                      <span className={`font-semibold mr-1.5 ${theme === 'cinema' ? 'text-amber-400/80' : 'text-slate-500'}`}>{lang === 'vi' ? 'Thưởng:' : 'Reward:'}</span>
+                      <span className={`font-bold ${theme === 'cinema' ? 'text-amber-100' : 'text-slate-800'}`}>{weeklyGoal.rewardText}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 truncate">
-                    <span className="text-amber-400 font-bold flex-shrink-0">⚡</span>
-                    <span className={`font-semibold flex-shrink-0 ${theme === 'cinema' ? 'text-amber-400/80' : 'text-slate-500'}`}>{lang === 'vi' ? 'Phạt:' : 'Penalty:'}</span>
-                    <span className={`font-medium truncate ${theme === 'cinema' ? 'text-amber-300' : 'text-amber-800'}`}>{weeklyGoal.penaltyText}</span>
+                  <div className="flex items-start gap-1.5 flex-1 min-w-0 sm:border-l sm:border-amber-500/20 sm:pl-3">
+                    <span className="text-amber-400 font-bold flex-shrink-0 mt-0.5">⚡</span>
+                    <div className="text-xs leading-snug">
+                      <span className={`font-semibold mr-1.5 ${theme === 'cinema' ? 'text-amber-400/80' : 'text-slate-500'}`}>{lang === 'vi' ? 'Phạt:' : 'Penalty:'}</span>
+                      <span className={`font-medium ${theme === 'cinema' ? 'text-amber-300' : 'text-amber-800'}`}>{weeklyGoal.penaltyText}</span>
+                    </div>
                   </div>
                 </div>
               )}

@@ -55,7 +55,7 @@ export function WeeklyGoalSetupModal({ currentGoal, isOpen, onClose, onSaved }: 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in">
-      <div className={`border rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl relative overflow-hidden max-h-[90vh] overflow-y-auto ${
+      <div className={`border rounded-3xl max-w-2xl w-full p-4 sm:p-7 shadow-2xl relative overflow-hidden max-h-[92vh] overflow-y-auto ${
         theme === 'cinema'
           ? 'bg-gradient-to-b from-[#18130e] via-[#241a12] to-[#140f0b] border-amber-500/40 text-amber-100 shadow-black/90'
           : 'bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-900 border-indigo-700/50 text-white'
@@ -64,29 +64,35 @@ export function WeeklyGoalSetupModal({ currentGoal, isOpen, onClose, onSaved }: 
         <div className="absolute -top-24 -right-24 w-72 h-72 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Close Button */}
+        {/* Close Button - positioned safely with z-index */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+          className="absolute top-4 right-4 sm:top-5 sm:right-5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer z-20"
         >
           <X className="w-4 h-4" />
         </button>
 
         <div className="relative z-10">
-          {/* Header */}
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-400 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-sky-500/30 flex-shrink-0">
+          {/* Header with safe right padding (pr-10) to avoid any collision with close button */}
+          <div className="flex items-start gap-3 mb-3 pr-10">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-md flex-shrink-0 mt-0.5 ${
+              theme === 'cinema'
+                ? 'bg-gradient-to-tr from-amber-500 to-yellow-600 text-stone-950 font-black'
+                : 'bg-gradient-to-tr from-sky-400 to-indigo-500 text-white'
+            }`}>
               <Target className="w-5 h-5" />
             </div>
-            <div>
-              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
-                <span>{lang === 'vi' ? 'Xác lập Mục tiêu tuần mới' : 'Set Weekly Goal & Difficulty'}</span>
-                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/30">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
+                  {lang === 'vi' ? 'Xác lập Mục tiêu tuần mới' : 'Set Weekly Goal & Difficulty'}
+                </h2>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono">
                   {currentGoal.weekKey}
                 </span>
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-300">
+              </div>
+              <p className="text-xs sm:text-sm text-stone-300 mt-1 leading-snug">
                 {lang === 'vi'
                   ? 'Chọn 1 trong 4 mức độ mục tiêu tuần. Hệ thống sẽ tự động đưa ra hình phạt tương ứng!'
                   : 'Select 1 of 4 difficulty levels. The system will automatically assign the penalty tasks!'}
@@ -95,7 +101,7 @@ export function WeeklyGoalSetupModal({ currentGoal, isOpen, onClose, onSaved }: 
           </div>
 
           {/* 4 Difficulty Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 my-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 my-4">
             {difficulties.map((diffKey) => {
               const cfg = DIFFICULTY_CONFIGS[diffKey];
               const isSelected = selectedDifficulty === diffKey;
@@ -104,7 +110,7 @@ export function WeeklyGoalSetupModal({ currentGoal, isOpen, onClose, onSaved }: 
                 <div
                   key={diffKey}
                   onClick={() => setSelectedDifficulty(diffKey)}
-                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
+                  className={`p-3.5 sm:p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
                     isSelected
                       ? (theme === 'cinema'
                           ? 'bg-amber-950/60 border-amber-400 shadow-lg shadow-amber-500/20 scale-[1.01]'
@@ -207,21 +213,21 @@ export function WeeklyGoalSetupModal({ currentGoal, isOpen, onClose, onSaved }: 
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 transition-all cursor-pointer"
+              className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 transition-all cursor-pointer text-center"
             >
               {lang === 'vi' ? 'Để sau' : 'Later'}
             </button>
             <button
               type="button"
               onClick={handleConfirm}
-              className={`px-6 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer flex items-center gap-2 ${
+              className={`px-6 py-3 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg ${
                 theme === 'cinema'
-                  ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-stone-950 shadow-lg shadow-amber-500/30'
-                  : 'text-white bg-gradient-to-r from-sky-500 via-indigo-500 to-emerald-500 hover:from-sky-400 hover:to-emerald-400 shadow-lg shadow-indigo-500/30'
+                  ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-stone-950 shadow-amber-500/30'
+                  : 'text-white bg-gradient-to-r from-sky-500 via-indigo-500 to-emerald-500 hover:from-sky-400 hover:to-emerald-400 shadow-indigo-500/30'
               }`}
             >
               <Award className="w-4 h-4" />

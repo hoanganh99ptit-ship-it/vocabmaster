@@ -133,12 +133,12 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
               })}
             </nav>
 
-            {/* Right side: Ultra-compact, sleek, never squeezes the tabs */}
-            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-              {/* Theme Switcher Button: 35mm Cinema Dark / Retro Paper / Modern */}
+            {/* Right side actions */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {/* Theme Switcher Button: Visible on sm+, on mobile it's neatly placed inside drawer menu */}
               <button
                 onClick={toggleTheme}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border ${
+                className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border ${
                   theme === 'cinema'
                     ? 'bg-gradient-to-r from-stone-900 via-neutral-900 to-amber-950 text-amber-300 border-amber-500/50 shadow-md hover:border-amber-400'
                     : theme === 'retro'
@@ -164,10 +164,10 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
                 )}
               </button>
 
-              {/* Daily Streak Badge */}
+              {/* Daily Streak Badge: Always visible and compact */}
               <button
                 onClick={() => onTabChange('analytics')}
-                className={`flex items-center gap-1 px-2 py-1.5 rounded-xl border transition-all cursor-pointer shrink-0 ${
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border transition-all cursor-pointer shrink-0 ${
                   theme === 'cinema'
                     ? 'bg-[#18130e] border-amber-500/40 text-amber-300 hover:border-amber-400 hover:shadow-xs'
                     : 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200 text-amber-900 hover:border-amber-300 hover:shadow-xs'
@@ -178,10 +178,10 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
                 <span className={`text-xs font-bold ${theme === 'cinema' ? 'text-amber-300' : 'text-orange-700'}`}>{streak.currentStreak}</span>
               </button>
 
-              {/* Language Toggle */}
+              {/* Language Toggle: Visible on sm+, in drawer on mobile */}
               <button
                 onClick={toggleLang}
-                className={`flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-bold border transition-colors shrink-0 ${
+                className={`hidden sm:flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-bold border transition-colors shrink-0 ${
                   theme === 'cinema'
                     ? 'bg-[#18130e] text-amber-200 border-amber-500/30 hover:bg-[#221a14]'
                     : 'text-slate-600 hover:bg-slate-100 border-slate-200/70'
@@ -189,14 +189,14 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
                 title="Đổi ngôn ngữ (EN / VI)"
               >
                 <span className="text-xs leading-none">{lang === 'en' ? '🇬🇧' : '🇻🇳'}</span>
-                <span className="text-[11px] uppercase tracking-wide hidden sm:inline">{lang}</span>
+                <span className="text-[11px] uppercase tracking-wide">{lang}</span>
               </button>
 
-              {/* Auth */}
+              {/* Desktop Auth */}
               {user ? (
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="hidden sm:flex items-center gap-1 shrink-0">
                   <div
-                    className={`flex items-center gap-1.5 px-1.5 py-1 rounded-xl border shrink-0 ${
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-xl border shrink-0 ${
                       theme === 'cinema'
                         ? 'bg-[#18130e] border-amber-500/30 text-amber-200'
                         : 'bg-slate-100/90 border-slate-200/60 text-slate-700'
@@ -210,7 +210,7 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
                     }`}>
                       {user.email?.[0]?.toUpperCase() || 'U'}
                     </div>
-                    <span className="text-xs font-medium max-w-[80px] xl:max-w-[110px] truncate hidden 2xl:inline">
+                    <span className="text-xs font-medium max-w-[90px] xl:max-w-[120px] truncate hidden xl:inline">
                       {user.email}
                     </span>
                   </div>
@@ -252,7 +252,7 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
               {/* Mobile menu button */}
               <button
                 onClick={() => setMobileOpen(!mobileOpen)}
-                className={`lg:hidden p-2 rounded-xl transition-colors ${
+                className={`lg:hidden p-2 rounded-xl transition-colors cursor-pointer shrink-0 ${
                   theme === 'cinema'
                     ? 'text-amber-300 hover:bg-[#221a14] border border-amber-500/30'
                     : 'text-slate-600 hover:bg-slate-100'
@@ -267,55 +267,97 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
 
         {/* Mobile menu (Fully styled for Dark Mode / Cinema / Retro / Light) */}
         {mobileOpen && (
-          <div className={`lg:hidden border-t shadow-2xl transition-colors ${
+          <div className={`lg:hidden border-t shadow-2xl transition-colors animate-fade-in ${
             theme === 'cinema'
               ? 'bg-[#15100c] border-amber-500/30 text-amber-100'
               : theme === 'retro'
               ? 'bg-[#faf5ed] border-amber-200/80 text-stone-900'
               : 'bg-white border-slate-200 text-slate-800'
           }`}>
-            <nav className="px-3.5 py-3 space-y-1">
-              {TABS.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => {
-                      onTabChange(tab.key);
-                      setMobileOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                      isActive
-                        ? (theme === 'cinema'
-                            ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-stone-950 font-black border border-amber-400 shadow-sm'
-                            : theme === 'retro'
-                            ? 'bg-amber-200/90 text-amber-950 font-bold border border-amber-300 shadow-2xs'
-                            : 'bg-sky-50 text-sky-700 font-bold border border-sky-100')
-                        : (theme === 'cinema'
-                            ? 'text-amber-200/80 hover:bg-[#221a14] hover:text-amber-100'
-                            : theme === 'retro'
-                            ? 'text-stone-700 hover:bg-amber-100/60'
-                            : 'text-slate-600 hover:bg-slate-50')
-                    }`}
-                  >
-                    <Icon className={`w-4 h-4 shrink-0 ${
-                      isActive
-                        ? (theme === 'cinema' ? 'text-stone-950' : theme === 'retro' ? 'text-amber-800' : 'text-sky-600')
-                        : (theme === 'cinema' ? 'text-amber-400/80' : theme === 'retro' ? 'text-amber-700/60' : 'text-slate-400')
-                    }`} />
-                    <span>{t(tab.labelKey)}</span>
-                    <span className={`text-xs font-normal ml-auto truncate max-w-[130px] ${
-                      theme === 'cinema' ? 'text-amber-400/60 font-mono text-[11px]' : theme === 'retro' ? 'text-stone-500' : 'text-slate-400'
-                    }`}>
-                      {lang === 'vi' ? tab.descriptionVi : tab.descriptionEn}
-                    </span>
-                  </button>
-                );
-              })}
+            <div className="px-4 py-3 space-y-3">
+              {/* Quick Preferences Bar inside Mobile Menu */}
+              <div className={`flex items-center justify-between pb-3 border-b ${
+                theme === 'cinema' ? 'border-amber-500/20' : 'border-slate-200/80'
+              }`}>
+                {/* Theme Selector Button */}
+                <button
+                  onClick={toggleTheme}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                    theme === 'cinema'
+                      ? 'bg-[#201812] text-amber-300 border-amber-500/40'
+                      : theme === 'retro'
+                      ? 'bg-amber-100 text-amber-900 border-amber-300'
+                      : 'bg-slate-100 text-slate-700 border-slate-200'
+                  }`}
+                >
+                  <span>{theme === 'cinema' ? '🎞️' : theme === 'retro' ? '📜' : '☀️'}</span>
+                  <span>{theme === 'cinema' ? 'Giao diện: Tối 35mm' : theme === 'retro' ? 'Giao diện: Retro Paper' : 'Giao diện: Hiện đại'}</span>
+                </button>
 
-              {!user && (
-                <div className={`pt-2.5 mt-2 border-t flex gap-2 ${theme === 'cinema' ? 'border-amber-500/20' : 'border-slate-100'}`}>
+                {/* Language Switch Button */}
+                <button
+                  onClick={toggleLang}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                    theme === 'cinema'
+                      ? 'bg-[#201812] text-amber-200 border-amber-500/40'
+                      : 'bg-slate-100 text-slate-700 border-slate-200'
+                  }`}
+                >
+                  <span>{lang === 'en' ? '🇬🇧 EN' : '🇻🇳 VI'}</span>
+                </button>
+              </div>
+
+              {/* Navigation Links with 2-line clean native layout (Title + Subtitle) */}
+              <nav className="space-y-1.5">
+                {TABS.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      onClick={() => {
+                        onTabChange(tab.key);
+                        setMobileOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                        isActive
+                          ? (theme === 'cinema'
+                              ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-stone-950 font-black border border-amber-400 shadow-sm'
+                              : theme === 'retro'
+                              ? 'bg-amber-200/90 text-amber-950 font-bold border border-amber-300 shadow-2xs'
+                              : 'bg-sky-50 text-sky-700 font-bold border border-sky-100')
+                          : (theme === 'cinema'
+                              ? 'text-amber-200/90 hover:bg-[#221a14] hover:text-amber-100'
+                              : theme === 'retro'
+                              ? 'text-stone-700 hover:bg-amber-100/60'
+                              : 'text-slate-600 hover:bg-slate-50')
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        isActive
+                          ? (theme === 'cinema' ? 'bg-stone-950/20 text-stone-950' : 'bg-sky-100 text-sky-700')
+                          : (theme === 'cinema' ? 'bg-amber-500/10 text-amber-400' : 'bg-slate-100 text-slate-500')
+                      }`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div className="flex flex-col text-left flex-1 min-w-0">
+                        <span className="text-sm font-bold leading-tight">{t(tab.labelKey)}</span>
+                        <span className={`text-[11px] leading-tight mt-0.5 ${
+                          isActive
+                            ? (theme === 'cinema' ? 'text-stone-950/80 font-medium' : 'text-sky-800')
+                            : (theme === 'cinema' ? 'text-amber-400/60 font-mono' : 'text-slate-400')
+                        }`}>
+                          {lang === 'vi' ? tab.descriptionVi : tab.descriptionEn}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </nav>
+
+              {/* Mobile Auth Profile / Buttons */}
+              {!user ? (
+                <div className={`pt-3 border-t flex gap-2 ${theme === 'cinema' ? 'border-amber-500/20' : 'border-slate-100'}`}>
                   <button
                     onClick={() => { openAuth('login'); setMobileOpen(false); }}
                     className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
@@ -337,15 +379,23 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
                     {t('signUp')}
                   </button>
                 </div>
-              )}
-
-              {user && (
-                <div className={`pt-2.5 mt-2 border-t flex items-center justify-between px-3.5 py-2 rounded-xl ${
+              ) : (
+                <div className={`pt-3 border-t flex items-center justify-between px-3.5 py-2.5 rounded-xl ${
                   theme === 'cinema' ? 'border-amber-500/20 bg-[#1c1510]' : 'border-slate-100 bg-slate-50'
                 }`}>
-                  <div className="flex items-center gap-2 truncate flex-1 min-w-0 mr-2">
-                    <UserIcon className={`w-4 h-4 shrink-0 ${theme === 'cinema' ? 'text-amber-400' : 'text-slate-400'}`} />
-                    <span className={`text-sm truncate ${theme === 'cinema' ? 'text-amber-200 font-mono text-xs' : 'text-slate-600'}`}>{user.email}</span>
+                  <div className="flex items-center gap-2.5 truncate flex-1 min-w-0 mr-2">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                      theme === 'cinema'
+                        ? 'bg-gradient-to-br from-amber-500 to-yellow-600 text-stone-950 font-black'
+                        : 'bg-gradient-to-br from-teal-400 to-sky-500 text-white'
+                    }`}>
+                      {user.email?.[0]?.toUpperCase() || 'U'}
+                    </div>
+                    <div className="truncate">
+                      <span className={`text-xs block truncate ${theme === 'cinema' ? 'text-amber-200 font-mono' : 'text-slate-700 font-medium'}`}>
+                        {user.email}
+                      </span>
+                    </div>
                   </div>
                   <button
                     onClick={async () => {
@@ -360,7 +410,7 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
                   </button>
                 </div>
               )}
-            </nav>
+            </div>
           </div>
         )}
       </header>
