@@ -108,6 +108,7 @@ export async function syncUserDataWithCloud(currentUser?: User | null): Promise<
           quizReviewed: Math.max(localGoal.quizReviewed || 0, remoteGoal.quizReviewed || 0),
           clozeReviewed: Math.max(localGoal.clozeReviewed || 0, remoteGoal.clozeReviewed || 0),
           reviewedCount: Math.max(localGoal.reviewedCount || 0, remoteGoal.reviewedCount || 0),
+          celebratedAt: remoteGoal.celebratedAt || localGoal.celebratedAt || null,
         };
         saveWeeklyGoal(mergedGoal, true);
         if (mergedGoal.quizReviewed > remoteGoal.quizReviewed || mergedGoal.clozeReviewed > remoteGoal.clozeReviewed) {
@@ -124,6 +125,7 @@ export async function syncUserDataWithCloud(currentUser?: User | null): Promise<
           clozeReviewed: Math.max(localGoal.clozeReviewed || 0, remoteGoal.clozeReviewed || 0),
           reviewedCount: Math.max(localGoal.reviewedCount || 0, remoteGoal.reviewedCount || 0),
           completedAt: remoteGoal.completedAt || localGoal.completedAt,
+          celebratedAt: remoteGoal.celebratedAt || localGoal.celebratedAt || null,
         };
         saveWeeklyGoal(mergedGoal, true);
         if (

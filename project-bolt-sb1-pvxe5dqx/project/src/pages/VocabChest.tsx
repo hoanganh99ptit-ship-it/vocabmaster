@@ -48,6 +48,7 @@ import {
   getWeeklyGoal,
   getStreakData,
   getDaysLeftInWeek,
+  triggerWeeklyCelebrationPopup,
   DIFFICULTY_CONFIGS,
   type WeeklyGoal,
   type StreakData,
@@ -814,9 +815,22 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
                 : 'bg-white/70 text-slate-700 border-indigo-100/60'
             }`}>
               {isWeeklyAchieved ? (
-                <div className="flex items-center gap-2 font-bold text-emerald-400">
-                  <Trophy className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                  <span>{lang === 'vi' ? `🎉 ĐÃ MỞ KHÓA PHẦN THƯỞNG: ${weeklyGoal.rewardText}` : `🎉 REWARD UNLOCKED: ${weeklyGoal.rewardText}`}</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-2 font-bold text-emerald-400">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                    <span>{lang === 'vi' ? `🎉 ĐÃ MỞ KHÓA PHẦN THƯỞNG: ${weeklyGoal.rewardText}` : `🎉 REWARD UNLOCKED: ${weeklyGoal.rewardText}`}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => triggerWeeklyCelebrationPopup(true)}
+                    className={`text-xs font-bold px-3 py-1.5 rounded-xl border flex items-center gap-1.5 transition-all cursor-pointer self-start sm:self-center shadow-xs ${
+                      theme === 'cinema'
+                        ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-500/40'
+                        : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500'
+                    }`}
+                  >
+                    <span>{lang === 'vi' ? '🎉 Xem lễ mừng & Quà' : '🎉 View Celebration'}</span>
+                  </button>
                 </div>
               ) : (
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full justify-between">

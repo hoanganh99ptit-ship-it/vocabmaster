@@ -36,6 +36,7 @@ import {
   getActivePenalty,
   getStreakData,
   getDaysLeftInWeek,
+  triggerWeeklyCelebrationPopup,
   DIFFICULTY_CONFIGS,
   REWARD_SUGGESTIONS,
   type PracticeRecord,
@@ -315,22 +316,32 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
             const isWeeklyAchieved = weeklyGoal.quizReviewed >= weeklyGoal.quizTarget && weeklyGoal.clozeReviewed >= weeklyGoal.clozeTarget;
             if (!isWeeklyAchieved) return null;
             return (
-              <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-teal-500/20 to-amber-500/20 border border-emerald-400/40 backdrop-blur-md flex items-center gap-3.5 animate-bounce-subtle">
-                <div className="w-12 h-12 rounded-xl bg-amber-400/20 border border-amber-300/40 flex items-center justify-center text-amber-300 flex-shrink-0">
-                  <Trophy className="w-7 h-7" />
+              <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-teal-500/20 to-amber-500/20 border border-emerald-400/40 backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 animate-bounce-subtle">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-12 h-12 rounded-xl bg-amber-400/20 border border-amber-300/40 flex items-center justify-center text-amber-300 flex-shrink-0">
+                    <Trophy className="w-7 h-7" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="font-black text-emerald-300 text-sm sm:text-base flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                      <span>{lang === 'vi' ? 'XUẤT SẮC! BẠN ĐÃ ĐẠT TOÀN BỘ MỤC TIÊU TUẦN NÀY!' : 'EXCELLENT! YOU ACHIEVED ALL WEEKLY GOALS!'}</span>
+                    </h4>
+                    <p className="text-xs sm:text-sm text-slate-200 mt-0.5">
+                      {lang === 'vi'
+                        ? `Khế ước cam kết thành công — Hãy nhận phần thưởng: `
+                        : `Commitment fulfilled — Enjoy your reward: `}
+                      <strong className="text-amber-300 font-bold underline decoration-amber-400/60">{weeklyGoal.rewardText}</strong>
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-black text-emerald-300 text-sm sm:text-base flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-amber-300" />
-                    <span>{lang === 'vi' ? 'XUẤT SẮC! BẠN ĐÃ ĐẠT TOÀN BỘ MỤC TIÊU TUẦN NÀY!' : 'EXCELLENT! YOU ACHIEVED ALL WEEKLY GOALS!'}</span>
-                  </h4>
-                  <p className="text-xs sm:text-sm text-slate-200 mt-0.5">
-                    {lang === 'vi'
-                      ? `Khế ước cam kết thành công — Hãy nhận phần thưởng: `
-                      : `Commitment fulfilled — Enjoy your reward: `}
-                    <strong className="text-amber-300 font-bold underline decoration-amber-400/60">{weeklyGoal.rewardText}</strong>
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => triggerWeeklyCelebrationPopup(true)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 shadow-md shadow-amber-500/20 transition-all cursor-pointer flex items-center gap-1.5 flex-shrink-0 self-start sm:self-center"
+                >
+                  <Trophy className="w-3.5 h-3.5" />
+                  <span>{lang === 'vi' ? 'Xem lại vinh danh 🎉' : 'View Celebration 🎉'}</span>
+                </button>
               </div>
             );
           })()}
@@ -609,24 +620,35 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
                     </span>
 
                     {/* Simulation / Test Penalty Button */}
-                    {activePenalty.isActive ? (
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <button
                         type="button"
-                        onClick={handleClearPenalty}
-                        className="text-[11px] font-bold text-emerald-300 hover:text-white px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 transition-all cursor-pointer"
+                        onClick={() => triggerWeeklyCelebrationPopup(true)}
+                        className="text-[11px] font-bold text-amber-300 hover:text-white px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/30 transition-all cursor-pointer"
+                        title={lang === 'vi' ? 'Xem thử pop-up chúc mừng hoàn thành thử thách tuần' : 'Test weekly completion celebration popup'}
                       >
-                        {lang === 'vi' ? 'Hủy chế độ phạt 🔓' : 'Clear Penalty 🔓'}
+                        {lang === 'vi' ? 'Thử pop-up mừng 🎉' : 'Test Pop-up 🎉'}
                       </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleTriggerTestPenalty}
-                        className="text-[11px] font-bold text-rose-300 hover:text-white px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/30 transition-all cursor-pointer"
-                        title={lang === 'vi' ? 'Kích hoạt thử thách phạt để trải nghiệm cơ chế khóa app' : 'Simulate lockout to test penalty mechanics'}
-                      >
-                        {lang === 'vi' ? 'Thử nghiệm khóa phạt ⚡' : 'Test Lockout ⚡'}
-                      </button>
-                    )}
+
+                      {activePenalty.isActive ? (
+                        <button
+                          type="button"
+                          onClick={handleClearPenalty}
+                          className="text-[11px] font-bold text-emerald-300 hover:text-white px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 transition-all cursor-pointer"
+                        >
+                          {lang === 'vi' ? 'Hủy chế độ phạt 🔓' : 'Clear Penalty 🔓'}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleTriggerTestPenalty}
+                          className="text-[11px] font-bold text-rose-300 hover:text-white px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/30 transition-all cursor-pointer"
+                          title={lang === 'vi' ? 'Kích hoạt thử thách phạt để trải nghiệm cơ chế khóa app' : 'Simulate lockout to test penalty mechanics'}
+                        >
+                          {lang === 'vi' ? 'Thử nghiệm khóa phạt ⚡' : 'Test Lockout ⚡'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

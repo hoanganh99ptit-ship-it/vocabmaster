@@ -14,6 +14,7 @@ import { ClozeTest } from '@/pages/ClozeTest';
 import { Analytics } from '@/pages/Analytics';
 import { PenaltyLockModal } from '@/components/PenaltyLockModal';
 import { WeeklyGoalSetupModal } from '@/components/WeeklyGoalSetupModal';
+import { WeeklyCelebrationModal } from '@/components/WeeklyCelebrationModal';
 import { getActivePenalty, getWeeklyGoal, type ActivePenalty, type WeeklyGoal } from '@/lib/storage';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -31,8 +32,9 @@ function AppContent() {
   const [weeklyGoal, setWeeklyGoal] = useState<WeeklyGoal>(() => getWeeklyGoal());
   const [showSetupModal, setShowSetupModal] = useState<boolean>(false);
   const [showPenaltyModal, setShowPenaltyModal] = useState<boolean>(false);
+  const [showCelebrationModal, setShowCelebrationModal] = useState<boolean>(false);
 
-  // When auth loading finishes or user state is determined, evaluate whether setup modal is truly needed
+  // When auth loading finishes or user state is determined, evaluate whether setup modal or celebration is needed
   useEffect(() => {
     if (!authLoading) {
       const current = getWeeklyGoal();
@@ -42,8 +44,37 @@ function AppContent() {
       } else {
         setShowSetupModal(false);
       }
+      // If completed but not yet celebrated, trigger victory modal
+      if (current.completedAt && !current.celebratedAt) {
+        setShowCelebrationModal(true);
+      }
     }
   }, [authLoading]);
+
+  // Listen for real-time goal completion or manual trigger events
+  useEffect(() => {
+    const handleGoalCompleted = (e: Event) => {
+      const customEvent = e as CustomEvent<{ goal?: WeeklyGoal }>;
+      const updated = customEvent.detail?.goal || getWeeklyGoal();
+      setWeeklyGoal(updated);
+      setShowCelebrationModal(true);
+    };
+
+    const handleManualCelebration = (e: Event) => {
+      const customEvent = e as CustomEvent<{ goal?: WeeklyGoal }>;
+      const updated = customEvent.detail?.goal || getWeeklyGoal();
+      setWeeklyGoal(updated);
+      setShowCelebrationModal(true);
+    };
+
+    window.addEventListener('vocabmaster_weekly_goal_completed', handleGoalCompleted);
+    window.addEventListener('vocabmaster_trigger_weekly_celebration', handleManualCelebration);
+
+    return () => {
+      window.removeEventListener('vocabmaster_weekly_goal_completed', handleGoalCompleted);
+      window.removeEventListener('vocabmaster_trigger_weekly_celebration', handleManualCelebration);
+    };
+  }, []);
 
   // Listen for real-time cloud synchronization completed events
   useEffect(() => {
@@ -160,6 +191,18 @@ function AppContent() {
           onSaved={(newGoal) => {
             setWeeklyGoal(newGoal);
             setShowSetupModal(false);
+          }}
+        />
+      )}
+
+      {/* Weekly Goal Completion Celebration Modal */}
+      {showCelebrationModal && (
+        <WeeklyCelebrationModal
+          goal={weeklyGoal}
+          isOpen={showCelebrationModal}
+          onClose={() => {
+            setShowCelebrationModal(false);
+            setWeeklyGoal(getWeeklyGoal());
           }}
         />
       )}

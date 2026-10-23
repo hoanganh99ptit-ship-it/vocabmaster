@@ -259,6 +259,7 @@ export interface WeeklyGoal {
   rewardText: string;
   penaltyText: string;
   completedAt: string | null;
+  celebratedAt?: string | null;
 }
 
 export interface StreakData {
@@ -425,6 +426,7 @@ export function getWeeklyGoal(): WeeklyGoal {
             rewardText,
             penaltyText,
             completedAt: parsed.completedAt || null,
+            celebratedAt: parsed.celebratedAt || null,
           };
         }
 
@@ -449,6 +451,7 @@ export function getWeeklyGoal(): WeeklyGoal {
           rewardText,
           penaltyText: getSystemPenaltyText(difficulty),
           completedAt: null,
+          celebratedAt: null,
         };
         saveWeeklyGoal(newGoal);
         return newGoal;
@@ -473,6 +476,7 @@ export function getWeeklyGoal(): WeeklyGoal {
     rewardText: DEFAULT_REWARD,
     penaltyText: getSystemPenaltyText(defaultDiff),
     completedAt: null,
+    celebratedAt: null,
   };
   saveWeeklyGoal(defaultGoal);
   return defaultGoal;
@@ -639,7 +643,33 @@ export function recordStudyActivity(
   }
 
   saveStreakData(streak);
+
+  if (justCompletedGoal && typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('vocabmaster_weekly_goal_completed', {
+        detail: { goal, streak },
+      })
+    );
+  }
+
   return { goal, streak, justCompletedGoal };
+}
+
+export function markWeeklyGoalCelebrated(): WeeklyGoal {
+  const goal = getWeeklyGoal();
+  goal.celebratedAt = new Date().toISOString();
+  saveWeeklyGoal(goal);
+  return goal;
+}
+
+export function triggerWeeklyCelebrationPopup(manual = false): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('vocabmaster_trigger_weekly_celebration', {
+        detail: { manual, goal: getWeeklyGoal() },
+      })
+    );
+  }
 }
 
 export function addPracticeRecord(record: PracticeRecord) {
