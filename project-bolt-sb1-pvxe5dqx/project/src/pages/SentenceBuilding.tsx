@@ -170,7 +170,13 @@ export function SentenceBuilding() {
   if (phase === 'setup') {
     return (
       <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm text-center">
+        <div
+          className={`rounded-2xl p-8 shadow-sm text-center border ${
+            theme === 'cinema'
+              ? 'bg-[#18130e] border-amber-500/35 text-amber-100 shadow-xl shadow-black/40'
+              : 'bg-white border-slate-200 text-slate-800'
+          }`}
+        >
           <div
             className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${
               theme === 'cinema'
@@ -180,10 +186,28 @@ export function SentenceBuilding() {
           >
             <PenLine className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-800">{t('sentenceTitle')}</h2>
-          <p className="text-slate-500 mt-1">{t('sentenceDesc')}</p>
+          <h2
+            className={`text-2xl font-bold ${
+              theme === 'cinema' ? 'text-amber-100' : 'text-slate-800'
+            }`}
+          >
+            {t('sentenceTitle')}
+          </h2>
+          <p
+            className={`mt-1 ${
+              theme === 'cinema' ? 'text-stone-400' : 'text-slate-500'
+            }`}
+          >
+            {t('sentenceDesc')}
+          </p>
           <div className="mt-8">
-            <p className="text-sm font-semibold text-slate-600 mb-3">{t('wordCount')}</p>
+            <p
+              className={`text-sm font-semibold mb-3 ${
+                theme === 'cinema' ? 'text-amber-200/80' : 'text-slate-600'
+              }`}
+            >
+              {t('wordCount')}
+            </p>
             <div className="flex gap-2 justify-center flex-wrap">
               {WORD_COUNTS.map((n) => (
                 <button
@@ -207,7 +231,11 @@ export function SentenceBuilding() {
           <button
             onClick={start}
             disabled={vocabs.length < 1}
-            className="mt-8 px-8 py-3.5 rounded-xl bg-gradient-to-r from-sky-500 to-teal-500 text-white font-semibold hover:from-sky-600 hover:to-teal-600 transition-all shadow-md disabled:opacity-50 cursor-pointer"
+            className={`mt-8 px-8 py-3.5 rounded-xl font-semibold transition-all shadow-md disabled:opacity-50 cursor-pointer ${
+              theme === 'cinema'
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-stone-950 hover:from-amber-400 hover:to-yellow-400 font-bold'
+                : 'bg-gradient-to-r from-sky-500 to-teal-500 text-white hover:from-sky-600 hover:to-teal-600'
+            }`}
           >
             {t('startSentence')}
           </button>
@@ -220,11 +248,23 @@ export function SentenceBuilding() {
     const avgAccuracy = Math.round(totalAccuracy / questions.length);
     return (
       <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm text-center">
+        <div
+          className={`rounded-2xl p-8 shadow-sm text-center border ${
+            theme === 'cinema'
+              ? 'bg-[#18130e] border-amber-500/35 text-amber-100 shadow-xl shadow-black/40'
+              : 'bg-white border-slate-200 text-slate-800'
+          }`}
+        >
           <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-amber-400 to-orange-400 flex items-center justify-center mb-4 shadow-md">
             <Trophy className="w-10 h-10 text-white" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-800">{t('sentenceComplete')}</h2>
+          <h2
+            className={`text-2xl font-bold ${
+              theme === 'cinema' ? 'text-amber-100' : 'text-slate-800'
+            }`}
+          >
+            {t('sentenceComplete')}
+          </h2>
           <div className="mt-6">
             <p
               className={`text-5xl font-bold ${
@@ -233,11 +273,21 @@ export function SentenceBuilding() {
             >
               {avgAccuracy}%
             </p>
-            <p className="text-sm text-slate-500 mt-1">{t('avgAccuracy')}</p>
+            <p
+              className={`text-sm mt-1 ${
+                theme === 'cinema' ? 'text-stone-400' : 'text-slate-500'
+              }`}
+            >
+              {t('avgAccuracy')}
+            </p>
           </div>
           <button
             onClick={() => setPhase('setup')}
-            className="mt-8 flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-sky-500 to-teal-500 text-white font-semibold hover:from-sky-600 hover:to-teal-600 transition-all shadow-md mx-auto cursor-pointer"
+            className={`mt-8 flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all shadow-md mx-auto cursor-pointer ${
+              theme === 'cinema'
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-stone-950 hover:from-amber-400 hover:to-yellow-400 font-bold'
+                : 'bg-gradient-to-r from-sky-500 to-teal-500 text-white hover:from-sky-600 hover:to-teal-600'
+            }`}
           >
             <RotateCcw className="w-5 h-5" />
             {t('retryQuiz')}
@@ -256,7 +306,11 @@ export function SentenceBuilding() {
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-semibold text-slate-600">
+          <span
+            className={`text-sm font-semibold ${
+              theme === 'cinema' ? 'text-stone-300' : 'text-slate-600'
+            }`}
+          >
             {t('question')} {current + 1} {t('of')} {questions.length}
           </span>
           <span
@@ -269,7 +323,11 @@ export function SentenceBuilding() {
             SRS Spaced Repetition Active
           </span>
         </div>
-        <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+        <div
+          className={`h-2 rounded-full overflow-hidden ${
+            theme === 'cinema' ? 'bg-stone-800' : 'bg-slate-200'
+          }`}
+        >
           <div
             className={`h-full rounded-full transition-all duration-300 ${
               theme === 'cinema'
@@ -283,7 +341,13 @@ export function SentenceBuilding() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
+      <div
+        className={`rounded-2xl p-6 sm:p-8 shadow-sm border ${
+          theme === 'cinema'
+            ? 'bg-[#18130e] border-amber-500/35 shadow-xl shadow-black/40'
+            : 'bg-white border-slate-200'
+        }`}
+      >
         {/* Target word with audio (High-contrast, theme-synchronized box) */}
         <div
           className={`text-center mb-6 p-6 sm:p-7 rounded-2xl border transition-all ${
@@ -294,7 +358,11 @@ export function SentenceBuilding() {
               : 'bg-slate-50 border-slate-200'
           }`}
         >
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+          <p
+            className={`text-xs font-bold uppercase tracking-wider mb-1 ${
+              theme === 'cinema' ? 'text-amber-400/70' : 'text-slate-400'
+            }`}
+          >
             {t('targetWord')}
           </p>
           <div className="flex items-center justify-center gap-3">
@@ -345,7 +413,11 @@ export function SentenceBuilding() {
                 setRate(newRate);
                 setGlobalRate(newRate);
               }}
-              className="text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-sky-400 cursor-pointer"
+              className={`text-xs font-medium rounded-lg px-2 py-1 focus:outline-none cursor-pointer border ${
+                theme === 'cinema'
+                  ? 'text-amber-200 bg-stone-900 border-amber-500/30 focus:ring-2 focus:ring-amber-400'
+                  : 'text-slate-600 bg-slate-100 border-slate-200 focus:ring-2 focus:ring-sky-400'
+              }`}
             >
               {speedOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>

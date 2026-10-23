@@ -488,13 +488,31 @@ export function ClozeTest() {
     const percentage = Math.round((score / questions.length) * 100);
     return (
       <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm text-center">
+        <div
+          className={`rounded-2xl p-8 shadow-sm text-center border ${
+            theme === 'cinema'
+              ? 'bg-[#18130e] border-amber-500/35 text-amber-100 shadow-xl shadow-black/40'
+              : 'bg-white border-slate-200 text-slate-800'
+          }`}
+        >
           <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-amber-400 to-orange-400 flex items-center justify-center mb-4 shadow-md">
             <Trophy className="w-10 h-10 text-white" />
           </div>
 
-          <h2 className="text-2xl font-bold text-slate-800">{t('clozeComplete')}</h2>
-          <p className="text-slate-500 mt-1">{t('clozeScore')}</p>
+          <h2
+            className={`text-2xl font-bold ${
+              theme === 'cinema' ? 'text-amber-100' : 'text-slate-800'
+            }`}
+          >
+            {t('clozeComplete')}
+          </h2>
+          <p
+            className={`mt-1 ${
+              theme === 'cinema' ? 'text-stone-400' : 'text-slate-500'
+            }`}
+          >
+            {t('clozeScore')}
+          </p>
 
           <div className="mt-6 flex items-center justify-center gap-8">
             <div>
@@ -505,17 +523,55 @@ export function ClozeTest() {
               >
                 {score}
               </p>
-              <p className="text-sm text-slate-500">{t('correct')}</p>
+              <p
+                className={`text-sm ${
+                  theme === 'cinema' ? 'text-stone-400' : 'text-slate-500'
+                }`}
+              >
+                {t('correct')}
+              </p>
             </div>
-            <div className="w-px h-12 bg-slate-200" />
+            <div
+              className={`w-px h-12 ${
+                theme === 'cinema' ? 'bg-amber-500/20' : 'bg-slate-200'
+              }`}
+            />
             <div>
-              <p className="text-4xl font-bold text-slate-400">{questions.length - score}</p>
-              <p className="text-sm text-slate-500">{t('incorrect')}</p>
+              <p
+                className={`text-4xl font-bold ${
+                  theme === 'cinema' ? 'text-stone-500' : 'text-slate-400'
+                }`}
+              >
+                {questions.length - score}
+              </p>
+              <p
+                className={`text-sm ${
+                  theme === 'cinema' ? 'text-stone-400' : 'text-slate-500'
+                }`}
+              >
+                {t('incorrect')}
+              </p>
             </div>
-            <div className="w-px h-12 bg-slate-200" />
+            <div
+              className={`w-px h-12 ${
+                theme === 'cinema' ? 'bg-amber-500/20' : 'bg-slate-200'
+              }`}
+            />
             <div>
-              <p className="text-4xl font-bold text-teal-600">{percentage}%</p>
-              <p className="text-sm text-slate-500">{t('score')}</p>
+              <p
+                className={`text-4xl font-bold ${
+                  theme === 'cinema' ? 'text-amber-400' : 'text-teal-600'
+                }`}
+              >
+                {percentage}%
+              </p>
+              <p
+                className={`text-sm ${
+                  theme === 'cinema' ? 'text-stone-400' : 'text-slate-500'
+                }`}
+              >
+                {t('score')}
+              </p>
             </div>
           </div>
 
@@ -531,9 +587,22 @@ export function ClozeTest() {
           )}
 
           {/* Results Review list */}
-          <div className="mt-8 text-left divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden max-h-96 overflow-y-auto">
+          <div
+            className={`mt-8 text-left divide-y border rounded-xl overflow-hidden max-h-96 overflow-y-auto ${
+              theme === 'cinema'
+                ? 'divide-amber-500/15 border-amber-500/25 bg-[#140f0c]'
+                : 'divide-slate-100 border-slate-200'
+            }`}
+          >
             {historyResults.map((r, i) => (
-              <div key={i} className="p-4 bg-white hover:bg-slate-50 transition-colors">
+              <div
+                key={i}
+                className={`p-4 transition-colors ${
+                  theme === 'cinema'
+                    ? 'bg-[#18130e] hover:bg-[#201912]'
+                    : 'bg-white hover:bg-slate-50'
+                }`}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-2">
                     {r.correct ? (
@@ -541,18 +610,40 @@ export function ClozeTest() {
                     ) : (
                       <XCircle className="w-5 h-5 text-rose-500 flex-shrink-0" />
                     )}
-                    <span className="font-bold text-slate-800">{r.vocab.word}</span>
-                    <span className="text-xs text-slate-400">({r.vocab.meaning})</span>
+                    <span
+                      className={`font-bold ${
+                        theme === 'cinema' ? 'text-amber-100' : 'text-slate-800'
+                      }`}
+                    >
+                      {r.vocab.word}
+                    </span>
+                    <span
+                      className={`text-xs ${
+                        theme === 'cinema' ? 'text-stone-400' : 'text-slate-400'
+                      }`}
+                    >
+                      ({r.vocab.meaning})
+                    </span>
                   </div>
                   <button
                     onClick={() => speak(r.fullSentence, rate)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors cursor-pointer"
+                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                      theme === 'cinema'
+                        ? 'text-stone-400 hover:text-amber-300 hover:bg-amber-500/20'
+                        : 'text-slate-400 hover:text-sky-600 hover:bg-sky-50'
+                    }`}
                     title={t('playAudio')}
                   >
                     <Volume2 className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="text-sm text-slate-700 mt-2 font-medium">{r.fullSentence}</div>
+                <div
+                  className={`text-sm mt-2 font-medium ${
+                    theme === 'cinema' ? 'text-stone-200' : 'text-slate-700'
+                  }`}
+                >
+                  {r.fullSentence}
+                </div>
                 {r.translation && (
                   <div className="text-xs text-slate-400 mt-0.5">{r.translation}</div>
                 )}
@@ -569,7 +660,11 @@ export function ClozeTest() {
           <div className="mt-8 flex gap-3 justify-center">
             <button
               onClick={() => setPhase('setup')}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-sky-500 to-teal-500 text-white font-semibold hover:from-sky-600 hover:to-teal-600 transition-all shadow-md cursor-pointer"
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all shadow-md cursor-pointer ${
+                theme === 'cinema'
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-stone-950 hover:from-amber-400 hover:to-yellow-400 font-bold'
+                  : 'bg-gradient-to-r from-sky-500 to-teal-500 text-white hover:from-sky-600 hover:to-teal-600'
+              }`}
             >
               <RotateCcw className="w-4 h-4" />
               {t('clozeRetry')}
@@ -589,7 +684,11 @@ export function ClozeTest() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-slate-600">
+            <span
+              className={`text-sm font-semibold ${
+                theme === 'cinema' ? 'text-stone-300' : 'text-slate-600'
+              }`}
+            >
               {t('question')} {current + 1} {t('of')} {questions.length}
             </span>
             {streak > 1 && (
@@ -616,7 +715,11 @@ export function ClozeTest() {
                 setRate(r);
                 setGlobalRate(r);
               }}
-              className="text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-sky-400 cursor-pointer"
+              className={`text-xs font-medium rounded-lg px-2 py-1 focus:outline-none cursor-pointer border ${
+                theme === 'cinema'
+                  ? 'text-amber-200 bg-stone-900 border-amber-500/30 focus:ring-2 focus:ring-amber-400'
+                  : 'text-slate-600 bg-slate-100 border-slate-200 focus:ring-2 focus:ring-sky-400'
+              }`}
             >
               {speedOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -628,7 +731,11 @@ export function ClozeTest() {
         </div>
 
         {/* Progress Bar */}
-        <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+        <div
+          className={`h-2 rounded-full overflow-hidden ${
+            theme === 'cinema' ? 'bg-stone-800' : 'bg-slate-200'
+          }`}
+        >
           <div
             className={`h-full rounded-full transition-all duration-300 ${
               theme === 'cinema'
@@ -643,7 +750,13 @@ export function ClozeTest() {
       </div>
 
       {/* Main Question Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
+      <div
+        className={`rounded-2xl p-6 sm:p-8 shadow-sm border ${
+          theme === 'cinema'
+            ? 'bg-[#18130e] border-amber-500/35 shadow-xl shadow-black/40'
+            : 'bg-white border-slate-200'
+        }`}
+      >
         {/* Category tag & Hint Button */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -855,15 +968,23 @@ export function ClozeTest() {
               const isCorrectOpt = idx === currentQ.correctIndex;
               const isSelectedOpt = idx === selectedChoice;
 
-              let style = 'border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50 text-slate-700';
+              let style = theme === 'cinema'
+                ? 'border-amber-500/30 bg-stone-900/80 hover:border-amber-400 hover:bg-stone-800 text-amber-100'
+                : 'border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50 text-slate-700';
 
               if (answered) {
                 if (isCorrectOpt) {
-                  style = 'border-emerald-400 bg-emerald-50 text-emerald-700';
+                  style = theme === 'cinema'
+                    ? 'border-emerald-500 bg-emerald-950/60 text-emerald-200'
+                    : 'border-emerald-400 bg-emerald-50 text-emerald-700';
                 } else if (isSelectedOpt) {
-                  style = 'border-rose-400 bg-rose-50 text-rose-700';
+                  style = theme === 'cinema'
+                    ? 'border-rose-500 bg-rose-950/60 text-rose-200'
+                    : 'border-rose-400 bg-rose-50 text-rose-700';
                 } else {
-                  style = 'border-slate-200 bg-white text-slate-400 opacity-50';
+                  style = theme === 'cinema'
+                    ? 'border-amber-500/20 bg-stone-900/40 text-stone-600 opacity-50'
+                    : 'border-slate-200 bg-white text-slate-400 opacity-50';
                 }
               }
 

@@ -544,29 +544,43 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
   return (
     <div className="max-w-6xl mx-auto">
       {/* Stats bar */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
-        <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 shadow-sm">
-          <span className="text-sm font-semibold text-slate-500">{t('totalWords')}</span>
-          <span className="text-lg font-bold text-sky-600">{vocabs.length}</span>
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-6">
+        <div className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border shadow-sm ${
+          theme === 'cinema'
+            ? 'bg-[#18130e] border-amber-500/35 text-amber-100'
+            : 'bg-white border-slate-200'
+        }`}>
+          <span className={`text-xs sm:text-sm font-semibold ${theme === 'cinema' ? 'text-amber-300/80 font-mono' : 'text-slate-500'}`}>{t('totalWords')}</span>
+          <span className={`text-base sm:text-lg font-bold ${theme === 'cinema' ? 'text-amber-300 font-mono' : 'text-sky-600'}`}>{vocabs.length}</span>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 shadow-sm">
-          <span className="text-sm font-semibold text-slate-500">{t('categories')}</span>
-          <span className="text-lg font-bold text-teal-600">{chestGroups.length}</span>
+        <div className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border shadow-sm ${
+          theme === 'cinema'
+            ? 'bg-[#18130e] border-amber-500/35 text-amber-100'
+            : 'bg-white border-slate-200'
+        }`}>
+          <span className={`text-xs sm:text-sm font-semibold ${theme === 'cinema' ? 'text-amber-300/80 font-mono' : 'text-slate-500'}`}>{t('categories')}</span>
+          <span className={`text-base sm:text-lg font-bold ${theme === 'cinema' ? 'text-amber-400 font-mono' : 'text-teal-600'}`}>{chestGroups.length}</span>
         </div>
         <button
           onClick={() => setFilterCategory(filterCategory === 'srs_due' ? 'all' : 'srs_due')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all shadow-sm ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all shadow-sm cursor-pointer ${
             filterCategory === 'srs_due'
-              ? 'bg-amber-500 text-white border-amber-600 ring-2 ring-amber-200'
-              : 'bg-white border-slate-200 text-slate-700 hover:border-amber-300'
+              ? (theme === 'cinema'
+                  ? 'bg-amber-500 text-stone-950 font-black border-amber-400 ring-2 ring-amber-500/40'
+                  : 'bg-amber-500 text-white border-amber-600 ring-2 ring-amber-200')
+              : (theme === 'cinema'
+                  ? 'bg-[#18130e] border-amber-500/35 text-amber-200 hover:border-amber-400'
+                  : 'bg-white border-slate-200 text-slate-700 hover:border-amber-300')
           }`}
         >
-          <Clock className="w-4 h-4" />
-          <span className="text-sm font-semibold">
+          <Clock className={`w-4 h-4 ${theme === 'cinema' ? 'text-amber-400' : 'text-amber-500'}`} />
+          <span className="text-xs sm:text-sm font-semibold">
             {lang === 'vi' ? 'Cần ôn tập hôm nay (SRS)' : 'Due for Review (SRS)'}
           </span>
-          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-            filterCategory === 'srs_due' ? 'bg-amber-700 text-white' : 'bg-amber-100 text-amber-800'
+          <span className={`px-2 py-0.5 rounded-full text-xs font-bold font-mono ${
+            filterCategory === 'srs_due'
+              ? (theme === 'cinema' ? 'bg-stone-950 text-amber-300' : 'bg-amber-700 text-white')
+              : (theme === 'cinema' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-amber-100 text-amber-800')
           }`}>
             {srsDueCount}
           </span>
@@ -575,10 +589,14 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
         {/* 35mm Retro Film Roll Vlog View Button */}
         <button
           onClick={() => setFilmRollOpen(true)}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-stone-900 via-neutral-900 to-amber-950 text-amber-300 border border-amber-500/40 hover:border-amber-400 hover:text-amber-100 transition-all shadow-sm font-mono text-xs font-bold cursor-pointer hover:scale-[1.02]"
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all shadow-sm font-mono text-xs font-bold cursor-pointer hover:scale-[1.02] ml-auto ${
+            theme === 'cinema'
+              ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 text-stone-950 font-black border-amber-400 shadow-amber-950/40'
+              : 'bg-gradient-to-r from-stone-900 via-neutral-900 to-amber-950 text-amber-300 border-amber-500/40 hover:border-amber-400'
+          }`}
           title="Xem từ vựng dưới dạng Cuộn phim 35mm Retro Vlog (Reels)"
         >
-          <Film className="w-4 h-4 text-amber-400" />
+          <Film className={`w-4 h-4 ${theme === 'cinema' ? 'text-stone-950' : 'text-amber-400'}`} />
           <span>🎬 Cuộn phim Vlog (35mm)</span>
           <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" title="REC Active" />
         </button>
@@ -591,31 +609,55 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
         const isWeeklyAchieved = weeklyGoal.quizReviewed >= weeklyGoal.quizTarget && weeklyGoal.clozeReviewed >= weeklyGoal.clozeTarget;
 
         return (
-          <div className="mb-6 rounded-2xl bg-gradient-to-r from-sky-50 via-indigo-50/50 to-amber-50/40 border border-indigo-100/80 shadow-xs p-4 sm:p-5">
+          <div className={`mb-6 rounded-2xl border p-4 sm:p-5 shadow-xs transition-colors ${
+            theme === 'cinema'
+              ? 'bg-[#18130e] border-amber-500/40 text-amber-100 shadow-lg shadow-black/40'
+              : 'bg-gradient-to-r from-sky-50 via-indigo-50/50 to-amber-50/40 border-indigo-100/80'
+          }`}>
             {/* Top bar: Title + Week Key + Days left + Streak */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-indigo-100/60">
+            <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b ${
+              theme === 'cinema' ? 'border-amber-500/20' : 'border-indigo-100/60'
+            }`}>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-xs flex-shrink-0">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-xs flex-shrink-0 ${
+                  theme === 'cinema'
+                    ? 'bg-gradient-to-br from-amber-500 to-yellow-600 text-stone-950 font-black'
+                    : 'bg-gradient-to-tr from-sky-500 to-indigo-600 text-white'
+                }`}>
                   <Target className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="font-bold text-slate-800 text-sm sm:text-base">
+                    <h4 className={`font-bold text-sm sm:text-base ${
+                      theme === 'cinema' ? 'text-amber-100 font-serif' : 'text-slate-800'
+                    }`}>
                       {lang === 'vi' ? 'Mục tiêu ôn tập tuần' : 'Weekly Review Goals'}
                     </h4>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-100/80 text-indigo-700">
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                      theme === 'cinema'
+                        ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono'
+                        : 'bg-indigo-100/80 text-indigo-700'
+                    }`}>
                       {weeklyGoal.weekKey}
                     </span>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 border border-sky-200">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
+                      theme === 'cinema'
+                        ? 'bg-amber-500/20 text-amber-200 border-amber-500/40 font-mono'
+                        : 'bg-sky-100 text-sky-800 border-sky-200'
+                    }`}>
                       {lang === 'vi'
                         ? `Mức: ${(DIFFICULTY_CONFIGS[(weeklyGoal.difficulty as GoalDifficulty) || 'medium'] || DIFFICULTY_CONFIGS.medium).nameVi}`
                         : `Level: ${(DIFFICULTY_CONFIGS[(weeklyGoal.difficulty as GoalDifficulty) || 'medium'] || DIFFICULTY_CONFIGS.medium).nameEn}`}
                     </span>
-                    <span className="text-xs font-medium text-slate-500">
+                    <span className={`text-xs font-medium ${
+                      theme === 'cinema' ? 'text-amber-400/80 font-mono' : 'text-slate-500'
+                    }`}>
                       {lang === 'vi' ? `• Còn ${daysLeftInWeek} ngày` : `• ${daysLeftInWeek} days left`}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className={`text-xs mt-0.5 ${
+                    theme === 'cinema' ? 'text-amber-200/70' : 'text-slate-500'
+                  }`}>
                     {isWeeklyAchieved
                       ? (lang === 'vi' ? '🎉 Đã hoàn thành toàn bộ chỉ tiêu tuần! Xuất sắc!' : '🎉 All weekly targets achieved!')
                       : (lang === 'vi' ? 'Hoàn thành 2 kỹ năng trọng tâm dưới đây để mở khóa phần thưởng:' : 'Complete both key skill targets to unlock your reward:')}
@@ -624,9 +666,13 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
               </div>
 
               <div className="flex items-center gap-2 self-start sm:self-center">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-amber-200/80 shadow-2xs">
-                  <Flame className="w-4 h-4 text-orange-500 fill-orange-500" />
-                  <span className="text-xs font-bold text-orange-800">
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border shadow-2xs ${
+                  theme === 'cinema'
+                    ? 'bg-[#120e0b] border-amber-500/40 text-amber-300'
+                    : 'bg-white border-amber-200/80 text-orange-800'
+                }`}>
+                  <Flame className={`w-4 h-4 ${theme === 'cinema' ? 'text-amber-400 fill-amber-400' : 'text-orange-500 fill-orange-500'}`} />
+                  <span className={`text-xs font-bold ${theme === 'cinema' ? 'text-amber-300' : 'text-orange-800'}`}>
                     {streakData.currentStreak} {lang === 'vi' ? 'ngày liên tiếp' : 'days streak'}
                   </span>
                 </div>
@@ -634,7 +680,11 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
                   <button
                     type="button"
                     onClick={() => onNavigate('analytics')}
-                    className="text-xs font-semibold text-indigo-700 hover:text-indigo-900 bg-white hover:bg-indigo-50/80 border border-indigo-200/70 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                    className={`text-xs font-semibold px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1 border ${
+                      theme === 'cinema'
+                        ? 'text-amber-300 hover:text-amber-100 bg-[#120e0b] hover:bg-[#221a14] border-amber-500/40'
+                        : 'text-indigo-700 hover:text-indigo-900 bg-white hover:bg-indigo-50/80 border-indigo-200/70'
+                    }`}
                     title={lang === 'vi' ? 'Xem phân tích & sửa cam kết thưởng phạt' : 'View analytics & edit contract'}
                   >
                     <span>{lang === 'vi' ? 'Khế ước & Chi tiết' : 'Contract & Goals'}</span>
@@ -647,29 +697,37 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
             {/* 2 Focused Feature Goal Trackers: Quiz & Cloze */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3.5">
               {/* 1. Luyện trắc nghiệm (Quiz) */}
-              <div className="bg-white/90 rounded-xl p-3 border border-sky-100/90 shadow-2xs hover:border-sky-300 transition-all">
+              <div className={`rounded-xl p-3 border shadow-2xs transition-all ${
+                theme === 'cinema'
+                  ? 'bg-[#120e0b] border-amber-500/30 text-amber-100 hover:border-amber-500/60'
+                  : 'bg-white/90 border-sky-100/90 hover:border-sky-300'
+              }`}>
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-sky-500" />
-                    <span className="text-xs font-bold text-slate-700">
+                    <span className={`w-2.5 h-2.5 rounded-full ${theme === 'cinema' ? 'bg-amber-400' : 'bg-sky-500'}`} />
+                    <span className={`text-xs font-bold ${theme === 'cinema' ? 'text-amber-200' : 'text-slate-700'}`}>
                       {lang === 'vi' ? 'Luyện trắc nghiệm (Quiz)' : 'Multiple Choice Quiz'}
                     </span>
                   </div>
-                  <span className="text-xs font-black text-sky-600">
+                  <span className={`text-xs font-black ${theme === 'cinema' ? 'text-amber-300 font-mono' : 'text-sky-600'}`}>
                     {weeklyGoal.quizReviewed}/{weeklyGoal.quizTarget} {lang === 'vi' ? 'từ' : 'words'} ({quizPercent}%)
                   </span>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden mb-2">
+                <div className={`w-full rounded-full h-2 overflow-hidden mb-2 ${
+                  theme === 'cinema' ? 'bg-stone-900 border border-amber-500/20' : 'bg-slate-100'
+                }`}>
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${
                       weeklyGoal.quizReviewed >= weeklyGoal.quizTarget
-                        ? 'bg-emerald-500'
-                        : 'bg-gradient-to-r from-sky-400 to-indigo-500'
+                        ? (theme === 'cinema' ? 'bg-emerald-400' : 'bg-emerald-500')
+                        : (theme === 'cinema' ? 'bg-gradient-to-r from-amber-500 to-yellow-400' : 'bg-gradient-to-r from-sky-400 to-indigo-500')
                     }`}
                     style={{ width: `${quizPercent}%` }}
                   />
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-slate-500">
+                <div className={`flex items-center justify-between text-[11px] ${
+                  theme === 'cinema' ? 'text-amber-300/80 font-mono' : 'text-slate-500'
+                }`}>
                   <span>
                     {weeklyGoal.quizReviewed >= weeklyGoal.quizTarget
                       ? (lang === 'vi' ? '✓ Đã đạt chỉ tiêu' : '✓ Target achieved')
@@ -679,7 +737,9 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
                     <button
                       type="button"
                       onClick={() => onNavigate('quiz')}
-                      className="font-bold text-sky-600 hover:text-sky-800 transition-colors cursor-pointer"
+                      className={`font-bold transition-colors cursor-pointer ${
+                        theme === 'cinema' ? 'text-amber-400 hover:text-amber-200' : 'text-sky-600 hover:text-sky-800'
+                      }`}
                     >
                       {lang === 'vi' ? 'Luyện ngay →' : 'Practice now →'}
                     </button>
@@ -688,29 +748,37 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
               </div>
 
               {/* 2. Đục lỗ ngữ cảnh (Cloze Test) */}
-              <div className="bg-white/90 rounded-xl p-3 border border-emerald-100/90 shadow-2xs hover:border-emerald-300 transition-all">
+              <div className={`rounded-xl p-3 border shadow-2xs transition-all ${
+                theme === 'cinema'
+                  ? 'bg-[#120e0b] border-amber-500/30 text-amber-100 hover:border-amber-500/60'
+                  : 'bg-white/90 border-emerald-100/90 hover:border-emerald-300'
+              }`}>
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                    <span className="text-xs font-bold text-slate-700">
+                    <span className={`w-2.5 h-2.5 rounded-full ${theme === 'cinema' ? 'bg-emerald-400' : 'bg-emerald-500'}`} />
+                    <span className={`text-xs font-bold ${theme === 'cinema' ? 'text-amber-200' : 'text-slate-700'}`}>
                       {lang === 'vi' ? 'Đục lỗ ngữ cảnh (Cloze)' : 'Context Cloze Test'}
                     </span>
                   </div>
-                  <span className="text-xs font-black text-emerald-600">
+                  <span className={`text-xs font-black ${theme === 'cinema' ? 'text-emerald-400 font-mono' : 'text-emerald-600'}`}>
                     {weeklyGoal.clozeReviewed}/{weeklyGoal.clozeTarget} {lang === 'vi' ? 'câu' : 'sentences'} ({clozePercent}%)
                   </span>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden mb-2">
+                <div className={`w-full rounded-full h-2 overflow-hidden mb-2 ${
+                  theme === 'cinema' ? 'bg-stone-900 border border-amber-500/20' : 'bg-slate-100'
+                }`}>
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${
                       weeklyGoal.clozeReviewed >= weeklyGoal.clozeTarget
-                        ? 'bg-emerald-500'
-                        : 'bg-gradient-to-r from-emerald-400 to-teal-500'
+                        ? (theme === 'cinema' ? 'bg-emerald-400' : 'bg-emerald-500')
+                        : (theme === 'cinema' ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-gradient-to-r from-emerald-400 to-teal-500')
                     }`}
                     style={{ width: `${clozePercent}%` }}
                   />
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-slate-500">
+                <div className={`flex items-center justify-between text-[11px] ${
+                  theme === 'cinema' ? 'text-amber-300/80 font-mono' : 'text-slate-500'
+                }`}>
                   <span>
                     {weeklyGoal.clozeReviewed >= weeklyGoal.clozeTarget
                       ? (lang === 'vi' ? '✓ Đã đạt chỉ tiêu' : '✓ Target achieved')
@@ -720,7 +788,9 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
                     <button
                       type="button"
                       onClick={() => onNavigate('cloze')}
-                      className="font-bold text-emerald-600 hover:text-emerald-800 transition-colors cursor-pointer"
+                      className={`font-bold transition-colors cursor-pointer ${
+                        theme === 'cinema' ? 'text-emerald-400 hover:text-emerald-200' : 'text-emerald-600 hover:text-emerald-800'
+                      }`}
                     >
                       {lang === 'vi' ? 'Luyện ngay →' : 'Practice now →'}
                     </button>
@@ -730,25 +800,31 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
             </div>
 
             {/* Commitment Contract Bar (Thưởng & Phạt) */}
-            <div className={`mt-3 pt-2.5 border-t border-indigo-100/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs rounded-xl px-3 py-2 ${
-              isWeeklyAchieved ? 'bg-emerald-50 text-emerald-900 border border-emerald-200' : 'bg-white/70 text-slate-700'
+            <div className={`mt-3 pt-2.5 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs rounded-xl px-3 py-2 ${
+              theme === 'cinema'
+                ? isWeeklyAchieved
+                  ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-500/40'
+                  : 'bg-[#120e0b] text-amber-200 border border-amber-500/25'
+                : isWeeklyAchieved
+                ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
+                : 'bg-white/70 text-slate-700 border-indigo-100/60'
             }`}>
               {isWeeklyAchieved ? (
-                <div className="flex items-center gap-2 font-bold text-emerald-800">
-                  <Trophy className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                <div className="flex items-center gap-2 font-bold text-emerald-400">
+                  <Trophy className="w-4 h-4 text-amber-400 flex-shrink-0" />
                   <span>{lang === 'vi' ? `🎉 ĐÃ MỞ KHÓA PHẦN THƯỞNG: ${weeklyGoal.rewardText}` : `🎉 REWARD UNLOCKED: ${weeklyGoal.rewardText}`}</span>
                 </div>
               ) : (
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full justify-between">
-                  <div className="flex items-center gap-1.5 text-slate-700 truncate">
-                    <Gift className="w-3.5 h-3.5 text-pink-500 flex-shrink-0" />
-                    <span className="font-semibold text-slate-500 flex-shrink-0">{lang === 'vi' ? 'Thưởng:' : 'Reward:'}</span>
-                    <span className="font-bold text-slate-800 truncate">{weeklyGoal.rewardText}</span>
+                  <div className="flex items-center gap-1.5 truncate">
+                    <Gift className={`w-3.5 h-3.5 flex-shrink-0 ${theme === 'cinema' ? 'text-amber-400' : 'text-pink-500'}`} />
+                    <span className={`font-semibold flex-shrink-0 ${theme === 'cinema' ? 'text-amber-400/80' : 'text-slate-500'}`}>{lang === 'vi' ? 'Thưởng:' : 'Reward:'}</span>
+                    <span className={`font-bold truncate ${theme === 'cinema' ? 'text-amber-100' : 'text-slate-800'}`}>{weeklyGoal.rewardText}</span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-slate-600 truncate">
-                    <span className="text-amber-500 font-bold flex-shrink-0">⚡</span>
-                    <span className="font-semibold text-slate-500 flex-shrink-0">{lang === 'vi' ? 'Phạt:' : 'Penalty:'}</span>
-                    <span className="font-medium text-amber-800 truncate">{weeklyGoal.penaltyText}</span>
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="text-amber-400 font-bold flex-shrink-0">⚡</span>
+                    <span className={`font-semibold flex-shrink-0 ${theme === 'cinema' ? 'text-amber-400/80' : 'text-slate-500'}`}>{lang === 'vi' ? 'Phạt:' : 'Penalty:'}</span>
+                    <span className={`font-medium truncate ${theme === 'cinema' ? 'text-amber-300' : 'text-amber-800'}`}>{weeklyGoal.penaltyText}</span>
                   </div>
                 </div>
               )}
@@ -760,13 +836,21 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
       {/* Chest folder cards */}
       {filterCategory === 'all' && !search.trim() && (
         <div className="mb-8">
-          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">{t('categories')}</h3>
+          <h3 className={`text-sm font-bold uppercase tracking-wider mb-3 ${
+            theme === 'cinema' ? 'text-amber-400 font-mono' : 'text-slate-500'
+          }`}>{t('categories')}</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {chestGroups.map(([cat, words]) => (
               <button
                 key={cat}
                 onClick={() => setFilterCategory(cat)}
-                className="group bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-sky-300 transition-all text-left"
+                className={`group rounded-2xl border p-4 shadow-sm hover:shadow-md transition-all text-left ${
+                  theme === 'cinema'
+                    ? 'bg-[#18130e] border-amber-500/35 hover:border-amber-400 text-amber-100 shadow-black/40'
+                    : theme === 'retro'
+                    ? 'bg-[#fffdfa] border-[#ebdccb] hover:border-amber-400 text-stone-900'
+                    : 'bg-white border-slate-200 hover:border-sky-300 text-slate-800'
+                }`}
               >
                 <div
                   className={`w-10 h-10 rounded-xl bg-gradient-to-br ${chestColor(
@@ -775,8 +859,12 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
                 >
                   <Folder className="w-5 h-5 text-white" />
                 </div>
-                <p className="font-bold text-slate-800 text-sm truncate">{chestDisplayName(cat)}</p>
-                <p className="text-xs text-slate-400 mt-0.5">{tFn('wordsCount', words.length)}</p>
+                <p className={`font-bold text-sm truncate ${
+                  theme === 'cinema' ? 'text-amber-100 font-serif' : 'text-slate-800'
+                }`}>{chestDisplayName(cat)}</p>
+                <p className={`text-xs mt-0.5 ${
+                  theme === 'cinema' ? 'text-amber-400/80 font-mono' : 'text-slate-400'
+                }`}>{tFn('wordsCount', words.length)}</p>
               </button>
             ))}
           </div>
@@ -1027,17 +1115,14 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
           onChange={(e) => setFilterCategory(e.target.value)}
           className={`px-4 py-2.5 rounded-xl border font-medium focus:outline-none focus:ring-2 cursor-pointer transition-all ${
             theme === 'cinema'
-              ? 'border-amber-500/40 bg-[#1a140f] text-amber-100 focus:ring-amber-400'
-              : 'border-slate-200 bg-white text-slate-700 focus:ring-sky-400'
+              ? 'bg-[#1a1410] border-amber-500/30 text-amber-200 focus:ring-amber-400'
+              : 'bg-white border-slate-200 text-slate-700 focus:ring-sky-400'
           }`}
         >
           <option value="all">{t('allCategories')}</option>
-          <option value="srs_due">
-            {lang === 'vi' ? '⚡ Cần ôn tập hôm nay (SRS)' : '⚡ Due for Review (SRS)'} ({srsDueCount})
-          </option>
-          {categories.map((cat) => (
-            <option key={cat} value={cat}>
-              {chestDisplayName(cat)}
+          {categories.map((c) => (
+            <option key={c} value={c}>
+              {c}
             </option>
           ))}
         </select>
@@ -1045,16 +1130,20 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
 
       {/* Select all & Count */}
       <div className="flex items-center justify-between mb-4">
-        <label className="flex items-center gap-2 text-sm font-semibold text-slate-600 cursor-pointer">
+        <label className={`flex items-center gap-2 text-sm font-semibold cursor-pointer ${
+          theme === 'cinema' ? 'text-amber-200' : 'text-slate-600'
+        }`}>
           <input
             type="checkbox"
             checked={allSelected}
             onChange={toggleSelectAll}
-            className="w-4 h-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400"
+            className="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
           />
           {t('selectAll')}
         </label>
-        <span className="text-sm text-slate-400">
+        <span className={`text-sm ${
+          theme === 'cinema' ? 'text-amber-400/80 font-mono' : 'text-slate-400'
+        }`}>
           {filtered.length} / {vocabs.length}
         </span>
       </div>
@@ -1070,56 +1159,96 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
           return (
             <div
               key={vocab.id}
-              className={`group bg-white rounded-2xl border p-5 shadow-sm transition-all hover:shadow-md ${
-                selected.has(vocab.id) ? 'border-sky-400 ring-2 ring-sky-100' : 'border-slate-200'
+              className={`group rounded-2xl border p-4 sm:p-5 shadow-sm transition-all hover:shadow-md ${
+                theme === 'cinema'
+                  ? `bg-[#18130e] text-amber-100 shadow-black/50 ${
+                      selected.has(vocab.id)
+                        ? 'border-amber-400 ring-2 ring-amber-500/40'
+                        : 'border-amber-500/30 hover:border-amber-500/60'
+                    }`
+                  : theme === 'retro'
+                  ? `bg-[#fffdfa] text-stone-900 ${
+                      selected.has(vocab.id)
+                        ? 'border-amber-500 ring-2 ring-amber-200'
+                        : 'border-[#ebdccb] hover:border-amber-300'
+                    }`
+                  : `bg-white text-slate-800 ${
+                      selected.has(vocab.id)
+                        ? 'border-sky-400 ring-2 ring-sky-100'
+                        : 'border-slate-200 hover:border-slate-300'
+                    }`
               }`}
             >
               <div className="flex items-start justify-between mb-3">
-                <div className="flex items-start gap-3 flex-1">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
                   <input
                     type="checkbox"
                     checked={selected.has(vocab.id)}
                     onChange={() => toggleSelect(vocab.id)}
-                    className="w-4 h-4 mt-1 rounded border-slate-300 text-sky-500 focus:ring-sky-400"
+                    className="w-4 h-4 mt-1 rounded border-slate-300 text-amber-500 focus:ring-amber-400 flex-shrink-0"
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-bold text-slate-800 text-lg truncate">{vocab.word}</h3>
+                      <h3 className={`font-bold text-lg truncate ${
+                        theme === 'cinema' ? 'text-amber-100 font-serif' : theme === 'retro' ? 'text-stone-900 font-serif' : 'text-slate-800'
+                      }`}>
+                        {vocab.word}
+                      </h3>
                       {vocab.type && (
-                        <span className="text-xs font-semibold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-full">
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                          theme === 'cinema'
+                            ? 'bg-amber-500/15 text-amber-300 border border-amber-500/40 font-mono'
+                            : 'text-sky-600 bg-sky-50'
+                        }`}>
                           {vocab.type}
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-slate-600 mt-1">{vocab.meaning}</p>
+                    <p className={`text-sm mt-1 leading-snug ${
+                      theme === 'cinema' ? 'text-amber-200/90 font-medium' : 'text-slate-600'
+                    }`}>
+                      {vocab.meaning}
+                    </p>
 
                     {/* Metadata & SRS badges */}
                     <div className="flex items-center gap-2 mt-3 flex-wrap">
                       <span
                         className={`text-[11px] font-semibold text-white bg-gradient-to-r ${chestColor(
                           vocab.category
-                        )} px-2 py-0.5 rounded-full`}
+                        )} px-2.5 py-0.5 rounded-full shadow-2xs`}
                       >
                         {chestDisplayName(vocab.category)}
                       </span>
 
-                      {/* SRS Stage Badge */}
+                      {/* SRS Stage indicator */}
                       <span
-                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${srsStage.badgeClass}`}
-                        title={`Interval: ${vocab.interval ?? 1}d, Ease: ${vocab.easeFactor ?? 2.5}`}
+                        className={`text-[11px] font-medium px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                          theme === 'cinema'
+                            ? 'bg-[#120e0b] border-amber-500/30 text-amber-300/90 font-mono'
+                            : isDue
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-slate-50 text-slate-500 border-slate-200'
+                        }`}
+                        title={
+                          isDue
+                            ? lang === 'vi'
+                              ? 'Từ này đã đến hạn cần ôn lại!'
+                              : 'Due for review now!'
+                            : lang === 'vi'
+                            ? `Giai đoạn: ${srsStage}`
+                            : `Stage: ${srsStage}`
+                        }
                       >
-                        {lang === 'vi' ? srsStage.labelVi : srsStage.labelEn} ({vocab.interval ?? 1}d)
+                        {isDue && <Clock className="w-3 h-3 text-amber-500 animate-pulse flex-shrink-0" />}
+                        <span>{srsStage}</span>
                       </span>
 
-                      {isDue && (
-                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-amber-600" />
-                          {lang === 'vi' ? 'Cần ôn' : 'Due'}
-                        </span>
-                      )}
-
                       {vocab.error_count > 0 && (
-                        <span className="text-[11px] font-medium text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100">
+                        <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${
+                          theme === 'cinema'
+                            ? 'bg-rose-950/60 border-rose-500/40 text-rose-300'
+                            : 'text-rose-500 bg-rose-50 border-rose-100'
+                        }`}>
                           {vocab.error_count} {t('errorCount').toLowerCase()}
                         </span>
                       )}
@@ -1128,19 +1257,26 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
                 </div>
                 <button
                   onClick={() => setEditTarget(vocab)}
-                  className="text-slate-300 hover:text-sky-500 transition-colors opacity-0 group-hover:opacity-100 p-1"
+                  className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                    theme === 'cinema'
+                      ? 'text-amber-400/60 hover:text-amber-200 hover:bg-stone-900'
+                      : 'text-slate-300 hover:text-sky-500'
+                  }`}
+                  title={t('editWord')}
                 >
                   <Pencil className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Collocations (Cụm từ cố định) */}
-              <div className="mt-3 pt-2.5 border-t border-slate-100">
+              <div className={`mt-3 pt-2.5 border-t ${theme === 'cinema' ? 'border-amber-500/20' : 'border-slate-100'}`}>
                 {collocations && collocations.length > 0 ? (
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                        <Link2 className="w-3 h-3 text-sky-500" />
+                      <span className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 ${
+                        theme === 'cinema' ? 'text-amber-400/90 font-mono' : 'text-slate-500'
+                      }`}>
+                        <Link2 className={`w-3 h-3 ${theme === 'cinema' ? 'text-amber-400' : 'text-sky-500'}`} />
                         {lang === 'vi' ? 'Cụm từ hay gặp' : 'Collocations'}
                       </span>
                       <button
@@ -1150,13 +1286,17 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
                           handleGenerateSingleCollocation(vocab, true);
                         }}
                         disabled={loadingCollocationIds.has(vocab.id)}
-                        className="text-[10px] text-slate-400 hover:text-sky-600 flex items-center gap-0.5 transition-colors cursor-pointer"
+                        className={`text-[10px] flex items-center gap-0.5 transition-colors cursor-pointer ${
+                          theme === 'cinema'
+                            ? 'text-amber-400/70 hover:text-amber-200'
+                            : 'text-slate-400 hover:text-sky-600'
+                        }`}
                         title={lang === 'vi' ? 'Làm mới cụm từ với AI' : 'Refresh collocations'}
                       >
                         {loadingCollocationIds.has(vocab.id) ? (
-                          <Loader2 className="w-2.5 h-2.5 animate-spin text-sky-500" />
+                          <Loader2 className="w-2.5 h-2.5 animate-spin text-amber-500" />
                         ) : (
-                          <Sparkles className="w-2.5 h-2.5 text-sky-400" />
+                          <Sparkles className="w-2.5 h-2.5 text-amber-400" />
                         )}
                         <span>{lang === 'vi' ? 'Đổi khác' : 'Refresh'}</span>
                       </button>
@@ -1172,19 +1312,33 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
                             speak(item.phrase);
                           }}
                           title={lang === 'vi' ? `Nhấn để nghe phát âm: "${item.phrase}"` : `Click to listen: "${item.phrase}"`}
-                          className="group/item flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-sky-50/60 hover:bg-sky-100/70 border border-sky-100 hover:border-sky-300 transition-all text-left cursor-pointer"
+                          className={`group/item flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl border transition-all text-left cursor-pointer ${
+                            theme === 'cinema'
+                              ? 'bg-[#120e0b] border-amber-500/30 hover:border-amber-400 hover:bg-[#201812]'
+                              : 'bg-sky-50/60 hover:bg-sky-100/70 border-sky-100 hover:border-sky-300'
+                          }`}
                         >
                           <div className="min-w-0 flex-1">
-                            <span className="text-xs font-bold text-sky-900 group-hover/item:text-sky-700 block truncate">
+                            <span className={`text-xs font-bold block truncate ${
+                              theme === 'cinema'
+                                ? 'text-amber-200 group-hover/item:text-amber-100'
+                                : 'text-sky-900 group-hover/item:text-sky-700'
+                            }`}>
                               {item.phrase}
                             </span>
                             {item.meaning && (
-                              <span className="text-[11px] text-slate-500 block truncate">
+                              <span className={`text-[11px] block truncate ${
+                                theme === 'cinema'
+                                  ? 'text-amber-300/70'
+                                  : 'text-slate-500'
+                              }`}>
                                 {item.meaning}
                               </span>
                             )}
                           </div>
-                          <Volume2 className="w-3.5 h-3.5 text-sky-500 flex-shrink-0 opacity-70 group-hover/item:opacity-100" />
+                          <Volume2 className={`w-3.5 h-3.5 flex-shrink-0 ${
+                            theme === 'cinema' ? 'text-amber-400 opacity-80 group-hover/item:opacity-100' : 'text-sky-500 opacity-70 group-hover/item:opacity-100'
+                          }`} />
                         </button>
                       ))}
                     </div>
@@ -1198,17 +1352,21 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
                         handleGenerateSingleCollocation(vocab);
                       }}
                       disabled={loadingCollocationIds.has(vocab.id)}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-600 hover:text-sky-700 bg-sky-50 hover:bg-sky-100 px-2.5 py-1 rounded-lg border border-sky-200/60 transition-all cursor-pointer"
+                      className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                        theme === 'cinema'
+                          ? 'bg-[#120e0b] text-amber-300 border-amber-500/30 hover:border-amber-400 hover:bg-[#201812]'
+                          : 'text-sky-600 hover:text-sky-700 bg-sky-50 hover:bg-sky-100 border-sky-200/60'
+                      }`}
                       title={lang === 'vi' ? 'AI tìm 2 cụm từ thường đi kèm nhất' : 'AI find 2 most common collocations'}
                     >
                       {loadingCollocationIds.has(vocab.id) ? (
                         <>
-                          <Loader2 className="w-3 h-3 animate-spin text-sky-500" />
+                          <Loader2 className="w-3 h-3 animate-spin text-amber-500" />
                           <span>{lang === 'vi' ? 'Đang tìm cụm từ...' : 'Finding collocations...'}</span>
                         </>
                       ) : (
                         <>
-                          <Sparkles className="w-3 h-3 text-sky-500" />
+                          <Sparkles className="w-3 h-3 text-amber-400" />
                           <span>{lang === 'vi' ? '✨ Tìm cụm từ đi kèm' : '✨ Find collocations'}</span>
                         </>
                       )}
@@ -1217,14 +1375,21 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
                 )}
               </div>
 
-              <div className="flex items-center justify-between pt-3 border-t border-slate-100 mt-2">
+              <div className={`flex items-center justify-between pt-3 border-t mt-2 ${
+                theme === 'cinema' ? 'border-amber-500/20' : 'border-slate-100'
+              }`}>
                 <AudioControl text={vocab.word} size="sm" showSpeed={false} />
                 <button
                   onClick={() => {
                     setSelected(new Set([vocab.id]));
                     setConfirmOpen(true);
                   }}
-                  className="text-slate-300 hover:text-rose-500 transition-colors p-1"
+                  className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                    theme === 'cinema'
+                      ? 'text-amber-400/50 hover:text-rose-400 hover:bg-rose-500/10'
+                      : 'text-slate-300 hover:text-rose-500'
+                  }`}
+                  title={t('deleteWord')}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -1234,62 +1399,62 @@ export function VocabChest({ onNavigate }: VocabChestProps = {}) {
         })}
       </div>
 
-      {/* Floating action bar for selected items */}
+      {/* Floating action bar for selected items (Mobile & Dark Mode optimized) */}
       {selected.size > 0 && (
-        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 sm:gap-3 px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl shadow-2xl animate-slide-up ${
+        <div className={`fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 max-w-[95vw] flex items-center gap-1.5 sm:gap-3 px-3 sm:px-5 py-2 sm:py-3 rounded-2xl shadow-2xl animate-slide-up overflow-x-auto no-scrollbar ${
           theme === 'cinema'
-            ? 'bg-[#18130e]/95 text-amber-100 border border-amber-500/40 backdrop-blur-md shadow-amber-950/60 ring-1 ring-amber-500/20'
+            ? 'bg-[#18130e]/95 text-amber-100 border border-amber-500/40 backdrop-blur-md shadow-black/80 ring-1 ring-amber-500/30'
             : 'bg-slate-800 text-white'
         }`}>
-          <span className={`text-xs sm:text-sm font-bold flex items-center gap-1.5 ${
+          <span className={`text-xs sm:text-sm font-bold flex items-center gap-1.5 whitespace-nowrap ${
             theme === 'cinema' ? 'text-amber-300' : 'text-white'
           }`}>
             <span className={`w-2 h-2 rounded-full ${theme === 'cinema' ? 'bg-amber-400 animate-pulse' : 'bg-sky-400'}`} />
             {lang === 'vi' ? `Đã chọn ${selected.size}` : `Selected ${selected.size}`}
           </span>
-          <div className={`w-px h-5 ${theme === 'cinema' ? 'bg-amber-500/30' : 'bg-slate-600'}`} />
+          <div className={`w-px h-4 sm:h-5 ${theme === 'cinema' ? 'bg-amber-500/30' : 'bg-slate-600'}`} />
           <button
             onClick={handleNormalizeSelected}
             disabled={normalizingSelected}
-            className={`flex items-center gap-1.5 text-xs sm:text-sm font-semibold transition-colors ${
+            className={`flex items-center gap-1.5 text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
               theme === 'cinema' ? 'text-amber-300 hover:text-amber-100' : 'text-amber-300 hover:text-amber-200'
             }`}
           >
             {normalizingSelected ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             <span>{tFn('aiFixSelectedCount', selected.size)}</span>
           </button>
-          <div className={`w-px h-5 ${theme === 'cinema' ? 'bg-amber-500/30' : 'bg-slate-600'}`} />
+          <div className={`w-px h-4 sm:h-5 ${theme === 'cinema' ? 'bg-amber-500/30' : 'bg-slate-600'}`} />
           <button
             onClick={() => handleBatchCollocations(vocabs.filter((v) => selected.has(v.id)))}
             disabled={batchCollocationLoading}
-            className={`flex items-center gap-1.5 text-xs sm:text-sm font-semibold transition-colors ${
+            className={`flex items-center gap-1.5 text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
               theme === 'cinema' ? 'text-amber-200 hover:text-yellow-200' : 'text-indigo-300 hover:text-indigo-200'
             }`}
           >
             {batchCollocationLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
             <span>{lang === 'vi' ? `Cụm từ (${selected.size})` : `Collocations (${selected.size})`}</span>
           </button>
-          <div className={`w-px h-5 ${theme === 'cinema' ? 'bg-amber-500/30' : 'bg-slate-600'}`} />
+          <div className={`w-px h-4 sm:h-5 ${theme === 'cinema' ? 'bg-amber-500/30' : 'bg-slate-600'}`} />
           <button
             onClick={() => setMoveOpen(true)}
-            className={`flex items-center gap-1.5 text-xs sm:text-sm font-semibold transition-colors ${
+            className={`flex items-center gap-1.5 text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
               theme === 'cinema' ? 'text-amber-300 hover:text-amber-100' : 'text-sky-300 hover:text-sky-200'
             }`}
           >
             <ArrowRight className="w-4 h-4" />
             <span>{t('moveSelected')}</span>
           </button>
-          <div className={`w-px h-5 ${theme === 'cinema' ? 'bg-amber-500/30' : 'bg-slate-600'}`} />
+          <div className={`w-px h-4 sm:h-5 ${theme === 'cinema' ? 'bg-amber-500/30' : 'bg-slate-600'}`} />
           <button
             onClick={() => setConfirmOpen(true)}
-            className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-rose-400 hover:text-rose-300 transition-colors"
+            className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-rose-400 hover:text-rose-300 transition-colors whitespace-nowrap cursor-pointer"
           >
             <Trash2 className="w-4 h-4" />
             <span>{t('deleteSelected')}</span>
           </button>
           <button
             onClick={() => setSelected(new Set())}
-            className={`ml-1 transition-colors ${
+            className={`ml-1 transition-colors cursor-pointer ${
               theme === 'cinema' ? 'text-stone-400 hover:text-amber-200' : 'text-slate-400 hover:text-white'
             }`}
           >
