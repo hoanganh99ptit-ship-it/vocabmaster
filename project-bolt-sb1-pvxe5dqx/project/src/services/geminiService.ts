@@ -15,8 +15,8 @@ import {
 // ============================================================================
 
 export const USER_KEY_STORAGE = 'vocabmaster_gemini_api_key';
-export const TARGET_MODEL = 'gemini-3.5-flash';
-export const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
+export const TARGET_MODEL = 'gemini-3.8-flash';
+export const FALLBACK_MODEL = 'gemini-3.5-flash';
 export const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 export const CHUNK_SIZE = 25; // 25 items per prompt for optimal throughput, speed & quota efficiency
 
@@ -139,6 +139,14 @@ interface EndpointCandidate {
 
 export const ENDPOINT_CANDIDATES: EndpointCandidate[] = [
   {
+    name: 'gemini-3.8-flash (v1beta)',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent',
+  },
+  {
+    name: 'gemini-3.7-flash (v1beta)',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent',
+  },
+  {
     name: 'gemini-3.5-flash (v1beta)',
     url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
   },
@@ -157,10 +165,6 @@ export const ENDPOINT_CANDIDATES: EndpointCandidate[] = [
   {
     name: 'gemma-4-26b-a4b-it (v1beta)',
     url: 'https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:generateContent',
-  },
-  {
-    name: 'gemini-3.8-flash (v1beta)',
-    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent',
   },
 ];
 
@@ -333,7 +337,10 @@ async function discoverWorkingModels(apiKey: string): Promise<EndpointCandidate[
         } | null;
         if (Array.isArray(data?.models)) {
           for (const m of data.models) {
-            if (m.name && m.supportedGenerationMethods?.includes('generateContent')) {
+            const hasGenContent =
+              m.supportedGenerationMethods?.includes('generateContent') ||
+              ((m as { supportedActions?: string[] }).supportedActions?.includes('generateContent') ?? false);
+            if (m.name && hasGenContent) {
               const modelId = m.name.replace(/^models\//, '');
               discovered.push({
                 name: `${modelId} (${ver} discovered)`,
@@ -348,11 +355,11 @@ async function discoverWorkingModels(apiKey: string): Promise<EndpointCandidate[
     }
   }
 
-  // Prioritize flash models
+  // Prioritize 3.8 and flash models
   return discovered.sort((a, b) => {
-    const aFlash = a.name.includes('flash') ? 1 : 0;
-    const bFlash = b.name.includes('flash') ? 1 : 0;
-    return bFlash - aFlash;
+    const aScore = (a.name.includes('3.8') ? 3 : 0) + (a.name.includes('flash') ? 1 : 0);
+    const bScore = (b.name.includes('3.8') ? 3 : 0) + (b.name.includes('flash') ? 1 : 0);
+    return bScore - aScore;
   });
 }
 
