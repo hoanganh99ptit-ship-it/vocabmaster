@@ -36,6 +36,46 @@ function shuffle<T>(arr: T[]): T[] {
   return copy;
 }
 
+// Resilient parsing of blank in sentence (Module scope)
+function parseSentenceParts(sentenceWithBlank: string, fullSentence: string, targetWord: string) {
+  // 1. Match standard blank or underscore sequence (3 or more underscores, or [blank], <blank>)
+  const blankRegex = /(?:_{3,}|\[blank\]|<blank>|\(\.{3,}\)|\.{3,})/i;
+  const match = sentenceWithBlank.match(blankRegex);
+  if (match && match.index !== undefined) {
+    return {
+      before: sentenceWithBlank.slice(0, match.index),
+      after: sentenceWithBlank.slice(match.index + match[0].length),
+    };
+  }
+
+  // 2. If no blank placeholder was found in sentenceWithBlank, try matching targetWord (case-insensitive, whole word)
+  const escapedWord = targetWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const wordRegex = new RegExp(`\\b${escapedWord}\\b`, 'i');
+  const wordMatch = sentenceWithBlank.match(wordRegex);
+  if (wordMatch && wordMatch.index !== undefined) {
+    return {
+      before: sentenceWithBlank.slice(0, wordMatch.index),
+      after: sentenceWithBlank.slice(wordMatch.index + wordMatch[0].length),
+    };
+  }
+
+  // 3. Fallback: try checking fullSentence for the targetWord
+  const fullWordMatch = fullSentence.match(wordRegex);
+  if (fullWordMatch && fullWordMatch.index !== undefined) {
+    return {
+      before: fullSentence.slice(0, fullWordMatch.index),
+      after: fullSentence.slice(fullWordMatch.index + fullWordMatch[0].length),
+    };
+  }
+
+  // 4. Default: split by '______'
+  const parts = sentenceWithBlank.split('______');
+  return {
+    before: parts[0] || '',
+    after: parts.slice(1).join('______'),
+  };
+}
+
 export function ClozeTest() {
   const { vocabs, incrementError, updateSRS } = useVocab();
   const { t, lang } = useLanguage();
@@ -88,89 +128,7 @@ export function ClozeTest() {
     return vocabs.filter((v) => v.category === selectedChest);
   }, [vocabs, selectedChest]);
 
-  // Focus input automatically when entering new question in typing mode
-  useEffect(() => {
-    if (phase === 'playing' && mode === 'typing' && !answered) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
-    }
-  }, [phase, mode, current, answered]);
-
-  // Keyboard navigation for fast interactive practice
-  useEffect(() => {
-    if (phase !== 'playing') return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // If user is currently typing in the input, don't hijack unless it's Enter
-      if (mode === 'typing' && !answered) {
-        return;
-      }
-
-      // If answered: Enter or Space proceeds to the next question
-      if (answered && (e.key === 'Enter' || e.key === ' ')) {
-        e.preventDefault();
-        handleNext();
-        return;
-      }
-
-      // In choice mode and not yet answered: 1-4 or A-D picks choice
-      if (mode === 'choice' && !answered && currentQ) {
-        const key = e.key.toUpperCase();
-        let idx = -1;
-        if (key === '1' || key === 'A') idx = 0;
-        else if (key === '2' || key === 'B') idx = 1;
-        else if (key === '3' || key === 'C') idx = 2;
-        else if (key === '4' || key === 'D') idx = 3;
-
-        if (idx >= 0 && idx < currentQ.options.length) {
-          e.preventDefault();
-          handleCheck(idx);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [phase, mode, answered, currentQ, current, questions.length]);
-
-  const handleStart = async () => {
-    if (filteredVocabs.length < 1) {
-      show(t('clozeEmpty'), 'error');
-      return;
-    }
-
-    setPhase('loading');
-
-    const targetCount = Math.min(count, filteredVocabs.length);
-    const chosenVocabs = shuffle(filteredVocabs).slice(0, targetCount);
-
-    try {
-      const generated = await generateClozeQuestions(chosenVocabs, vocabs);
-      if (generated.length === 0) {
-        show(t('clozeEmpty'), 'error');
-        setPhase('setup');
-        return;
-      }
-
-      setQuestions(generated);
-      setCurrent(0);
-      setTypedAnswer('');
-      setSelectedChoice(null);
-      setAnswered(false);
-      setIsCorrect(null);
-      setScore(0);
-      setStreak(0);
-      setMaxStreak(0);
-      setShowHint(false);
-      setHistoryResults([]);
-      setPhase('playing');
-    } catch {
-      show(t('errGeneric'), 'error');
-      setPhase('setup');
-    }
-  };
-
+  // Current active question
   const currentQ = questions[current];
 
   // Submit Answer (for either typing or choice)
@@ -257,45 +215,88 @@ export function ClozeTest() {
     }
   };
 
-  // Resilient parsing of blank in sentence
-  const parseSentenceParts = (sentenceWithBlank: string, fullSentence: string, targetWord: string) => {
-    // 1. Match standard blank or underscore sequence (3 or more underscores, or [blank], <blank>)
-    const blankRegex = /(?:_{3,}|\[blank\]|<blank>|\(\.{3,}\)|\.{3,})/i;
-    const match = sentenceWithBlank.match(blankRegex);
-    if (match && match.index !== undefined) {
-      return {
-        before: sentenceWithBlank.slice(0, match.index),
-        after: sentenceWithBlank.slice(match.index + match[0].length),
-      };
+  const handleStart = async () => {
+    if (filteredVocabs.length < 1) {
+      show(t('clozeEmpty'), 'error');
+      return;
     }
 
-    // 2. If no blank placeholder was found in sentenceWithBlank, try matching targetWord (case-insensitive, whole word)
-    const escapedWord = targetWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const wordRegex = new RegExp(`\\b${escapedWord}\\b`, 'i');
-    const wordMatch = sentenceWithBlank.match(wordRegex);
-    if (wordMatch && wordMatch.index !== undefined) {
-      return {
-        before: sentenceWithBlank.slice(0, wordMatch.index),
-        after: sentenceWithBlank.slice(wordMatch.index + wordMatch[0].length),
-      };
-    }
+    setPhase('loading');
 
-    // 3. Fallback: try checking fullSentence for the targetWord
-    const fullWordMatch = fullSentence.match(wordRegex);
-    if (fullWordMatch && fullWordMatch.index !== undefined) {
-      return {
-        before: fullSentence.slice(0, fullWordMatch.index),
-        after: fullSentence.slice(fullWordMatch.index + fullWordMatch[0].length),
-      };
-    }
+    const targetCount = Math.min(count, filteredVocabs.length);
+    const chosenVocabs = shuffle(filteredVocabs).slice(0, targetCount);
 
-    // 4. Default: split by '______'
-    const parts = sentenceWithBlank.split('______');
-    return {
-      before: parts[0] || '',
-      after: parts.slice(1).join('______'),
-    };
+    try {
+      const generated = await generateClozeQuestions(chosenVocabs, vocabs);
+      if (generated.length === 0) {
+        show(t('clozeEmpty'), 'error');
+        setPhase('setup');
+        return;
+      }
+
+      setQuestions(generated);
+      setCurrent(0);
+      setTypedAnswer('');
+      setSelectedChoice(null);
+      setAnswered(false);
+      setIsCorrect(null);
+      setScore(0);
+      setStreak(0);
+      setMaxStreak(0);
+      setShowHint(false);
+      setHistoryResults([]);
+      setPhase('playing');
+    } catch {
+      show(t('errGeneric'), 'error');
+      setPhase('setup');
+    }
   };
+
+  // Focus input automatically when entering new question in typing mode
+  useEffect(() => {
+    if (phase === 'playing' && mode === 'typing' && !answered) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [phase, mode, current, answered]);
+
+  // Keyboard navigation for fast interactive practice
+  useEffect(() => {
+    if (phase !== 'playing') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // If user is currently typing in the input, don't hijack unless it's Enter
+      if (mode === 'typing' && !answered) {
+        return;
+      }
+
+      // If answered: Enter or Space proceeds to the next question
+      if (answered && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        handleNext();
+        return;
+      }
+
+      // In choice mode and not yet answered: 1-4 or A-D picks choice
+      if (mode === 'choice' && !answered && currentQ) {
+        const key = e.key.toUpperCase();
+        let idx = -1;
+        if (key === '1' || key === 'A') idx = 0;
+        else if (key === '2' || key === 'B') idx = 1;
+        else if (key === '3' || key === 'C') idx = 2;
+        else if (key === '4' || key === 'D') idx = 3;
+
+        if (idx >= 0 && idx < currentQ.options.length) {
+          e.preventDefault();
+          handleCheck(idx);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [phase, mode, answered, currentQ, current, questions.length]);
 
   // Render sentence with interactive/highlighted blank
   const renderSentenceWithBlank = () => {
