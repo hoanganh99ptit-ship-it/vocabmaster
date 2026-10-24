@@ -7,13 +7,18 @@ import {
   ShieldAlert,
   Flame,
   Award,
-  Calendar,
   X,
+  HelpCircle,
+  Layers,
+  Plus,
+  Minus,
+  Sparkles,
 } from 'lucide-react';
 import {
   DIFFICULTY_CONFIGS,
-  setWeeklyDifficulty,
-  updateWeeklyGoal,
+  calculateDifficulty,
+  getPenaltyRequirements,
+  setWeeklyCustomTargets,
   REWARD_SUGGESTIONS,
   type GoalDifficulty,
   type WeeklyGoal,
@@ -32,61 +37,125 @@ interface WeeklyGoalSetupModalProps {
 export function WeeklyGoalSetupModal({ currentGoal, isOpen, onClose, onSaved }: WeeklyGoalSetupModalProps) {
   const { lang } = useLanguage();
   const { theme } = useTheme();
-  const [selectedDifficulty, setSelectedDifficulty] = useState<GoalDifficulty>(currentGoal.difficulty || 'medium');
+
+  // Custom targets chosen by user
+  const [quizTarget, setQuizTarget] = useState<number>(currentGoal.quizTarget || 30);
+  const [clozeTarget, setClozeTarget] = useState<number>(currentGoal.clozeTarget || 20);
   const [rewardInput, setRewardInput] = useState(currentGoal.rewardText);
 
   if (!isOpen) return null;
 
-  const currentCfg = DIFFICULTY_CONFIGS[selectedDifficulty];
+  // Auto-classified difficulty based on the current chosen targets
+  const currentDiff: GoalDifficulty = calculateDifficulty(quizTarget, clozeTarget);
+  const currentCfg = DIFFICULTY_CONFIGS[currentDiff];
+  const penaltyReq = getPenaltyRequirements(quizTarget, clozeTarget);
+  const totalQuestions = quizTarget + clozeTarget;
+  const avgPerDay = Math.round((totalQuestions / 7) * 10) / 10;
 
   const handleConfirm = () => {
-    // Save difficulty & reward
-    setWeeklyDifficulty(selectedDifficulty);
-    const updated = updateWeeklyGoal({
-      rewardText: rewardInput,
-      difficultyChosenForWeek: true,
-    });
+    const updated = setWeeklyCustomTargets(quizTarget, clozeTarget, rewardInput);
     pushUserDataToCloud(true);
     onSaved(updated);
     onClose();
   };
 
-  const difficulties: GoalDifficulty[] = ['easy', 'medium', 'hard', 'nightmare'];
+  const handleApplyPreset = (diff: GoalDifficulty) => {
+    const cfg = DIFFICULTY_CONFIGS[diff];
+    setQuizTarget(cfg.quizTarget);
+    setClozeTarget(cfg.clozeTarget);
+  };
+
+  const handleStepQuiz = (delta: number) => {
+    setQuizTarget((prev) => Math.max(5, Math.min(500, prev + delta)));
+  };
+
+  const handleStepCloze = (delta: number) => {
+    setClozeTarget((prev) => Math.max(5, Math.min(300, prev + delta)));
+  };
+
+  const presetDifficulties: GoalDifficulty[] = ['easy', 'medium', 'hard', 'nightmare'];
+  const quizQuickChips = [15, 30, 50, 75, 100, 150];
+  const clozeQuickChips = [10, 20, 35, 50, 70, 100];
+
+  const getTierBadgeStyle = (tier: GoalDifficulty) => {
+    switch (tier) {
+      case 'easy':
+        return {
+          border: 'border-emerald-500/50',
+          bg: 'bg-emerald-500/15 text-emerald-300',
+          indicator: 'bg-emerald-400',
+          glow: 'from-emerald-500/20 to-teal-500/10',
+          gradientText: 'from-emerald-300 to-teal-200',
+        };
+      case 'medium':
+        return {
+          border: 'border-sky-500/50',
+          bg: 'bg-sky-500/15 text-sky-300',
+          indicator: 'bg-sky-400',
+          glow: 'from-sky-500/20 to-indigo-500/10',
+          gradientText: 'from-sky-300 to-cyan-200',
+        };
+      case 'hard':
+        return {
+          border: 'border-amber-500/50',
+          bg: 'bg-amber-500/15 text-amber-300',
+          indicator: 'bg-amber-400',
+          glow: 'from-amber-500/20 to-orange-500/10',
+          gradientText: 'from-amber-300 to-yellow-200',
+        };
+      case 'nightmare':
+      default:
+        return {
+          border: 'border-rose-500/50',
+          bg: 'bg-rose-500/15 text-rose-300',
+          indicator: 'bg-rose-500',
+          glow: 'from-rose-500/20 to-red-600/10',
+          gradientText: 'from-rose-300 to-red-200',
+        };
+    }
+  };
+
+  const badgeStyle = getTierBadgeStyle(currentDiff);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in">
-      <div className={`border rounded-3xl max-w-2xl w-full p-4 sm:p-7 shadow-2xl relative overflow-hidden max-h-[92vh] overflow-y-auto ${
-        theme === 'cinema'
-          ? 'bg-gradient-to-b from-[#18130e] via-[#241a12] to-[#140f0b] border-amber-500/40 text-amber-100 shadow-black/90'
-          : 'bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-900 border-indigo-700/50 text-white'
-      }`}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-fade-in">
+      <div
+        className={`border rounded-3xl max-w-2xl w-full p-4 sm:p-7 shadow-2xl relative overflow-hidden max-h-[92vh] overflow-y-auto ${
+          theme === 'cinema'
+            ? 'bg-gradient-to-b from-[#18130e] via-[#241a12] to-[#140f0b] border-amber-500/40 text-amber-100 shadow-black/90'
+            : 'bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-900 border-indigo-700/50 text-white'
+        }`}
+      >
         {/* Glow decoration */}
         <div className="absolute -top-24 -right-24 w-72 h-72 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Close Button - positioned safely with z-index */}
+        {/* Close Button */}
         <button
           type="button"
           onClick={onClose}
           className="absolute top-4 right-4 sm:top-5 sm:right-5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer z-20"
+          aria-label="Close"
         >
           <X className="w-4 h-4" />
         </button>
 
         <div className="relative z-10">
-          {/* Header with safe right padding (pr-10) to avoid any collision with close button */}
-          <div className="flex items-start gap-3 mb-3 pr-10">
-            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-md flex-shrink-0 mt-0.5 ${
-              theme === 'cinema'
-                ? 'bg-gradient-to-tr from-amber-500 to-yellow-600 text-stone-950 font-black'
-                : 'bg-gradient-to-tr from-sky-400 to-indigo-500 text-white'
-            }`}>
-              <Target className="w-5 h-5" />
+          {/* Header */}
+          <div className="flex items-start gap-3 mb-4 pr-10">
+            <div
+              className={`w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-md flex-shrink-0 mt-0.5 ${
+                theme === 'cinema'
+                  ? 'bg-gradient-to-tr from-amber-500 to-yellow-600 text-stone-950 font-black'
+                  : 'bg-gradient-to-tr from-sky-400 to-indigo-500 text-white'
+              }`}
+            >
+              <Target className="w-6 h-6" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
-                  {lang === 'vi' ? 'Xác lập Mục tiêu tuần mới' : 'Set Weekly Goal & Difficulty'}
+                  {lang === 'vi' ? 'Thiết lập Thử thách tuần mới' : 'Customize Weekly Challenge'}
                 </h2>
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono">
                   {currentGoal.weekKey}
@@ -94,93 +163,273 @@ export function WeeklyGoalSetupModal({ currentGoal, isOpen, onClose, onSaved }: 
               </div>
               <p className="text-xs sm:text-sm text-stone-300 mt-1 leading-snug">
                 {lang === 'vi'
-                  ? 'Chọn 1 trong 4 mức độ mục tiêu tuần. Hệ thống sẽ tự động đưa ra hình phạt tương ứng!'
-                  : 'Select 1 of 4 difficulty levels. The system will automatically assign the penalty tasks!'}
+                  ? 'Chọn số lượng câu ôn tập theo ý muốn. Hệ thống sẽ tự động xếp hạng độ khó & áp dụng hình phạt kỷ luật tương ứng!'
+                  : 'Pick your weekly target volumes. The system will auto-classify the challenge level & consequence!'}
               </p>
             </div>
           </div>
 
-          {/* 4 Difficulty Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 my-4">
-            {difficulties.map((diffKey) => {
-              const cfg = DIFFICULTY_CONFIGS[diffKey];
-              const isSelected = selectedDifficulty === diffKey;
-
-              return (
-                <div
-                  key={diffKey}
-                  onClick={() => setSelectedDifficulty(diffKey)}
-                  className={`p-3.5 sm:p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
-                    isSelected
-                      ? (theme === 'cinema'
-                          ? 'bg-amber-950/60 border-amber-400 shadow-lg shadow-amber-500/20 scale-[1.01]'
-                          : 'bg-indigo-900/60 border-sky-400 shadow-lg shadow-sky-500/20 scale-[1.01]')
-                      : (theme === 'cinema'
-                          ? 'bg-stone-900/60 border-amber-500/20 hover:bg-stone-800/60 hover:border-amber-500/40'
-                          : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20')
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-3 h-3 rounded-full ${
-                        diffKey === 'easy' ? 'bg-emerald-400' :
-                        diffKey === 'medium' ? 'bg-sky-400' :
-                        diffKey === 'hard' ? 'bg-amber-400' : 'bg-rose-500'
-                      }`} />
-                      <h4 className="font-black text-white text-base">
-                        {cfg.nameVi}
-                      </h4>
+          {/* Quick Preset Buttons */}
+          <div className="mb-4 p-2.5 rounded-2xl bg-white/5 border border-white/10">
+            <div className="flex items-center justify-between mb-2 px-1">
+              <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                <span>{lang === 'vi' ? '⚡ Mẫu gợi ý nhanh:' : '⚡ Quick Presets:'}</span>
+              </span>
+              <span className="text-[10px] text-slate-400">
+                {lang === 'vi' ? 'Nhấn để điền nhanh khối lượng' : 'Click to load presets'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              {presetDifficulties.map((diffKey) => {
+                const cfg = DIFFICULTY_CONFIGS[diffKey];
+                const isCurrentTier = currentDiff === diffKey;
+                return (
+                  <button
+                    key={diffKey}
+                    type="button"
+                    onClick={() => handleApplyPreset(diffKey)}
+                    className={`px-2.5 py-1.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      isCurrentTier
+                        ? 'bg-sky-500/25 border-sky-400 text-white shadow-xs'
+                        : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-xs font-black">
+                      <span>{cfg.nameVi}</span>
+                      {isCurrentTier && <Check className="w-3 h-3 text-sky-400 stroke-[3]" />}
                     </div>
-                    {isSelected && (
-                      <span className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                        theme === 'cinema' ? 'bg-amber-400 text-stone-950' : 'bg-sky-400 text-slate-950'
-                      }`}>
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
-                      </span>
-                    )}
-                  </div>
-
-                  <p className="text-[11px] text-slate-300 mb-3 line-clamp-1">
-                    {cfg.descriptionVi}
-                  </p>
-
-                  <div className="space-y-1.5 text-xs">
-                    <div className="flex items-center justify-between text-slate-200">
-                      <span>🎯 Trắc nghiệm:</span>
-                      <strong className="text-white font-black">{cfg.quizTarget} từ / tuần</strong>
-                    </div>
-                    <div className="flex items-center justify-between text-slate-200">
-                      <span>🧩 Đục lỗ ngữ cảnh:</span>
-                      <strong className="text-white font-black">{cfg.clozeTarget} câu / tuần</strong>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 pt-2.5 border-t border-white/10 text-[11px] text-rose-300">
-                    <span className="font-bold flex items-center gap-1">
-                      <Zap className="w-3 h-3 text-amber-400" />
-                      <span>Hình phạt nếu thiếu:</span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                      {cfg.quizTarget} Quiz • {cfg.clozeTarget} Cloze
                     </span>
-                    <span className="text-slate-300 block mt-0.5">
-                      Khóa app: Phạt <strong>{cfg.penaltyQuiz} Quiz</strong> & <strong>{cfg.penaltyCloze} Cloze</strong>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Dual Target Selectors (Quiz & Cloze) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-4">
+            {/* Target 1: Trắc nghiệm (Quiz) */}
+            <div className="p-4 rounded-2xl bg-white/5 border border-sky-400/25 relative overflow-hidden flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-sky-300">
+                    <HelpCircle className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-white text-sm">
+                      {lang === 'vi' ? 'Trắc nghiệm (Quiz)' : 'Multiple Choice'}
+                    </h3>
+                    <span className="text-[11px] text-slate-400 block">
+                      {lang === 'vi' ? 'Ôn phản xạ từ vựng' : 'Fast recall'}
                     </span>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+
+              {/* Number Stepper Control */}
+              <div className="flex items-center justify-center gap-2 mb-3 bg-black/30 p-2 rounded-xl border border-white/10">
+                <button
+                  type="button"
+                  onClick={() => handleStepQuiz(-5)}
+                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer"
+                  title="-5 câu"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+
+                <div className="flex items-baseline gap-1">
+                  <input
+                    type="number"
+                    min={5}
+                    max={500}
+                    value={quizTarget}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      if (!isNaN(val)) setQuizTarget(Math.max(5, Math.min(500, val)));
+                    }}
+                    className="w-16 text-center text-2xl font-black bg-transparent text-sky-300 focus:outline-none focus:ring-1 focus:ring-sky-400 rounded-lg"
+                  />
+                  <span className="text-xs font-semibold text-slate-400">
+                    {lang === 'vi' ? 'câu/tuần' : 'q/wk'}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleStepQuiz(5)}
+                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer"
+                  title="+5 câu"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Quick Chips */}
+              <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                {quizQuickChips.map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => setQuizTarget(num)}
+                    className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      quizTarget === num
+                        ? 'bg-sky-500 text-white shadow-xs'
+                        : 'bg-white/10 hover:bg-white/20 text-slate-300'
+                    }`}
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Target 2: Đục lỗ ngữ cảnh (Cloze Test) */}
+            <div className="p-4 rounded-2xl bg-white/5 border border-emerald-400/25 relative overflow-hidden flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+                    <Layers className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-white text-sm">
+                      {lang === 'vi' ? 'Đục lỗ ngữ cảnh' : 'Context Cloze'}
+                    </h3>
+                    <span className="text-[11px] text-slate-400 block">
+                      {lang === 'vi' ? 'Hiểu sâu cách dùng từ' : 'Sentence filling'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Number Stepper Control */}
+              <div className="flex items-center justify-center gap-2 mb-3 bg-black/30 p-2 rounded-xl border border-white/10">
+                <button
+                  type="button"
+                  onClick={() => handleStepCloze(-5)}
+                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer"
+                  title="-5 câu"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+
+                <div className="flex items-baseline gap-1">
+                  <input
+                    type="number"
+                    min={5}
+                    max={300}
+                    value={clozeTarget}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      if (!isNaN(val)) setClozeTarget(Math.max(5, Math.min(300, val)));
+                    }}
+                    className="w-16 text-center text-2xl font-black bg-transparent text-emerald-300 focus:outline-none focus:ring-1 focus:ring-emerald-400 rounded-lg"
+                  />
+                  <span className="text-xs font-semibold text-slate-400">
+                    {lang === 'vi' ? 'câu/tuần' : 'q/wk'}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleStepCloze(5)}
+                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer"
+                  title="+5 câu"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Quick Chips */}
+              <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                {clozeQuickChips.map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => setClozeTarget(num)}
+                    className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      clozeTarget === num
+                        ? 'bg-emerald-500 text-white shadow-xs'
+                        : 'bg-white/10 hover:bg-white/20 text-slate-300'
+                    }`}
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Real-Time Auto-Classification Card */}
+          <div
+            className={`p-4 rounded-2xl border-2 transition-all mb-4 bg-gradient-to-r ${badgeStyle.glow} ${badgeStyle.border}`}
+          >
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div className="flex items-center gap-2">
+                <span className={`w-3 h-3 rounded-full ${badgeStyle.indicator} animate-ping`} />
+                <span className="text-xs uppercase font-extrabold tracking-wider text-slate-300">
+                  {lang === 'vi' ? 'Hệ thống tự động xếp hạng:' : 'System Auto-Classification:'}
+                </span>
+              </div>
+              <div
+                className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border flex items-center gap-1.5 ${badgeStyle.bg} ${badgeStyle.border}`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Mức {currentCfg.nameVi}</span>
+              </div>
+            </div>
+
+            <div className="text-xs text-slate-200 space-y-1">
+              <p className="font-semibold text-white">
+                💡 {currentCfg.descriptionVi}
+              </p>
+              <div className="flex items-center gap-3 text-[11px] text-slate-300 pt-1">
+                <span>
+                  Tổng cộng: <strong className="text-white font-bold">{totalQuestions} câu/tuần</strong>
+                </span>
+                <span>•</span>
+                <span>
+                  Trung bình: <strong className="text-white font-bold">~{avgPerDay} câu/ngày</strong>
+                </span>
+              </div>
+            </div>
+
+            {/* Penalty Consequence Preview */}
+            <div className="mt-3 pt-2.5 border-t border-white/15 flex items-start gap-2 text-xs">
+              <ShieldAlert className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
+              <div className="text-slate-300 text-[11px] leading-relaxed">
+                <strong className="text-rose-300 font-bold block">
+                  {lang === 'vi' ? 'Hình phạt kỷ luật nếu không hoàn thành trước Chủ Nhật:' : 'Penalty consequence if missed:'}
+                </strong>
+                <span>
+                  {lang === 'vi'
+                    ? `Ứng dụng sẽ tự động khóa và yêu cầu hoàn thành `
+                    : `App will lock until you complete `}
+                  <strong className="text-amber-300">{penaltyReq.penaltyQuiz} câu Quiz</strong> &{' '}
+                  <strong className="text-emerald-300">{penaltyReq.penaltyCloze} câu Đục lỗ</strong>{' '}
+                  {lang === 'vi' ? 'để mở lại quyền truy cập!' : 'to unlock!'}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Reward Input & Suggestions */}
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/10 mb-5">
+          <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10 mb-5">
             <label className="block text-xs font-bold text-emerald-300 mb-1.5 flex items-center gap-1.5">
               <Gift className="w-4 h-4 text-emerald-400" />
-              <span>{lang === 'vi' ? 'Phần thưởng tự trao khi hoàn thành cả 2 mục tiêu:' : 'Reward upon completion:'}</span>
+              <span>
+                {lang === 'vi'
+                  ? 'Phần thưởng tự trao khi hoàn thành trọn vẹn thử thách:'
+                  : 'Reward upon completion:'}
+              </span>
             </label>
             <input
               type="text"
               value={rewardInput}
               onChange={(e) => setRewardInput(e.target.value)}
               placeholder="Ví dụ: Tự thưởng 1 ly trà sữa trân châu đường đen 🧋"
-              className="w-full bg-slate-800/90 border border-white/20 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-emerald-400 transition-colors"
+              className="w-full bg-slate-800/90 border border-white/20 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-400 transition-colors"
             />
             <div className="flex items-center gap-1.5 flex-wrap mt-2">
               <span className="text-[11px] text-slate-400">{lang === 'vi' ? 'Gợi ý:' : 'Quick ideas:'}</span>
@@ -194,21 +443,6 @@ export function WeeklyGoalSetupModal({ currentGoal, isOpen, onClose, onSaved }: 
                   {sug}
                 </button>
               ))}
-            </div>
-          </div>
-
-          {/* Summary Box */}
-          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-slate-300 mb-5 flex items-start gap-2.5">
-            <ShieldAlert className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <strong className="text-rose-300 block font-bold mb-0.5">
-                {lang === 'vi' ? 'Quy chế phạt tự động của hệ thống:' : 'Automatic system penalty rules:'}
-              </strong>
-              <span>
-                {lang === 'vi'
-                  ? `Nếu hết tuần bạn không đạt đủ cả ${currentCfg.quizTarget} trắc nghiệm và ${currentCfg.clozeTarget} câu đục lỗ, ứng dụng sẽ tự động khóa và bắt buộc bạn hoàn thành ${currentCfg.penaltyQuiz} câu trắc nghiệm phạt & ${currentCfg.penaltyCloze} câu đục lỗ phạt để mở lại!`
-                  : `If targets are missed by Sunday, the app will automatically lock until you complete ${currentCfg.penaltyQuiz} Quiz & ${currentCfg.penaltyCloze} Cloze questions!`}
-              </span>
             </div>
           </div>
 
@@ -231,7 +465,11 @@ export function WeeklyGoalSetupModal({ currentGoal, isOpen, onClose, onSaved }: 
               }`}
             >
               <Award className="w-4 h-4" />
-              <span>{lang === 'vi' ? 'Ký cam kết & Bắt đầu tuần này ✍️' : 'Commit & Start Week ✍️'}</span>
+              <span>
+                {lang === 'vi'
+                  ? `Ký cam kết Mức ${currentCfg.nameVi} (${totalQuestions} câu) ✍️`
+                  : `Commit to Level ${currentCfg.nameEn} (${totalQuestions} q) ✍️`}
+              </span>
             </button>
           </div>
         </div>

@@ -22,6 +22,7 @@ import {
   Check,
   X,
   RotateCcw,
+  Settings2,
 } from 'lucide-react';
 import { useVocab } from '@/context/VocabContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -37,6 +38,7 @@ import {
   getStreakData,
   getDaysLeftInWeek,
   triggerWeeklyCelebrationPopup,
+  calculateDifficulty,
   DIFFICULTY_CONFIGS,
   REWARD_SUGGESTIONS,
   type PracticeRecord,
@@ -45,6 +47,7 @@ import {
   type GoalDifficulty,
   type ActivePenalty,
 } from '@/lib/storage';
+import { WeeklyGoalSetupModal } from '@/components/WeeklyGoalSetupModal';
 import { pushUserDataToCloud } from '@/lib/cloudSync';
 import type { TabKey } from '@/lib/types';
 
@@ -62,7 +65,8 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
   const [activePenalty, setActivePenaltyState] = useState<ActivePenalty>(() => getActivePenalty());
   const daysLeft = useMemo(() => getDaysLeftInWeek(), []);
 
-  // Contract editing state (only reward is user-editable, penalty is system-calculated)
+  // Modal & Contract editing state
+  const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
   const [isEditingContract, setIsEditingContract] = useState(false);
   const [rewardInput, setRewardInput] = useState(weeklyGoal.rewardText);
 
@@ -252,27 +256,56 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
               </div>
             </div>
 
-            {/* Quick Reward Edit Button */}
-            <button
-              type="button"
-              onClick={() => setIsEditingContract(!isEditingContract)}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 border border-white/15 text-sky-200 hover:text-white transition-all cursor-pointer self-start md:self-center"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              <span>{isEditingContract ? (lang === 'vi' ? 'Đóng chỉnh sửa' : 'Close Editor') : (lang === 'vi' ? 'Đổi phần thưởng 🎁' : 'Edit Reward 🎁')}</span>
-            </button>
+            {/* Quick Action Buttons */}
+            <div className="flex items-center gap-2 self-start md:self-center flex-wrap">
+              <button
+                type="button"
+                onClick={() => setIsSetupModalOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white shadow-md shadow-sky-500/20 transition-all cursor-pointer"
+              >
+                <Settings2 className="w-3.5 h-3.5" />
+                <span>{lang === 'vi' ? 'Tự chọn khối lượng 🎯' : 'Customize Goal 🎯'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditingContract(!isEditingContract)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 border border-white/15 text-sky-200 hover:text-white transition-all cursor-pointer"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>{isEditingContract ? (lang === 'vi' ? 'Đóng chỉnh sửa' : 'Close Editor') : (lang === 'vi' ? 'Đổi phần thưởng 🎁' : 'Edit Reward 🎁')}</span>
+              </button>
+            </div>
           </div>
 
-          {/* 4 Difficulty Levels Selector (Dễ, Trung Bình, Khó, Địa ngục) */}
-          <div className="mb-6 p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
-            <div className="flex items-center justify-between mb-2 px-1">
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-amber-400" />
-                <span>{lang === 'vi' ? 'Cấp độ thử thách tuần này:' : 'Weekly Challenge Level:'}</span>
-              </span>
-              <span className="text-[11px] text-slate-400">
-                {lang === 'vi' ? 'Hình phạt tự động điều chỉnh theo độ khó' : 'Penalty auto-calculated per level'}
-              </span>
+          {/* Difficulty Classification & Preset Selector */}
+          <div className="mb-6 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 px-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-black text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{lang === 'vi' ? 'Hệ thống xếp loại:' : 'Challenge Level:'}</span>
+                </span>
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border ${
+                  weeklyGoal.difficulty === 'easy' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' :
+                  weeklyGoal.difficulty === 'medium' ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' :
+                  weeklyGoal.difficulty === 'hard' ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' :
+                  'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                }`}>
+                  Mức {DIFFICULTY_CONFIGS[weeklyGoal.difficulty]?.nameVi || 'Trung bình'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-slate-300">
+                <span className="text-[11px] text-slate-300">
+                  Tổng: <strong className="text-white font-bold">{weeklyGoal.quizTarget + weeklyGoal.clozeTarget} câu/tuần</strong> ({weeklyGoal.quizTarget} Quiz + {weeklyGoal.clozeTarget} Cloze)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsSetupModalOpen(true)}
+                  className="text-[11px] font-bold text-sky-300 hover:text-white underline decoration-sky-400/50 cursor-pointer ml-1"
+                >
+                  {lang === 'vi' ? 'Tự chọn số câu' : 'Custom count'}
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -373,8 +406,8 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
                       </div>
 
                       {/* Target Selectors */}
-                      <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl border border-white/10">
-                        {[15, 30, 60, 100].map((num) => (
+                      <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl border border-white/10 flex-wrap">
+                        {Array.from(new Set([15, 30, 50, 75, 100, weeklyGoal.quizTarget])).sort((a, b) => a - b).map((num) => (
                           <button
                             key={num}
                             type="button"
@@ -465,8 +498,8 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
                       </div>
 
                       {/* Target Selectors */}
-                      <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl border border-white/10">
-                        {[10, 20, 40, 70].map((num) => (
+                      <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl border border-white/10 flex-wrap">
+                        {Array.from(new Set([10, 20, 35, 50, 70, weeklyGoal.clozeTarget])).sort((a, b) => a - b).map((num) => (
                           <button
                             key={num}
                             type="button"
@@ -871,6 +904,19 @@ export function Analytics({ onNavigate }: AnalyticsProps) {
           </div>
         )}
       </div>
+
+      {/* Custom Weekly Challenge Modal */}
+      {isSetupModalOpen && (
+        <WeeklyGoalSetupModal
+          currentGoal={weeklyGoal}
+          isOpen={isSetupModalOpen}
+          onClose={() => setIsSetupModalOpen(false)}
+          onSaved={(newGoal) => {
+            setWeeklyGoalState({ ...newGoal });
+            setIsSetupModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

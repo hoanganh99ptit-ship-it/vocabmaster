@@ -213,7 +213,7 @@ export const DIFFICULTY_CONFIGS: Record<GoalDifficulty, DifficultyConfig> = {
   },
   nightmare: {
     key: 'nightmare',
-    nameVi: 'Địa ngục',
+    nameVi: 'Cực khó',
     nameEn: 'Nightmare',
     badgeColor: 'rose',
     descriptionVi: 'Cường độ cao nhất, kỷ luật thép tuyệt đối',
@@ -224,12 +224,48 @@ export const DIFFICULTY_CONFIGS: Record<GoalDifficulty, DifficultyConfig> = {
   },
 };
 
+/**
+ * Automatically classifies weekly challenge difficulty based on custom Quiz and Cloze targets.
+ * Cloze questions require in-depth sentence context understanding, so they are weighted 1.5x.
+ * - Score < 45 => 'easy' (Dễ)
+ * - 45 <= Score < 90 => 'medium' (Trung bình)
+ * - 90 <= Score < 165 => 'hard' (Khó)
+ * - Score >= 165 => 'nightmare' (Cực khó)
+ */
+export function calculateDifficulty(quizTarget: number, clozeTarget: number): GoalDifficulty {
+  const safeQuiz = Math.max(0, Number(quizTarget) || 0);
+  const safeCloze = Math.max(0, Number(clozeTarget) || 0);
+  const weightedScore = safeQuiz + safeCloze * 1.5;
+
+  if (weightedScore < 45) return 'easy';
+  if (weightedScore < 90) return 'medium';
+  if (weightedScore < 165) return 'hard';
+  return 'nightmare';
+}
+
+/**
+ * Calculates proportional penalty requirements when a user fails their weekly targets.
+ */
+export function getPenaltyRequirements(quizTarget: number, clozeTarget: number): { penaltyQuiz: number; penaltyCloze: number } {
+  const safeQuiz = Math.max(5, Number(quizTarget) || 5);
+  const safeCloze = Math.max(5, Number(clozeTarget) || 5);
+  // Penalty is ~80% of targets (rounded), minimum 5 each
+  const penaltyQuiz = Math.max(5, Math.min(safeQuiz, Math.round(safeQuiz * 0.8)));
+  const penaltyCloze = Math.max(5, Math.min(safeCloze, Math.round(safeCloze * 0.8)));
+  return { penaltyQuiz, penaltyCloze };
+}
+
+export function getCustomPenaltyText(quizTarget: number, clozeTarget: number, lang: 'vi' | 'en' = 'vi'): string {
+  const { penaltyQuiz, penaltyCloze } = getPenaltyRequirements(quizTarget, clozeTarget);
+  if (lang === 'vi') {
+    return `Khóa ứng dụng: Bắt buộc hoàn thành thêm ${penaltyQuiz} câu trắc nghiệm & ${penaltyCloze} câu đục lỗ ngữ cảnh để mở khóa! ⚡`;
+  }
+  return `Lockout Penalty: Must complete ${penaltyQuiz} Quiz & ${penaltyCloze} Cloze questions to unlock! ⚡`;
+}
+
 export function getSystemPenaltyText(diff: GoalDifficulty, lang: 'vi' | 'en' = 'vi'): string {
   const cfg = DIFFICULTY_CONFIGS[diff] || DIFFICULTY_CONFIGS.medium;
-  if (lang === 'vi') {
-    return `Khóa ứng dụng: Bắt buộc hoàn thành thêm ${cfg.penaltyQuiz} câu trắc nghiệm & ${cfg.penaltyCloze} câu đục lỗ ngữ cảnh để mở khóa! ⚡`;
-  }
-  return `Lockout Penalty: Must complete ${cfg.penaltyQuiz} Quiz & ${cfg.penaltyCloze} Cloze questions to unlock! ⚡`;
+  return getCustomPenaltyText(cfg.quizTarget, cfg.clozeTarget, lang);
 }
 
 export const DEFAULT_REWARD = 'Tự thưởng 1 ly trà sữa / bữa ăn yêu thích 🧋';
@@ -349,15 +385,15 @@ export function saveActivePenalty(penalty: ActivePenalty, skipSync = false): voi
 
 export function activatePenalty(difficulty?: GoalDifficulty, reasonWeekKey?: string): ActivePenalty {
   const goal = getWeeklyGoal();
-  const diff = difficulty || goal.difficulty || 'medium';
-  const cfg = DIFFICULTY_CONFIGS[diff] || DIFFICULTY_CONFIGS.medium;
+  const diff = difficulty || goal.difficulty || calculateDifficulty(goal.quizTarget, goal.clozeTarget);
+  const { penaltyQuiz, penaltyCloze } = getPenaltyRequirements(goal.quizTarget, goal.clozeTarget);
   const penalty: ActivePenalty = {
     isActive: true,
     reasonWeekKey: reasonWeekKey || goal.weekKey,
     difficulty: diff,
-    quizRequired: cfg.penaltyQuiz,
+    quizRequired: penaltyQuiz,
     quizDone: 0,
-    clozeRequired: cfg.penaltyCloze,
+    clozeRequired: penaltyCloze,
     clozeDone: 0,
     activatedAt: new Date().toISOString(),
     resolvedAt: null,
@@ -501,8 +537,14 @@ export function updateWeeklyGoal(
   if (params.difficultyChosenForWeek !== undefined) {
     goal.difficultyChosenForWeek = params.difficultyChosenForWeek;
   }
-  if (params.quizTarget !== undefined) goal.quizTarget = Math.max(5, params.quizTarget);
-  if (params.clozeTarget !== undefined) goal.clozeTarget = Math.max(5, params.clozeTarget);
+  if (params.quizTarget !== undefined) goal.quizTarget = Math.max(5, Math.round(params.quizTarget));
+  if (params.clozeTarget !== undefined) goal.clozeTarget = Math.max(5, Math.round(params.clozeTarget));
+
+  // If targets were updated without an explicit difficulty specified, auto-classify difficulty
+  if (params.difficulty === undefined && (params.quizTarget !== undefined || params.clozeTarget !== undefined)) {
+    goal.difficulty = calculateDifficulty(goal.quizTarget, goal.clozeTarget);
+  }
+
   if (params.targetWords !== undefined) {
     goal.targetWords = Math.max(10, params.targetWords);
   } else {
@@ -511,8 +553,8 @@ export function updateWeeklyGoal(
   if (params.rewardText !== undefined) goal.rewardText = params.rewardText.trim() || DEFAULT_REWARD;
   if (params.penaltyText !== undefined) {
     goal.penaltyText = params.penaltyText.trim();
-  } else if (params.difficulty !== undefined) {
-    goal.penaltyText = getSystemPenaltyText(goal.difficulty);
+  } else if (params.quizTarget !== undefined || params.clozeTarget !== undefined || params.difficulty !== undefined) {
+    goal.penaltyText = getCustomPenaltyText(goal.quizTarget, goal.clozeTarget);
   }
 
   const isAchieved = goal.quizReviewed >= goal.quizTarget && goal.clozeReviewed >= goal.clozeTarget;
@@ -533,7 +575,19 @@ export function setWeeklyDifficulty(difficulty: GoalDifficulty): WeeklyGoal {
     difficultyChosenForWeek: true,
     quizTarget: cfg.quizTarget,
     clozeTarget: cfg.clozeTarget,
-    penaltyText: getSystemPenaltyText(difficulty),
+    penaltyText: getCustomPenaltyText(cfg.quizTarget, cfg.clozeTarget),
+  });
+}
+
+export function setWeeklyCustomTargets(quizTarget: number, clozeTarget: number, rewardText?: string): WeeklyGoal {
+  const diff = calculateDifficulty(quizTarget, clozeTarget);
+  return updateWeeklyGoal({
+    quizTarget,
+    clozeTarget,
+    difficulty: diff,
+    difficultyChosenForWeek: true,
+    ...(rewardText !== undefined ? { rewardText } : {}),
+    penaltyText: getCustomPenaltyText(quizTarget, clozeTarget),
   });
 }
 
