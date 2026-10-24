@@ -4,6 +4,7 @@ import {
   ChevronRight,
   RotateCcw,
   Volume2,
+  VolumeX,
   Trophy,
   CheckCircle2,
   XCircle,
@@ -21,6 +22,13 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/components/Toast';
 import { speak, speedOptions, getGlobalRate, setGlobalRate } from '@/lib/speech';
 import { addPracticeRecord } from '@/lib/storage';
+import {
+  playCorrectSound,
+  playIncorrectSound,
+  playCelebrationSound,
+  isSoundEnabled,
+  toggleSound,
+} from '@/lib/soundEffects';
 import { generateClozeQuestions } from '@/services/geminiService';
 import type { Vocabulary, ClozeQuestion } from '@/lib/types';
 import type { TranslationKey } from '@/lib/i18n';
@@ -99,6 +107,16 @@ export function ClozeTest() {
   const [maxStreak, setMaxStreak] = useState(0);
   const [showHint, setShowHint] = useState(false);
   const [rate, setRate] = useState(getGlobalRate());
+  const [sfxOn, setSfxOn] = useState(() => isSoundEnabled());
+
+  useEffect(() => {
+    const handleSfxChange = (e: Event) => {
+      const ce = e as CustomEvent<{ enabled: boolean }>;
+      setSfxOn(ce.detail?.enabled ?? isSoundEnabled());
+    };
+    window.addEventListener('vocabmaster_sfx_toggle', handleSfxChange);
+    return () => window.removeEventListener('vocabmaster_sfx_toggle', handleSfxChange);
+  }, []);
 
   const [historyResults, setHistoryResults] = useState<
     Array<{
@@ -166,6 +184,7 @@ export function ClozeTest() {
     setIsCorrect(userWon);
 
     if (userWon) {
+      playCorrectSound();
       setScore((s) => s + 1);
       const newStreak = streak + 1;
       setStreak(newStreak);
@@ -173,6 +192,7 @@ export function ClozeTest() {
       // Play audio of full correct sentence
       speak(currentQ.fullSentence, rate);
     } else {
+      playIncorrectSound();
       setStreak(0);
       incrementError(currentQ.vocab.word);
     }
@@ -204,6 +224,7 @@ export function ClozeTest() {
 
   const handleNext = () => {
     if (current + 1 >= questions.length) {
+      playCelebrationSound();
       setPhase('done');
     } else {
       setCurrent((c) => c + 1);
@@ -860,28 +881,50 @@ export function ClozeTest() {
             )}
           </div>
 
-          {/* Speech Speed Setting */}
-          <div className="flex items-center gap-1.5">
-            <Volume2 className="w-4 h-4 text-slate-400" />
-            <select
-              value={rate}
-              onChange={(e) => {
-                const r = parseFloat(e.target.value);
-                setRate(r);
-                setGlobalRate(r);
+          {/* Audio Speed & SFX Settings */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <Volume2 className="w-4 h-4 text-slate-400" />
+              <select
+                value={rate}
+                onChange={(e) => {
+                  const r = parseFloat(e.target.value);
+                  setRate(r);
+                  setGlobalRate(r);
+                }}
+                className={`text-xs font-medium rounded-lg px-2 py-1 focus:outline-none cursor-pointer border ${
+                  theme === 'cinema'
+                    ? 'text-amber-200 bg-stone-900 border-amber-500/30 focus:ring-2 focus:ring-amber-400'
+                    : 'text-slate-600 bg-slate-100 border-slate-200 focus:ring-2 focus:ring-sky-400'
+                }`}
+              >
+                {speedOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {t(opt.key as TranslationKey)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const next = toggleSound();
+                setSfxOn(next);
               }}
-              className={`text-xs font-medium rounded-lg px-2 py-1 focus:outline-none cursor-pointer border ${
-                theme === 'cinema'
-                  ? 'text-amber-200 bg-stone-900 border-amber-500/30 focus:ring-2 focus:ring-amber-400'
-                  : 'text-slate-600 bg-slate-100 border-slate-200 focus:ring-2 focus:ring-sky-400'
+              className={`h-7 px-2 rounded-lg border text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                sfxOn
+                  ? (theme === 'cinema'
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 hover:bg-amber-500/30'
+                      : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100')
+                  : (theme === 'cinema'
+                      ? 'bg-stone-900 text-stone-500 border-stone-800 hover:text-stone-300'
+                      : 'bg-slate-100 text-slate-400 border-slate-200 hover:text-slate-600')
               }`}
+              title={sfxOn ? 'Âm thanh hiệu ứng: BẬT (Click để tắt)' : 'Âm thanh hiệu ứng: TẮT (Click để bật)'}
             >
-              {speedOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {t(opt.key as TranslationKey)}
-                </option>
-              ))}
-            </select>
+              {sfxOn ? <Volume2 className="w-3.5 h-3.5 text-emerald-500" /> : <VolumeX className="w-3.5 h-3.5 text-slate-400" />}
+              <span>{sfxOn ? 'SFX' : 'Mute'}</span>
+            </button>
           </div>
         </div>
 

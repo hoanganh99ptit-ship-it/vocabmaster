@@ -24,6 +24,7 @@ import { evaluateSentence, type GrammarEvaluation } from '@/lib/grammarCheck';
 import { evaluateWithGemini } from '@/services/geminiService';
 import { speak, speedOptions, getGlobalRate, setGlobalRate } from '@/lib/speech';
 import { addPracticeRecord } from '@/lib/storage';
+import { playCorrectSound, playIncorrectSound, playCelebrationSound } from '@/lib/soundEffects';
 import type { Vocabulary } from '@/lib/types';
 import type { TranslationKey } from '@/lib/i18n';
 
@@ -102,6 +103,12 @@ export function SentenceBuilding() {
       setEvaluation(result);
       setTotalAccuracy((prev) => prev + result.accuracy);
 
+      if (result.accuracy >= 70) {
+        playCorrectSound();
+      } else {
+        playIncorrectSound();
+      }
+
       // SRS scoring based on accuracy: 5 (>=90%), 4 (>=70%), 3 (>=50%), 2 (>=30%), 1 (<30%)
       const srsScore =
         result.accuracy >= 90
@@ -134,6 +141,12 @@ export function SentenceBuilding() {
       setEvaluation(fallback);
       setTotalAccuracy((prev) => prev + fallback.accuracy);
 
+      if (fallback.accuracy >= 70) {
+        playCorrectSound();
+      } else {
+        playIncorrectSound();
+      }
+
       const srsScore = fallback.accuracy >= 70 ? 4 : 2;
       updateSRS(questions[current].id, srsScore);
 
@@ -151,6 +164,7 @@ export function SentenceBuilding() {
 
   const nextWord = () => {
     if (current + 1 >= questions.length) {
+      playCelebrationSound();
       setPhase('done');
     } else {
       setCurrent((c) => c + 1);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   BookOpen,
   LogOut,
@@ -13,11 +13,14 @@ import {
   PenTool,
   Layers,
   BarChart3,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useTheme } from '@/context/ThemeContext';
 import { getStreakData } from '@/lib/storage';
+import { isSoundEnabled, toggleSound } from '@/lib/soundEffects';
 import { AuthModal } from './AuthModal';
 import type { TabKey } from '@/lib/types';
 import type { TranslationKey } from '@/lib/i18n';
@@ -50,7 +53,22 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sfxEnabled, setSfxEnabled] = useState(() => isSoundEnabled());
   const streak = getStreakData();
+
+  useEffect(() => {
+    const handleSfxChange = (e: Event) => {
+      const ce = e as CustomEvent<{ enabled: boolean }>;
+      setSfxEnabled(ce.detail?.enabled ?? isSoundEnabled());
+    };
+    window.addEventListener('vocabmaster_sfx_toggle', handleSfxChange);
+    return () => window.removeEventListener('vocabmaster_sfx_toggle', handleSfxChange);
+  }, []);
+
+  const handleToggleSound = () => {
+    const next = toggleSound();
+    setSfxEnabled(next);
+  };
 
   const openAuth = (mode: 'login' | 'signup') => {
     setAuthMode(mode);
@@ -176,6 +194,25 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
               >
                 <Flame className={`w-3.5 h-3.5 ${streak.currentStreak > 0 ? (theme === 'cinema' ? 'text-amber-400 fill-amber-400' : 'text-orange-500 fill-orange-500') : 'text-slate-400'}`} />
                 <span className={`text-xs font-bold ${theme === 'cinema' ? 'text-amber-300' : 'text-orange-700'}`}>{streak.currentStreak}</span>
+              </button>
+
+              {/* Sound Effects (SFX) Toggle */}
+              <button
+                type="button"
+                onClick={handleToggleSound}
+                className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors shrink-0 cursor-pointer ${
+                  sfxEnabled
+                    ? (theme === 'cinema'
+                        ? 'bg-[#18130e] text-amber-300 border-amber-500/40 hover:border-amber-400'
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-200/80 hover:bg-emerald-100')
+                    : (theme === 'cinema'
+                        ? 'bg-[#18130e] text-stone-500 border-stone-800 hover:text-stone-300'
+                        : 'text-slate-400 hover:bg-slate-100 border-slate-200/70')
+                }`}
+                title={sfxEnabled ? (lang === 'vi' ? 'Hiệu ứng âm thanh: ĐANG BẬT (Bấm để tắt)' : 'Sound effects: ON (Click to mute)') : (lang === 'vi' ? 'Hiệu ứng âm thanh: ĐANG TẮT (Bấm để bật)' : 'Sound effects: OFF (Click to unmute)')}
+              >
+                {sfxEnabled ? <Volume2 className="w-3.5 h-3.5 text-emerald-500" /> : <VolumeX className="w-3.5 h-3.5 text-slate-400" />}
+                <span className="text-[11px] font-mono">{sfxEnabled ? 'SFX' : 'Mute'}</span>
               </button>
 
               {/* Language Toggle: Visible on sm+, in drawer on mobile */}
@@ -304,6 +341,20 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
                   }`}
                 >
                   <span>{lang === 'en' ? '🇬🇧 EN' : '🇻🇳 VI'}</span>
+                </button>
+
+                {/* Sound Effects Mobile Toggle */}
+                <button
+                  type="button"
+                  onClick={handleToggleSound}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                    sfxEnabled
+                      ? (theme === 'cinema' ? 'bg-[#201812] text-amber-300 border-amber-500/50' : 'bg-emerald-50 text-emerald-700 border-emerald-200')
+                      : (theme === 'cinema' ? 'bg-[#140f0c] text-stone-500 border-stone-800' : 'bg-slate-100 text-slate-500 border-slate-200')
+                  }`}
+                >
+                  {sfxEnabled ? <Volume2 className="w-3.5 h-3.5 text-emerald-500" /> : <VolumeX className="w-3.5 h-3.5 text-slate-400" />}
+                  <span>{sfxEnabled ? 'Âm thanh: BẬT' : 'Âm thanh: TẮT'}</span>
                 </button>
               </div>
 

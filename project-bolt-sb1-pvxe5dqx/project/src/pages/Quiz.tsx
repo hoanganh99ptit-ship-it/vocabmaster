@@ -1,10 +1,17 @@
 import { useState, useMemo, useEffect } from 'react';
-import { CheckCircle2, XCircle, ChevronRight, RotateCcw, Volume2, Trophy, ListChecks } from 'lucide-react';
+import { CheckCircle2, XCircle, ChevronRight, RotateCcw, Volume2, VolumeX, Trophy, ListChecks } from 'lucide-react';
 import { useVocab } from '@/context/VocabContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useToast } from '@/components/Toast';
 import { speak, speedOptions, getGlobalRate, setGlobalRate } from '@/lib/speech';
 import { addPracticeRecord } from '@/lib/storage';
+import {
+  playCorrectSound,
+  playIncorrectSound,
+  playCelebrationSound,
+  isSoundEnabled,
+  toggleSound,
+} from '@/lib/soundEffects';
 import { useTheme } from '@/context/ThemeContext';
 import type { Vocabulary, QuizQuestion } from '@/lib/types';
 import type { TranslationKey } from '@/lib/i18n';
@@ -44,6 +51,16 @@ export function Quiz() {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [score, setScore] = useState(0);
   const [rate, setRate] = useState(getGlobalRate());
+  const [sfxOn, setSfxOn] = useState(() => isSoundEnabled());
+
+  useEffect(() => {
+    const handleSfxChange = (e: Event) => {
+      const ce = e as CustomEvent<{ enabled: boolean }>;
+      setSfxOn(ce.detail?.enabled ?? isSoundEnabled());
+    };
+    window.addEventListener('vocabmaster_sfx_toggle', handleSfxChange);
+    return () => window.removeEventListener('vocabmaster_sfx_toggle', handleSfxChange);
+  }, []);
 
   const startQuiz = () => {
     if (vocabs.length < 4) {
@@ -63,9 +80,11 @@ export function Quiz() {
     setSelectedAnswer(index);
     const correct = index === questions[current].correctIndex;
     if (correct) {
+      playCorrectSound();
       setScore((s) => s + 1);
       speak(questions[current].vocab.word, rate);
     } else {
+      playIncorrectSound();
       incrementError(questions[current].vocab.word);
     }
     // Update Spaced Repetition (SRS)
@@ -82,6 +101,7 @@ export function Quiz() {
 
   const nextQuestion = () => {
     if (current + 1 >= questions.length) {
+      playCelebrationSound();
       setPhase('done');
     } else {
       setCurrent((c) => c + 1);
@@ -254,8 +274,8 @@ export function Quiz() {
           )}
         </div>
 
-        {/* Audio + speed */}
-        <div className="flex items-center justify-center gap-3 mb-6">
+        {/* Audio + speed + SFX toggle */}
+        <div className="flex items-center justify-center gap-2.5 mb-6 flex-wrap">
           <button
             onClick={() => speak(q.vocab.word, rate)}
             className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
@@ -286,6 +306,26 @@ export function Quiz() {
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            onClick={() => {
+              const next = toggleSound();
+              setSfxOn(next);
+            }}
+            className={`h-9 px-2.5 rounded-lg border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              sfxOn
+                ? (theme === 'cinema'
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 hover:bg-amber-500/30'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100')
+                : (theme === 'cinema'
+                    ? 'bg-stone-900 text-stone-500 border-stone-800 hover:text-stone-300'
+                    : 'bg-slate-100 text-slate-400 border-slate-200 hover:text-slate-600')
+            }`}
+            title={sfxOn ? 'Âm thanh hiệu ứng: BẬT (Click để tắt)' : 'Âm thanh hiệu ứng: TẮT (Click để bật)'}
+          >
+            {sfxOn ? <Volume2 className="w-4 h-4 text-emerald-500" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
+            <span>{sfxOn ? 'SFX Bật' : 'SFX Tắt'}</span>
+          </button>
         </div>
 
         {/* Options */}

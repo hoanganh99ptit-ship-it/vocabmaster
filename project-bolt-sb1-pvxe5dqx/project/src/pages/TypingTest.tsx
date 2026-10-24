@@ -6,6 +6,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/components/Toast';
 import { speak, speedOptions, getGlobalRate, setGlobalRate } from '@/lib/speech';
 import { addPracticeRecord } from '@/lib/storage';
+import { playCorrectSound, playIncorrectSound, playCelebrationSound } from '@/lib/soundEffects';
 import type { Vocabulary } from '@/lib/types';
 import type { TranslationKey } from '@/lib/i18n';
 
@@ -101,11 +102,13 @@ export function TypingTest() {
     const correct = input.trim().toLowerCase() === questions[current].word.toLowerCase();
     let finalScore = score;
     if (correct) {
+      playCorrectSound();
       finalScore = score + 1;
       if (hintPenaltyApplied) finalScore = Math.max(0, finalScore - 0.5);
       setScore(finalScore);
       speak(questions[current].word, rate);
     } else {
+      playIncorrectSound();
       incrementError(questions[current].word);
     }
     setResult(correct ? 'correct' : 'incorrect');
@@ -151,6 +154,7 @@ export function TypingTest() {
 
   const nextQuestion = () => {
     if (current + 1 >= questions.length) {
+      playCelebrationSound();
       setPhase('done');
     } else {
       setCurrent((c) => c + 1);
