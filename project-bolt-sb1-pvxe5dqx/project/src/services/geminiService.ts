@@ -1082,17 +1082,36 @@ export async function generateClozeQuestions(
   };
 
   const fallbackQuestions = (vocabList: Vocabulary[]): ClozeQuestion[] => {
-    return vocabList.map((v) => {
+    const templates = [
+      (w: string, m: string) => ({
+        sentenceWithBlank: `In daily conversation, "______" is an essential word meaning "${m}".`,
+        fullSentence: `In daily conversation, "${w}" is an essential word meaning "${m}".`,
+        translation: `Trong giao tiếp hằng ngày, "${w}" là một từ quan trọng có nghĩa là "${m}".`,
+      }),
+      (w: string, m: string) => ({
+        sentenceWithBlank: `Learning the meaning of "______" (${m}) helps improve your English fluency.`,
+        fullSentence: `Learning the meaning of "${w}" (${m}) helps improve your English fluency.`,
+        translation: `Học hiểu nghĩa của từ "${w}" (${m}) giúp bạn nâng cao vốn từ vựng tiếng Anh.`,
+      }),
+      (w: string, m: string) => ({
+        sentenceWithBlank: `The term "______" is commonly used to express "${m}".`,
+        fullSentence: `The term "${w}" is commonly used to express "${m}".`,
+        translation: `Thuật ngữ "${w}" thường được sử dụng để diễn đạt "${m}".`,
+      }),
+    ];
+
+    return vocabList.map((v, i) => {
       const distractors = getRandomDistractors(v.word);
       const options = [v.word, ...distractors].sort(() => Math.random() - 0.5);
       const correctIndex = options.indexOf(v.word);
       const firstLetter = v.word.charAt(0).toUpperCase();
+      const tmpl = templates[i % templates.length](v.word, v.meaning);
 
       return {
         vocab: v,
-        sentenceWithBlank: `The word "______" is an important concept meaning "${v.meaning}".`,
-        fullSentence: `The word "${v.word}" is an important concept meaning "${v.meaning}".`,
-        translation: `Từ "${v.word}" có nghĩa là "${v.meaning}".`,
+        sentenceWithBlank: tmpl.sentenceWithBlank,
+        fullSentence: tmpl.fullSentence,
+        translation: tmpl.translation,
         hint: `Bắt đầu bằng: ${firstLetter}... | Nghĩa: ${v.meaning}`,
         options,
         correctIndex,
@@ -1168,6 +1187,28 @@ CRITICAL RULES:
         return fallbackQuestions([vocab])[0];
       }
 
+      let sentenceWithBlank = (generated.sentenceWithBlank || '').trim();
+      let fullSentence = (generated.fullSentence || '').trim();
+
+      // Normalize blank placeholder
+      const blankRegex = /(?:_{3,}|\[blank\]|<blank>|\(\.{3,}\)|\.{3,})/i;
+      if (blankRegex.test(sentenceWithBlank)) {
+        sentenceWithBlank = sentenceWithBlank.replace(blankRegex, '______');
+      } else {
+        const escapedWord = vocab.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const wordRegex = new RegExp(`\\b${escapedWord}\\b`, 'i');
+        if (wordRegex.test(sentenceWithBlank)) {
+          sentenceWithBlank = sentenceWithBlank.replace(wordRegex, '______');
+        } else if (wordRegex.test(fullSentence)) {
+          sentenceWithBlank = fullSentence.replace(wordRegex, '______');
+        }
+      }
+
+      // Ensure fullSentence actually contains the target word
+      if (fullSentence.includes('______')) {
+        fullSentence = fullSentence.replace(/______/g, vocab.word);
+      }
+
       // Ensure distractor words exist and don't contain the target word
       let distractors = Array.isArray(generated.distractors) && generated.distractors.length >= 3
         ? generated.distractors.slice(0, 3)
@@ -1189,8 +1230,8 @@ CRITICAL RULES:
 
       return {
         vocab,
-        sentenceWithBlank: generated.sentenceWithBlank,
-        fullSentence: generated.fullSentence,
+        sentenceWithBlank,
+        fullSentence,
         translation: generated.translation || '',
         hint: generated.hint || vocab.meaning,
         options,

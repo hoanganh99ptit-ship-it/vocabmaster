@@ -97,14 +97,46 @@ export function ClozeTest() {
     }
   }, [phase, mode, current, answered]);
 
+  // Keyboard navigation for fast interactive practice
+  useEffect(() => {
+    if (phase !== 'playing') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // If user is currently typing in the input, don't hijack unless it's Enter
+      if (mode === 'typing' && !answered) {
+        return;
+      }
+
+      // If answered: Enter or Space proceeds to the next question
+      if (answered && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        handleNext();
+        return;
+      }
+
+      // In choice mode and not yet answered: 1-4 or A-D picks choice
+      if (mode === 'choice' && !answered && currentQ) {
+        const key = e.key.toUpperCase();
+        let idx = -1;
+        if (key === '1' || key === 'A') idx = 0;
+        else if (key === '2' || key === 'B') idx = 1;
+        else if (key === '3' || key === 'C') idx = 2;
+        else if (key === '4' || key === 'D') idx = 3;
+
+        if (idx >= 0 && idx < currentQ.options.length) {
+          e.preventDefault();
+          handleCheck(idx);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [phase, mode, answered, currentQ, current, questions.length]);
+
   const handleStart = async () => {
     if (filteredVocabs.length < 1) {
       show(t('clozeEmpty'), 'error');
-      return;
-    }
-
-    if (mode === 'choice' && vocabs.length < 4) {
-      show(t('clozeEmptyChoice'), 'error');
       return;
     }
 
@@ -153,7 +185,17 @@ export function ClozeTest() {
       if (!trimmed) return;
       finalAnswer = trimmed;
       const targetWord = currentQ.vocab.word.trim().toLowerCase();
-      userWon = trimmed === targetWord;
+      // Smart check: exact match, or stripped trailing punctuation, or without leading 'to '
+      const cleanTyped = trimmed.replace(/[.,/#!$%^&*;:{}=\-_`~()?"']/g, '').trim();
+      const cleanTarget = targetWord.replace(/[.,/#!$%^&*;:{}=\-_`~()?"']/g, '').trim();
+      const withoutToTarget = cleanTarget.replace(/^to\s+/, '').trim();
+      const withoutToTyped = cleanTyped.replace(/^to\s+/, '').trim();
+
+      userWon = (
+        cleanTyped === cleanTarget ||
+        cleanTyped === withoutToTarget ||
+        withoutToTyped === withoutToTarget
+      );
     } else {
       const picked = choiceIdx !== undefined ? choiceIdx : selectedChoice;
       if (picked === null || picked === undefined) return;
@@ -215,12 +257,54 @@ export function ClozeTest() {
     }
   };
 
+  // Resilient parsing of blank in sentence
+  const parseSentenceParts = (sentenceWithBlank: string, fullSentence: string, targetWord: string) => {
+    // 1. Match standard blank or underscore sequence (3 or more underscores, or [blank], <blank>)
+    const blankRegex = /(?:_{3,}|\[blank\]|<blank>|\(\.{3,}\)|\.{3,})/i;
+    const match = sentenceWithBlank.match(blankRegex);
+    if (match && match.index !== undefined) {
+      return {
+        before: sentenceWithBlank.slice(0, match.index),
+        after: sentenceWithBlank.slice(match.index + match[0].length),
+      };
+    }
+
+    // 2. If no blank placeholder was found in sentenceWithBlank, try matching targetWord (case-insensitive, whole word)
+    const escapedWord = targetWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const wordRegex = new RegExp(`\\b${escapedWord}\\b`, 'i');
+    const wordMatch = sentenceWithBlank.match(wordRegex);
+    if (wordMatch && wordMatch.index !== undefined) {
+      return {
+        before: sentenceWithBlank.slice(0, wordMatch.index),
+        after: sentenceWithBlank.slice(wordMatch.index + wordMatch[0].length),
+      };
+    }
+
+    // 3. Fallback: try checking fullSentence for the targetWord
+    const fullWordMatch = fullSentence.match(wordRegex);
+    if (fullWordMatch && fullWordMatch.index !== undefined) {
+      return {
+        before: fullSentence.slice(0, fullWordMatch.index),
+        after: fullSentence.slice(fullWordMatch.index + fullWordMatch[0].length),
+      };
+    }
+
+    // 4. Default: split by '______'
+    const parts = sentenceWithBlank.split('______');
+    return {
+      before: parts[0] || '',
+      after: parts.slice(1).join('______'),
+    };
+  };
+
   // Render sentence with interactive/highlighted blank
   const renderSentenceWithBlank = () => {
     if (!currentQ) return null;
-    const parts = currentQ.sentenceWithBlank.split('______');
-    const before = parts[0] || '';
-    const after = parts.slice(1).join('______');
+    const { before, after } = parseSentenceParts(
+      currentQ.sentenceWithBlank,
+      currentQ.fullSentence,
+      currentQ.vocab.word
+    );
 
     let blankContent = '______';
     let blankClass =
@@ -284,7 +368,13 @@ export function ClozeTest() {
   if (phase === 'setup') {
     return (
       <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm text-center relative overflow-hidden">
+        <div
+          className={`rounded-2xl border p-8 shadow-sm text-center relative overflow-hidden ${
+            theme === 'cinema'
+              ? 'bg-[#18130e] border-amber-500/35 text-amber-100 shadow-xl shadow-black/40'
+              : 'bg-white border-slate-200'
+          }`}
+        >
           <div
             className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${
               theme === 'cinema'
@@ -295,8 +385,20 @@ export function ClozeTest() {
             <Layers className="w-8 h-8" />
           </div>
 
-          <h2 className="text-2xl font-bold text-slate-800">{t('clozeTitle')}</h2>
-          <p className="text-slate-500 mt-1">{t('clozeDesc')}</p>
+          <h2
+            className={`text-2xl font-bold ${
+              theme === 'cinema' ? 'text-amber-100' : 'text-slate-800'
+            }`}
+          >
+            {t('clozeTitle')}
+          </h2>
+          <p
+            className={`mt-1 ${
+              theme === 'cinema' ? 'text-stone-400' : 'text-slate-500'
+            }`}
+          >
+            {t('clozeDesc')}
+          </p>
 
           {/* Mode Selector */}
           <div
@@ -318,6 +420,8 @@ export function ClozeTest() {
                     ? theme === 'cinema'
                       ? 'border-amber-500 bg-amber-500/10 shadow-sm ring-1 ring-amber-500/30'
                       : 'border-sky-500 bg-white shadow-sm ring-2 ring-sky-500/20'
+                    : theme === 'cinema'
+                    ? 'border-amber-500/20 bg-stone-900/60 hover:border-amber-500/40 text-stone-300'
                     : 'border-slate-200 hover:border-slate-300 bg-white/60'
                 }`}
               >
@@ -333,9 +437,19 @@ export function ClozeTest() {
                   <ListFilter className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="font-bold text-sm text-slate-800">{t('clozeModeChoice')}</div>
-                  <div className="text-xs text-slate-500">
-                    {lang === 'vi' ? 'Chọn 1 trong 4 đáp án theo ngữ cảnh' : 'Pick 1 of 4 choices in context'}
+                  <div
+                    className={`font-bold text-sm ${
+                      theme === 'cinema' ? 'text-amber-100' : 'text-slate-800'
+                    }`}
+                  >
+                    {t('clozeModeChoice')}
+                  </div>
+                  <div
+                    className={`text-xs ${
+                      theme === 'cinema' ? 'text-stone-400' : 'text-slate-500'
+                    }`}
+                  >
+                    {lang === 'vi' ? 'Chọn 1 trong 4 đáp án theo ngữ cảnh (Phím 1-4/A-D)' : 'Pick 1 of 4 choices in context (Keys 1-4/A-D)'}
                   </div>
                 </div>
               </button>
@@ -348,6 +462,8 @@ export function ClozeTest() {
                     ? theme === 'cinema'
                       ? 'border-amber-500 bg-amber-500/10 shadow-sm ring-1 ring-amber-500/30'
                       : 'border-sky-500 bg-white shadow-sm ring-2 ring-sky-500/20'
+                    : theme === 'cinema'
+                    ? 'border-amber-500/20 bg-stone-900/60 hover:border-amber-500/40 text-stone-300'
                     : 'border-slate-200 hover:border-slate-300 bg-white/60'
                 }`}
               >
@@ -363,9 +479,19 @@ export function ClozeTest() {
                   <Keyboard className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="font-bold text-sm text-slate-800">{t('clozeModeTyping')}</div>
-                  <div className="text-xs text-slate-500">
-                    {lang === 'vi' ? 'Gợi nhớ chủ động, gõ từ vào ô trống' : 'Type the missing word from memory'}
+                  <div
+                    className={`font-bold text-sm ${
+                      theme === 'cinema' ? 'text-amber-100' : 'text-slate-800'
+                    }`}
+                  >
+                    {t('clozeModeTyping')}
+                  </div>
+                  <div
+                    className={`text-xs ${
+                      theme === 'cinema' ? 'text-stone-400' : 'text-slate-500'
+                    }`}
+                  >
+                    {lang === 'vi' ? 'Gợi nhớ chủ động, gõ từ vào ô trống (Enter chuyển câu)' : 'Type the missing word from memory (Enter for next)'}
                   </div>
                 </div>
               </button>
@@ -393,6 +519,8 @@ export function ClozeTest() {
                       ? theme === 'cinema'
                         ? 'bg-amber-500 text-stone-950 font-bold'
                         : 'bg-sky-500 text-white shadow-xs'
+                      : theme === 'cinema'
+                      ? 'bg-stone-900/80 border border-amber-500/20 text-stone-300 hover:border-amber-500/40'
                       : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300'
                   }`}
                 >
@@ -410,6 +538,8 @@ export function ClozeTest() {
                           ? theme === 'cinema'
                             ? 'bg-amber-500 text-stone-950 font-bold'
                             : 'bg-sky-500 text-white shadow-xs'
+                          : theme === 'cinema'
+                          ? 'bg-stone-900/80 border border-amber-500/20 text-stone-300 hover:border-amber-500/40'
                           : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300'
                       }`}
                     >
@@ -423,7 +553,13 @@ export function ClozeTest() {
 
           {/* Question Count Selection */}
           <div className="mt-6">
-            <p className="text-sm font-semibold text-slate-600 mb-3">{t('questionCount')}</p>
+            <p
+              className={`text-sm font-semibold mb-3 ${
+                theme === 'cinema' ? 'text-stone-300' : 'text-slate-600'
+              }`}
+            >
+              {t('questionCount')}
+            </p>
             <div className="flex gap-2 justify-center flex-wrap">
               {QUESTION_COUNTS.map((n) => (
                 <button
@@ -432,8 +568,10 @@ export function ClozeTest() {
                   className={`w-16 h-16 rounded-2xl font-bold text-lg transition-all cursor-pointer ${
                     count === n
                       ? theme === 'cinema'
-                        ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-stone-950 shadow-md shadow-amber-500/20'
+                        ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-stone-950 shadow-md shadow-amber-500/20 font-black'
                         : 'bg-gradient-to-br from-sky-500 to-teal-500 text-white shadow-md shadow-sky-500/20'
+                      : theme === 'cinema'
+                      ? 'bg-stone-900 border border-amber-500/30 text-amber-200 hover:bg-stone-800'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
@@ -447,9 +585,13 @@ export function ClozeTest() {
           <button
             onClick={handleStart}
             disabled={filteredVocabs.length === 0}
-            className="mt-8 px-8 py-3.5 rounded-xl bg-gradient-to-r from-sky-500 to-teal-500 text-white font-semibold hover:from-sky-600 hover:to-teal-600 transition-all shadow-md disabled:opacity-50 inline-flex items-center justify-center gap-2 cursor-pointer"
+            className={`mt-8 px-8 py-3.5 rounded-xl font-semibold transition-all shadow-md disabled:opacity-50 inline-flex items-center justify-center gap-2 cursor-pointer ${
+              theme === 'cinema'
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-stone-950 font-bold hover:from-amber-400 hover:to-yellow-400 shadow-amber-500/20'
+                : 'bg-gradient-to-r from-sky-500 to-teal-500 text-white hover:from-sky-600 hover:to-teal-600 shadow-sky-500/20'
+            }`}
           >
-            <span>{t('startSentence')}</span>
+            <span>{lang === 'vi' ? 'Bắt đầu đục lỗ' : 'Start Cloze Test'}</span>
             <ArrowRight className="w-5 h-5" />
           </button>
         </div>
@@ -470,8 +612,20 @@ export function ClozeTest() {
         >
           <Sparkles className="w-8 h-8" />
         </div>
-        <h3 className="text-xl font-bold text-slate-800">{t('clozeGenerating')}</h3>
-        <p className="text-slate-500 text-sm mt-2">{t('clozeGeneratingDesc')}</p>
+        <h3
+          className={`text-xl font-bold ${
+            theme === 'cinema' ? 'text-amber-100' : 'text-slate-800'
+          }`}
+        >
+          {t('clozeGenerating')}
+        </h3>
+        <p
+          className={`text-sm mt-2 ${
+            theme === 'cinema' ? 'text-stone-400' : 'text-slate-500'
+          }`}
+        >
+          {t('clozeGeneratingDesc')}
+        </p>
         <div className="mt-6 flex justify-center">
           <Loader2
             className={`w-6 h-6 animate-spin ${
@@ -804,14 +958,26 @@ export function ClozeTest() {
                 : 'bg-amber-50/90 border-amber-200 text-amber-900'
             }`}
           >
+            {/* Show rich contextual hint if available from AI */}
+            {currentQ.hint && currentQ.hint.trim() !== currentQ.vocab.meaning.trim() && (
+              <div className="font-medium mb-2.5 pb-2 border-b border-amber-500/20 flex items-start gap-2">
+                <Lightbulb className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                <span>
+                  <strong className="text-amber-500 font-semibold">
+                    {lang === 'vi' ? 'Gợi ý ngữ cảnh: ' : 'Contextual clue: '}
+                  </strong>
+                  {currentQ.hint}
+                </span>
+              </div>
+            )}
             <div className="font-semibold flex items-center gap-1.5 mb-1.5">
-              <Lightbulb className="w-4 h-4 text-amber-500 flex-shrink-0" />
+              <span className="text-amber-500 font-bold">•</span>
               <span>
                 {t('clozeMeaningLabel')}:{' '}
                 <strong className="text-sm sm:text-base">{currentQ.vocab.meaning}</strong>
               </span>
             </div>
-            <div className="opacity-90 pl-5">
+            <div className="opacity-90 pl-3">
               {t('clozeFirstLetter')}:{' '}
               <strong className="uppercase font-mono text-sm sm:text-base">
                 {currentQ.vocab.word.charAt(0)}...
@@ -947,6 +1113,8 @@ export function ClozeTest() {
                     ? isCorrect
                       ? 'border-emerald-500 bg-emerald-950/20 text-emerald-400'
                       : 'border-rose-500 bg-rose-950/20 text-rose-400'
+                    : theme === 'cinema'
+                    ? 'border-amber-500/30 bg-stone-900 text-amber-100 placeholder-stone-500 focus:ring-amber-400'
                     : 'border-slate-200 bg-white text-slate-900 focus:ring-sky-400'
                 }`}
               />
@@ -954,7 +1122,11 @@ export function ClozeTest() {
                 <button
                   type="submit"
                   disabled={!typedAnswer.trim()}
-                  className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-sky-500 to-teal-500 text-white font-semibold hover:from-sky-600 hover:to-teal-600 shadow-md transition-all disabled:opacity-40 cursor-pointer"
+                  className={`px-6 py-3.5 rounded-xl font-semibold shadow-md transition-all disabled:opacity-40 cursor-pointer ${
+                    theme === 'cinema'
+                      ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-stone-950 font-bold hover:from-amber-400 hover:to-yellow-400'
+                      : 'bg-gradient-to-r from-sky-500 to-teal-500 text-white hover:from-sky-600 hover:to-teal-600'
+                  }`}
                 >
                   {t('clozeCheck')}
                 </button>
@@ -1009,7 +1181,11 @@ export function ClozeTest() {
                         e.stopPropagation();
                         speak(option, rate);
                       }}
-                      className="w-7 h-7 rounded-full bg-sky-50 hover:bg-sky-100 text-sky-500 flex items-center justify-center transition-colors flex-shrink-0 cursor-pointer"
+                      className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors flex-shrink-0 cursor-pointer ${
+                        theme === 'cinema'
+                          ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300'
+                          : 'bg-sky-50 hover:bg-sky-100 text-sky-500'
+                      }`}
                       title={t('playAudio')}
                     >
                       <Volume2 className="w-3.5 h-3.5" />
@@ -1023,7 +1199,13 @@ export function ClozeTest() {
                     )}
 
                     {!answered && (
-                      <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 text-xs flex items-center justify-center font-bold">
+                      <span
+                        className={`w-6 h-6 rounded-full text-xs flex items-center justify-center font-bold ${
+                          theme === 'cinema'
+                            ? 'bg-stone-800 text-amber-300 border border-amber-500/30'
+                            : 'bg-slate-100 text-slate-500'
+                        }`}
+                      >
                         {String.fromCharCode(65 + idx)}
                       </span>
                     )}
@@ -1039,7 +1221,11 @@ export function ClozeTest() {
           <button
             onClick={handleNext}
             autoFocus
-            className="mt-6 w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-sky-500 to-teal-500 text-white font-semibold hover:from-sky-600 hover:to-teal-600 transition-all shadow-md animate-fade-in cursor-pointer"
+            className={`mt-6 w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-semibold transition-all shadow-md animate-fade-in cursor-pointer ${
+              theme === 'cinema'
+                ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-950 font-black hover:from-amber-500 hover:to-amber-400'
+                : 'bg-gradient-to-r from-sky-500 to-teal-500 text-white hover:from-sky-600 hover:to-teal-600'
+            }`}
           >
             <span>{current + 1 >= questions.length ? t('finishQuiz') : t('clozeNext')}</span>
             <ChevronRight className="w-5 h-5" />
