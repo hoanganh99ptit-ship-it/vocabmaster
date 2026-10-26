@@ -165,7 +165,7 @@ function AppContent() {
             {activeTab === 'quiz' && <Quiz />}
             {activeTab === 'typing' && <TypingTest />}
             {activeTab === 'sentence' && <SentenceBuilding />}
-            {activeTab === 'cloze' && <ClozeTest />}
+            {activeTab === 'cloze' && <ClozeTest onNavigate={handleTabChange} />}
             {activeTab === 'analytics' && <Analytics onNavigate={handleTabChange} />}
           </>
         )}

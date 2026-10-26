@@ -4,6 +4,7 @@ import {
   getCollocationsForWordFromCache,
   saveCollocationsForWordToCache,
   saveBatchCollocationsToCache,
+  getExampleForWordFromCache,
 } from '@/lib/storage';
 
 // ============================================================================
@@ -15,8 +16,8 @@ import {
 // ============================================================================
 
 export const USER_KEY_STORAGE = 'vocabmaster_gemini_api_key';
-export const TARGET_MODEL = 'gemini-3.8-flash';
-export const FALLBACK_MODEL = 'gemini-3.5-flash';
+export const TARGET_MODEL = 'gemini-flash-lite-latest';
+export const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
 export const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 export const CHUNK_SIZE = 25; // 25 items per prompt for optimal throughput, speed & quota efficiency
 
@@ -139,24 +140,24 @@ interface EndpointCandidate {
 
 export const ENDPOINT_CANDIDATES: EndpointCandidate[] = [
   {
-    name: 'gemini-3.8-flash (v1beta)',
-    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent',
-  },
-  {
-    name: 'gemini-3.7-flash (v1beta)',
-    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent',
-  },
-  {
-    name: 'gemini-3.5-flash (v1beta)',
-    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
+    name: 'gemini-flash-lite-latest (v1beta)',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent',
   },
   {
     name: 'gemini-3.5-flash-lite (v1beta)',
     url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent',
   },
   {
-    name: 'gemini-flash-lite-latest (v1beta)',
-    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent',
+    name: 'gemini-3.5-flash (v1beta)',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
+  },
+  {
+    name: 'gemini-3.8-flash (v1beta)',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent',
+  },
+  {
+    name: 'gemini-3.7-flash (v1beta)',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent',
   },
   {
     name: 'gemini-3.1-flash-lite (v1beta)',
@@ -1069,7 +1070,8 @@ export async function generateClozeQuestions(
     const backupPool = [
       'protect', 'reduce', 'maintain', 'explore', 'create', 'improve',
       'decision', 'challenge', 'environment', 'solution', 'resource',
-      'essential', 'natural', 'complex', 'significant', 'practical'
+      'essential', 'natural', 'complex', 'significant', 'practical',
+      'acquire', 'sustain', 'distribute', 'conclude', 'establish'
     ].filter((w) => w !== targetWord.toLowerCase());
 
     while (result.length < 3) {
@@ -1081,37 +1083,115 @@ export async function generateClozeQuestions(
     return result;
   };
 
+  // High-fidelity contextual fallback that embeds target word into authentic sentences by part of speech
   const fallbackQuestions = (vocabList: Vocabulary[]): ClozeQuestion[] => {
-    const templates = [
-      (w: string, m: string) => ({
-        sentenceWithBlank: `In daily conversation, "______" is an essential word meaning "${m}".`,
-        fullSentence: `In daily conversation, "${w}" is an essential word meaning "${m}".`,
-        translation: `Trong giao tiếp hằng ngày, "${w}" là một từ quan trọng có nghĩa là "${m}".`,
-      }),
-      (w: string, m: string) => ({
-        sentenceWithBlank: `Learning the meaning of "______" (${m}) helps improve your English fluency.`,
-        fullSentence: `Learning the meaning of "${w}" (${m}) helps improve your English fluency.`,
-        translation: `Học hiểu nghĩa của từ "${w}" (${m}) giúp bạn nâng cao vốn từ vựng tiếng Anh.`,
-      }),
-      (w: string, m: string) => ({
-        sentenceWithBlank: `The term "______" is commonly used to express "${m}".`,
-        fullSentence: `The term "${w}" is commonly used to express "${m}".`,
-        translation: `Thuật ngữ "${w}" thường được sử dụng để diễn đạt "${m}".`,
-      }),
-    ];
-
     return vocabList.map((v, i) => {
       const distractors = getRandomDistractors(v.word);
       const options = [v.word, ...distractors].sort(() => Math.random() - 0.5);
       const correctIndex = options.indexOf(v.word);
       const firstLetter = v.word.charAt(0).toUpperCase();
-      const tmpl = templates[i % templates.length](v.word, v.meaning);
+
+      // Check if word has a cached authentic example sentence
+      const cached = getExampleForWordFromCache(v.word);
+      const escapedWord = v.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const wordRegex = new RegExp(`\\b${escapedWord}\\b`, 'i');
+
+      if (cached?.sentence && wordRegex.test(cached.sentence)) {
+        const sentenceWithBlank = cached.sentence.replace(wordRegex, '______');
+        return {
+          vocab: v,
+          sentenceWithBlank,
+          fullSentence: cached.sentence,
+          translation: cached.translation || `Câu ví dụ thực tế cho từ "${v.word}" (${v.meaning})`,
+          hint: `Bắt đầu bằng: ${firstLetter}... | Nghĩa: ${v.meaning}`,
+          options,
+          correctIndex,
+        };
+      }
+
+      // Contextual sentences by part of speech
+      const t = (v.type || '').toLowerCase();
+      let sentenceWithBlank = '';
+      let fullSentence = '';
+      let translation = '';
+
+      if (t.includes('verb') || t.includes('động')) {
+        const verbTemplates = [
+          {
+            s: `The entire project team worked together to ______ all remaining challenges before launch.`,
+            f: `The entire project team worked together to ${v.word} all remaining challenges before launch.`,
+            tr: `Cả đội dự án đã cùng nhau làm việc để ${v.meaning} mọi khó khăn còn lại trước khi ra mắt.`
+          },
+          {
+            s: `In order to grow sustainably, the organization must ______ modern technologies and strategies.`,
+            f: `In order to grow sustainably, the organization must ${v.word} modern technologies and strategies.`,
+            tr: `Để phát triển bền vững, tổ chức phải ${v.meaning} các công nghệ và chiến lược hiện đại.`
+          },
+          {
+            s: `She made a bold decision to ______ new opportunities in her professional career.`,
+            f: `She made a bold decision to ${v.word} new opportunities in her professional career.`,
+            tr: `Cô ấy đã đưa ra quyết định táo bạo để ${v.meaning} những cơ hội mới trong sự nghiệp của mình.`
+          }
+        ];
+        const picked = verbTemplates[i % verbTemplates.length];
+        sentenceWithBlank = picked.s;
+        fullSentence = picked.f;
+        translation = picked.tr;
+      } else if (t.includes('adj') || t.includes('tính')) {
+        const adjTemplates = [
+          {
+            s: `Her ______ attitude and dedication inspired everyone during the demanding crisis.`,
+            f: `Her ${v.word} attitude and dedication inspired everyone during the demanding crisis.`,
+            tr: `Thái độ ${v.meaning} và sự tận tâm của cô ấy đã truyền cảm hứng cho mọi người trong suốt cuộc khủng hoảng.`
+          },
+          {
+            s: `Maintaining a ______ perspective is crucial when navigating uncertain and complex situations.`,
+            f: `Maintaining a ${v.word} perspective is crucial when navigating uncertain and complex situations.`,
+            tr: `Duy trì một góc nhìn ${v.meaning} là điều cốt yếu khi xử lý các tình huống phức tạp và bất định.`
+          },
+          {
+            s: `The director commended the candidate for presenting a remarkably ______ and convincing proposal.`,
+            f: `The director commended the candidate for presenting a remarkably ${v.word} and convincing proposal.`,
+            tr: `Giám đốc đã khen ngợi ứng viên vì đã trình bày một bản đề xuất vô cùng ${v.meaning} và đầy sức thuyết phục.`
+          }
+        ];
+        const picked = adjTemplates[i % adjTemplates.length];
+        sentenceWithBlank = picked.s;
+        fullSentence = picked.f;
+        translation = picked.tr;
+      } else if (t.includes('adv') || t.includes('trạng')) {
+        sentenceWithBlank = `The specialist analyzed the data ______ to ensure complete accuracy before reporting.`;
+        fullSentence = `The specialist analyzed the data ${v.word} to ensure complete accuracy before reporting.`;
+        translation = `Chuyên gia đã phân tích dữ liệu một cách ${v.meaning} để đảm bảo độ chính xác tuyệt đối trước khi báo cáo.`;
+      } else {
+        const nounTemplates = [
+          {
+            s: `Establishing a strong foundation is an essential ______ for achieving meaningful success in life.`,
+            f: `Establishing a strong foundation is an essential ${v.word} for achieving meaningful success in life.`,
+            tr: `Xây dựng một nền tảng vững chắc là một ${v.meaning} thiết yếu để đạt được thành công có ý nghĩa trong cuộc sống.`
+          },
+          {
+            s: `The team gathered in the conference room to discuss the key ______ affecting their weekly progress.`,
+            f: `The team gathered in the conference room to discuss the key ${v.word} affecting their weekly progress.`,
+            tr: `Nhóm đã họp tại phòng hội nghị để thảo luận về ${v.meaning} quan trọng ảnh hưởng đến tiến độ tuần.`
+          },
+          {
+            s: `Continuous self-improvement is a vital ______ that helps individuals reach their full potential.`,
+            f: `Continuous self-improvement is a vital ${v.word} that helps individuals reach their full potential.`,
+            tr: `Không ngừng hoàn thiện bản thân là một ${v.meaning} quan trọng giúp mỗi cá nhân phát huy tối đa tiềm năng.`
+          }
+        ];
+        const picked = nounTemplates[i % nounTemplates.length];
+        sentenceWithBlank = picked.s;
+        fullSentence = picked.f;
+        translation = picked.tr;
+      }
 
       return {
         vocab: v,
-        sentenceWithBlank: tmpl.sentenceWithBlank,
-        fullSentence: tmpl.fullSentence,
-        translation: tmpl.translation,
+        sentenceWithBlank,
+        fullSentence,
+        translation,
         hint: `Bắt đầu bằng: ${firstLetter}... | Nghĩa: ${v.meaning}`,
         options,
         correctIndex,
@@ -1124,24 +1204,38 @@ export async function generateClozeQuestions(
     return fallbackQuestions(targetVocabs);
   }
 
+  // Batch targetVocabs in chunks of 5 for speed, quota efficiency, and parallel completion
+  const BATCH_SIZE = 5;
+  const batches: Vocabulary[][] = [];
+  for (let i = 0; i < targetVocabs.length; i += BATCH_SIZE) {
+    batches.push(targetVocabs.slice(i, i + BATCH_SIZE));
+  }
+
   try {
-    const itemsText = targetVocabs
-      .map(
-        (v, idx) =>
-          `${idx + 1}. id="${v.id}" Word: "${v.word}", Type: "${v.type || 'word'}", Meaning: "${v.meaning}"`
-      )
-      .join('\n');
+    const batchResults = await Promise.all(
+      batches.map(async (batch) => {
+        try {
+          const itemsText = batch
+            .map(
+              (v, idx) =>
+                `${idx + 1}. id="${v.id}" Word: "${v.word}", Type: "${v.type || 'word'}", Meaning: "${v.meaning}"`
+            )
+            .join('\n');
 
-    const prompt = `You are an expert English language examiner creating Contextual Cloze Deletion Test (đục lỗ ngữ cảnh) questions for English learners.
+          const prompt = `You are an expert English language examiner creating Contextual Cloze Deletion Test (đục lỗ ngữ cảnh) questions for English learners.
 
-For each vocabulary entry below, create a natural, realistic English sentence that uses the word in a clear, meaningful context.
+For each vocabulary entry below, create a natural, realistic English sentence that uses the word in a clear, meaningful, real-life context (workplace, academics, daily life, social interactions).
 Replace the target word in the sentence with "______" (6 underscores).
-Also provide:
-- fullSentence: The complete sentence with the word included.
-- sentenceWithBlank: The sentence with the word replaced by "______". Keep punctuation intact.
-- translation: Natural Vietnamese translation of the full sentence.
-- hint: A helpful hint in Vietnamese (e.g. contextual hint or meaning).
-- distractors: An array of exactly 3 different English words with similar part of speech that could look plausible but are incorrect in this context.
+
+CRITICAL PEDAGOGICAL RULES:
+- The sentence MUST be a real, meaningful English scenario (dialogue, action, narration) where the target word fits naturally.
+- NEVER write meta-sentences defining the word (e.g. NEVER write "The word ______ means..." or "Learning ______ is helpful"). The word must be an organic part of the sentence itself.
+- In "fullSentence", include the target word in the exact form provided.
+- In "sentenceWithBlank", replace the target word with "______" (6 underscores). Keep punctuation intact.
+- Provide a clear, natural Vietnamese translation of the full sentence.
+- Provide a helpful contextual hint in Vietnamese (describing the context clue or situational meaning).
+- Provide exactly 3 different English words (distractors) of the same part of speech that are plausible in general English, but incorrect in this specific context.
+- Return exactly ${batch.length} items in the same order as input.
 
 Vocabulary list:
 ${itemsText}
@@ -1150,94 +1244,98 @@ Return strictly a JSON array matching this schema:
 [
   {
     "id": "the entry id from input",
-    "sentenceWithBlank": "We must take immediate action to ______ our natural environment.",
-    "fullSentence": "We must take immediate action to protect our natural environment.",
-    "translation": "Chúng ta phải hành động ngay lập tức để bảo vệ môi trường tự nhiên của mình.",
-    "hint": "Hành động giữ gìn, bảo vệ khỏi nguy hiểm",
-    "distractors": ["destroy", "abandon", "pollute"]
+    "sentenceWithBlank": "Despite facing numerous setbacks, the community proved to be remarkably ______ and rebuilt their homes quickly.",
+    "fullSentence": "Despite facing numerous setbacks, the community proved to be remarkably resilient and rebuilt their homes quickly.",
+    "translation": "Dù phải đối mặt với nhiều thất bại, cộng đồng đã tỏ ra vô cùng kiên cường và nhanh chóng xây dựng lại nhà cửa.",
+    "hint": "Khả năng phục hồi nhanh chóng sau khó khăn hoặc tổn thất",
+    "distractors": ["fragile", "vulnerable", "hesitant"]
   }
-]
+]`;
 
-CRITICAL RULES:
-- Return exactly ${targetVocabs.length} items in the same order.
-- Ensure the sentence provides strong contextual clues for the missing word.
-- The target word inside fullSentence must match the input word.`;
+          const text = await geminiGenerate(prompt, {
+            temperature: 0.2,
+            responseMimeType: 'application/json',
+          });
 
-    const text = await geminiGenerate(prompt, {
-      temperature: 0.2,
-      responseMimeType: 'application/json',
-    });
+          const parsed = cleanAndParseJSON<Array<{
+            id: string;
+            sentenceWithBlank: string;
+            fullSentence: string;
+            translation: string;
+            hint: string;
+            distractors?: string[];
+          }>>(text);
 
-    const parsed = cleanAndParseJSON<Array<{
-      id: string;
-      sentenceWithBlank: string;
-      fullSentence: string;
-      translation: string;
-      hint: string;
-      distractors?: string[];
-    }>>(text);
-
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      return fallbackQuestions(targetVocabs);
-    }
-
-    return targetVocabs.map((vocab, idx) => {
-      const generated = parsed.find((p) => p.id === vocab.id) || parsed[idx];
-      if (!generated || !generated.sentenceWithBlank || !generated.fullSentence) {
-        return fallbackQuestions([vocab])[0];
-      }
-
-      let sentenceWithBlank = (generated.sentenceWithBlank || '').trim();
-      let fullSentence = (generated.fullSentence || '').trim();
-
-      // Normalize blank placeholder
-      const blankRegex = /(?:_{3,}|\[blank\]|<blank>|\(\.{3,}\)|\.{3,})/i;
-      if (blankRegex.test(sentenceWithBlank)) {
-        sentenceWithBlank = sentenceWithBlank.replace(blankRegex, '______');
-      } else {
-        const escapedWord = vocab.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const wordRegex = new RegExp(`\\b${escapedWord}\\b`, 'i');
-        if (wordRegex.test(sentenceWithBlank)) {
-          sentenceWithBlank = sentenceWithBlank.replace(wordRegex, '______');
-        } else if (wordRegex.test(fullSentence)) {
-          sentenceWithBlank = fullSentence.replace(wordRegex, '______');
-        }
-      }
-
-      // Ensure fullSentence actually contains the target word
-      if (fullSentence.includes('______')) {
-        fullSentence = fullSentence.replace(/______/g, vocab.word);
-      }
-
-      // Ensure distractor words exist and don't contain the target word
-      let distractors = Array.isArray(generated.distractors) && generated.distractors.length >= 3
-        ? generated.distractors.slice(0, 3)
-        : getRandomDistractors(vocab.word);
-
-      distractors = distractors.filter((d) => d.toLowerCase() !== vocab.word.toLowerCase());
-      while (distractors.length < 3) {
-        const extra = getRandomDistractors(vocab.word);
-        for (const item of extra) {
-          if (!distractors.includes(item) && item.toLowerCase() !== vocab.word.toLowerCase()) {
-            distractors.push(item);
+          if (!Array.isArray(parsed) || parsed.length === 0) {
+            return fallbackQuestions(batch);
           }
+
+          return batch.map((vocab, idx) => {
+            const generated = parsed.find((p) => p.id === vocab.id) || parsed[idx];
+            if (!generated || !generated.sentenceWithBlank || !generated.fullSentence) {
+              return fallbackQuestions([vocab])[0];
+            }
+
+            let sentenceWithBlank = (generated.sentenceWithBlank || '').trim();
+            let fullSentence = (generated.fullSentence || '').trim();
+
+            // Normalize blank placeholder
+            const blankRegex = /(?:_{3,}|\[blank\]|<blank>|\(\.{3,}\)|\.{3,})/i;
+            if (blankRegex.test(sentenceWithBlank)) {
+              sentenceWithBlank = sentenceWithBlank.replace(blankRegex, '______');
+            } else {
+              const escapedWord = vocab.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const wordRegex = new RegExp(`\\b${escapedWord}\\b`, 'i');
+              if (wordRegex.test(sentenceWithBlank)) {
+                sentenceWithBlank = sentenceWithBlank.replace(wordRegex, '______');
+              } else if (wordRegex.test(fullSentence)) {
+                sentenceWithBlank = fullSentence.replace(wordRegex, '______');
+              }
+            }
+
+            // Ensure fullSentence actually contains the target word
+            if (fullSentence.includes('______')) {
+              fullSentence = fullSentence.replace(/______/g, vocab.word);
+            }
+
+            // Ensure distractor words exist and don't contain the target word
+            let distractors = Array.isArray(generated.distractors) && generated.distractors.length >= 3
+              ? generated.distractors.slice(0, 3)
+              : getRandomDistractors(vocab.word);
+
+            distractors = distractors.filter((d) => d.toLowerCase() !== vocab.word.toLowerCase());
+            while (distractors.length < 3) {
+              const extra = getRandomDistractors(vocab.word);
+              for (const item of extra) {
+                if (!distractors.includes(item) && item.toLowerCase() !== vocab.word.toLowerCase()) {
+                  distractors.push(item);
+                }
+              }
+            }
+            distractors = distractors.slice(0, 3);
+
+            const options = [vocab.word, ...distractors].sort(() => Math.random() - 0.5);
+            const correctIndex = options.indexOf(vocab.word);
+
+            return {
+              vocab,
+              sentenceWithBlank,
+              fullSentence,
+              translation: generated.translation || '',
+              hint: generated.hint || vocab.meaning,
+              options,
+              correctIndex,
+            };
+          });
+        } catch (batchErr) {
+          console.warn('[GeminiService] Batch generation failed, falling back to smart local context for this batch:', batchErr);
+          return fallbackQuestions(batch);
         }
-      }
-      distractors = distractors.slice(0, 3);
+      })
+    );
 
-      const options = [vocab.word, ...distractors].sort(() => Math.random() - 0.5);
-      const correctIndex = options.indexOf(vocab.word);
-
-      return {
-        vocab,
-        sentenceWithBlank,
-        fullSentence,
-        translation: generated.translation || '',
-        hint: generated.hint || vocab.meaning,
-        options,
-        correctIndex,
-      };
-    });
+    const flattened = batchResults.flat();
+    return flattened.length > 0 ? flattened : fallbackQuestions(targetVocabs);
   } catch (err) {
     console.warn('[GeminiService] generateClozeQuestions failed, falling back to local questions:', err);
     return fallbackQuestions(targetVocabs);

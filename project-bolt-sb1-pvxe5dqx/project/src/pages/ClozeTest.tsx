@@ -15,6 +15,8 @@ import {
   ListFilter,
   Loader2,
   Layers,
+  Plus,
+  Target,
 } from 'lucide-react';
 import { useVocab } from '@/context/VocabContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -29,8 +31,9 @@ import {
   isSoundEnabled,
   toggleSound,
 } from '@/lib/soundEffects';
+import { isDueForReview } from '@/lib/srs';
 import { generateClozeQuestions } from '@/services/geminiService';
-import type { Vocabulary, ClozeQuestion } from '@/lib/types';
+import type { Vocabulary, ClozeQuestion, TabKey } from '@/lib/types';
 import type { TranslationKey } from '@/lib/i18n';
 
 const QUESTION_COUNTS = [5, 10, 15, 20];
@@ -84,7 +87,11 @@ function parseSentenceParts(sentenceWithBlank: string, fullSentence: string, tar
   };
 }
 
-export function ClozeTest() {
+interface ClozeTestProps {
+  onNavigate?: (tab: TabKey) => void;
+}
+
+export function ClozeTest({ onNavigate }: ClozeTestProps = {}) {
   const { vocabs, incrementError, updateSRS } = useVocab();
   const { t, lang } = useLanguage();
   const { theme } = useTheme();
@@ -92,6 +99,7 @@ export function ClozeTest() {
 
   const [phase, setPhase] = useState<'setup' | 'loading' | 'playing' | 'done'>('setup');
   const [mode, setMode] = useState<'choice' | 'typing'>('choice');
+  const [reviewScope, setReviewScope] = useState<'due' | 'error' | 'all'>('due');
   const [count, setCount] = useState(10);
   const [selectedChest, setSelectedChest] = useState<string>('ALL');
 
@@ -145,6 +153,15 @@ export function ClozeTest() {
     if (selectedChest === 'ALL') return vocabs;
     return vocabs.filter((v) => v.category === selectedChest);
   }, [vocabs, selectedChest]);
+
+  // Counts of review candidates within current filter
+  const dueCount = useMemo(() => {
+    return filteredVocabs.filter((v) => isDueForReview(v.dueDate)).length;
+  }, [filteredVocabs]);
+
+  const errorCount = useMemo(() => {
+    return filteredVocabs.filter((v) => (v.error_count || 0) > 0).length;
+  }, [filteredVocabs]);
 
   // Current active question
   const currentQ = questions[current];
@@ -245,7 +262,29 @@ export function ClozeTest() {
     setPhase('loading');
 
     const targetCount = Math.min(count, filteredVocabs.length);
-    const chosenVocabs = shuffle(filteredVocabs).slice(0, targetCount);
+    let candidatePool: Vocabulary[] = [];
+
+    if (reviewScope === 'due') {
+      const dueWords = filteredVocabs.filter((v) => isDueForReview(v.dueDate));
+      const errorWords = filteredVocabs.filter((v) => (v.error_count || 0) > 0 && !dueWords.some((dw) => dw.id === v.id));
+      const otherWords = filteredVocabs.filter(
+        (v) => !dueWords.some((dw) => dw.id === v.id) && !errorWords.some((ew) => ew.id === v.id)
+      );
+      // Prioritize due words first, then error-prone words, then rest
+      candidatePool = [
+        ...shuffle(dueWords),
+        ...shuffle(errorWords),
+        ...shuffle(otherWords),
+      ];
+    } else if (reviewScope === 'error') {
+      const errorWords = filteredVocabs.filter((v) => (v.error_count || 0) > 0);
+      const otherWords = filteredVocabs.filter((v) => !errorWords.some((ew) => ew.id === v.id));
+      candidatePool = [...shuffle(errorWords), ...shuffle(otherWords)];
+    } else {
+      candidatePool = shuffle(filteredVocabs);
+    }
+
+    const chosenVocabs = candidatePool.slice(0, targetCount);
 
     try {
       const generated = await generateClozeQuestions(chosenVocabs, vocabs);
@@ -422,7 +461,144 @@ export function ClozeTest() {
             {t('clozeDesc')}
           </p>
 
-          {/* Mode Selector */}
+          {/* Empty State when no vocabs */}
+          {vocabs.length === 0 ? (
+            <div className="mt-8 p-6 rounded-2xl border border-dashed border-amber-500/30 text-center">
+              <div className="w-12 h-12 mx-auto rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mb-3">
+                <Layers className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-base mb-1">
+                {lang === 'vi' ? 'Rương từ vựng đang trống' : 'Your vocab chest is empty'}
+              </h3>
+              <p className="text-xs text-stone-400 mb-4 max-w-sm mx-auto">
+                {lang === 'vi'
+                  ? 'Hãy thêm ít nhất 1 từ vựng vào kho để hệ thống tạo các câu luyện tập đục lỗ ngữ cảnh cho bạn.'
+                  : 'Add at least 1 vocabulary word to start generating contextual cloze deletion questions.'}
+              </p>
+              {onNavigate && (
+                <button
+                  type="button"
+                  onClick={() => onNavigate('add')}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 text-stone-950 hover:bg-amber-400 transition-all cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{lang === 'vi' ? 'Thêm từ vựng mới ngay' : 'Add vocabulary now'}</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Review Target Scope Selector */}
+              <div
+                className={`mt-6 text-left rounded-xl p-4 border ${
+                  theme === 'cinema'
+                    ? 'bg-[#15100c] border-amber-600/30'
+                    : 'bg-slate-50 border-slate-200'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
+                    {lang === 'vi' ? 'Mục tiêu ôn tập' : 'Review Target'}
+                  </label>
+                  <span className="text-[11px] font-semibold text-amber-400 flex items-center gap-1">
+                    <Target className="w-3 h-3" />
+                    <span>{lang === 'vi' ? 'Ưu tiên từ cần ôn' : 'Priority Review'}</span>
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setReviewScope('due')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      reviewScope === 'due'
+                        ? theme === 'cinema'
+                          ? 'border-amber-500 bg-amber-500/10 shadow-sm ring-1 ring-amber-500/30'
+                          : 'border-sky-500 bg-white shadow-sm ring-2 ring-sky-500/20'
+                        : theme === 'cinema'
+                        ? 'border-amber-500/20 bg-stone-900/60 hover:border-amber-500/40 text-stone-300'
+                        : 'border-slate-200 hover:border-slate-300 bg-white/60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <span className="font-bold text-xs">
+                        🎯 {lang === 'vi' ? 'Cần ôn ngay (SRS)' : 'Due for Review'}
+                      </span>
+                      <span
+                        className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${
+                          dueCount > 0
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                            : 'bg-stone-800 text-stone-500'
+                        }`}
+                      >
+                        {dueCount}
+                      </span>
+                    </div>
+                    <p className="text-[11px] opacity-75">
+                      {lang === 'vi' ? 'Tới hạn ôn tập theo SRS & hay sai' : 'SRS due date & frequent errors'}
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReviewScope('error')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      reviewScope === 'error'
+                        ? theme === 'cinema'
+                          ? 'border-amber-500 bg-amber-500/10 shadow-sm ring-1 ring-amber-500/30'
+                          : 'border-sky-500 bg-white shadow-sm ring-2 ring-sky-500/20'
+                        : theme === 'cinema'
+                        ? 'border-amber-500/20 bg-stone-900/60 hover:border-amber-500/40 text-stone-300'
+                        : 'border-slate-200 hover:border-slate-300 bg-white/60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <span className="font-bold text-xs">
+                        ⚠️ {lang === 'vi' ? 'Từ hay bị sai' : 'Frequent Errors'}
+                      </span>
+                      <span
+                        className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${
+                          errorCount > 0
+                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                            : 'bg-stone-800 text-stone-500'
+                        }`}
+                      >
+                        {errorCount}
+                      </span>
+                    </div>
+                    <p className="text-[11px] opacity-75">
+                      {lang === 'vi' ? 'Tập trung các từ từng làm sai' : 'Focus on previously failed words'}
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReviewScope('all')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      reviewScope === 'all'
+                        ? theme === 'cinema'
+                          ? 'border-amber-500 bg-amber-500/10 shadow-sm ring-1 ring-amber-500/30'
+                          : 'border-sky-500 bg-white shadow-sm ring-2 ring-sky-500/20'
+                    : theme === 'cinema'
+                        ? 'border-amber-500/20 bg-stone-900/60 hover:border-amber-500/40 text-stone-300'
+                        : 'border-slate-200 hover:border-slate-300 bg-white/60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <span className="font-bold text-xs">
+                        📚 {lang === 'vi' ? 'Tất cả từ vựng' : 'All Vocabularies'}
+                      </span>
+                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-stone-800 text-stone-300">
+                        {filteredVocabs.length}
+                      </span>
+                    </div>
+                    <p className="text-[11px] opacity-75">
+                      {lang === 'vi' ? 'Luyện tập ngẫu nhiên cả rương' : 'Shuffle all words in chest'}
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              {/* Mode Selector */}
           <div
             className={`mt-8 text-left rounded-xl p-4 border ${
               theme === 'cinema'
@@ -616,6 +792,8 @@ export function ClozeTest() {
             <span>{lang === 'vi' ? 'Bắt đầu đục lỗ' : 'Start Cloze Test'}</span>
             <ArrowRight className="w-5 h-5" />
           </button>
+            </>
+          )}
         </div>
       </div>
     );
