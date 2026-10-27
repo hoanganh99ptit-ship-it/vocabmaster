@@ -10,6 +10,7 @@ import {
   Sparkles,
   Trophy,
   ShieldAlert,
+  RefreshCw,
 } from 'lucide-react';
 import {
   getActivePenalty,
@@ -17,6 +18,7 @@ import {
   DIFFICULTY_CONFIGS,
   type ActivePenalty,
 } from '@/lib/storage';
+import { syncUserDataWithCloud, pushUserDataToCloud } from '@/lib/cloudSync';
 import { useLanguage } from '@/context/LanguageContext';
 import type { TabKey } from '@/lib/types';
 
@@ -28,14 +30,59 @@ interface PenaltyLockModalProps {
 export function PenaltyLockModal({ onNavigateToPractice, onUnlocked }: PenaltyLockModalProps) {
   const { lang } = useLanguage();
   const [penalty, setPenalty] = useState<ActivePenalty>(() => getActivePenalty());
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   useEffect(() => {
+    // Listen for cloud synchronization events
+    const handleSync = () => {
+      const updated = getActivePenalty();
+      setPenalty(updated);
+      if (!updated.isActive && onUnlocked) {
+        onUnlocked();
+      }
+    };
+    window.addEventListener('vocabmaster_sync_completed', handleSync);
+
     // Poll penalty status occasionally to reflect instant updates from practice
     const interval = setInterval(() => {
-      setPenalty(getActivePenalty());
+      const current = getActivePenalty();
+      setPenalty(current);
+      if (!current.isActive && onUnlocked) {
+        onUnlocked();
+      }
     }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+
+    return () => {
+      window.removeEventListener('vocabmaster_sync_completed', handleSync);
+      clearInterval(interval);
+    };
+  }, [onUnlocked]);
+
+  const handleSyncCloud = async () => {
+    setIsSyncing(true);
+    try {
+      await syncUserDataWithCloud();
+      const updated = getActivePenalty();
+      setPenalty(updated);
+      if (!updated.isActive && onUnlocked) {
+        onUnlocked();
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleDirectUnlock = async () => {
+    setIsSyncing(true);
+    try {
+      clearActivePenalty();
+      await pushUserDataToCloud(true);
+      setPenalty(getActivePenalty());
+      if (onUnlocked) onUnlocked();
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   if (!penalty.isActive) return null;
 
@@ -204,11 +251,40 @@ export function PenaltyLockModal({ onNavigateToPractice, onUnlocked }: PenaltyLo
               <span>{lang === 'vi' ? 'Mở khóa ứng dụng & Tiếp tục học 🚀' : 'Unlock App & Continue 🚀'}</span>
             </button>
           ) : (
-            <p className="text-[11px] text-slate-400 italic">
-              ⚡ {lang === 'vi'
-                ? 'Kỷ luật là cầu nối giữa mục tiêu và thành công. Mỗi câu hỏi làm đúng sẽ trừ trực tiếp vào nợ phạt.'
-                : 'Discipline bridges goals and success. Each completed answer reduces your penalty debt.'}
-            </p>
+            <>
+              <p className="text-[11px] text-slate-400 italic">
+                ⚡ {lang === 'vi'
+                  ? 'Kỷ luật là cầu nối giữa mục tiêu và thành công. Mỗi câu hỏi làm đúng sẽ trừ trực tiếp vào nợ phạt.'
+                  : 'Discipline bridges goals and success. Each completed answer reduces your penalty debt.'}
+              </p>
+              <div className="mt-4 pt-3.5 border-t border-white/10 flex flex-col gap-2.5">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 text-center sm:text-left">
+                  <span className="text-xs text-slate-300">
+                    {lang === 'vi' ? 'Đã hoàn thành mục tiêu trên PC / máy khác?' : 'Completed goals on PC / another device?'}
+                  </span>
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSyncCloud}
+                      disabled={isSyncing}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600/60 text-xs font-semibold text-slate-200 hover:text-white transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-sky-400' : 'text-slate-400'}`} />
+                      <span>{isSyncing ? (lang === 'vi' ? 'Đang kiểm tra...' : 'Checking...') : (lang === 'vi' ? 'Đồng bộ từ Cloud' : 'Sync Cloud')}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDirectUnlock}
+                      disabled={isSyncing}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-xs font-bold text-white shadow-md shadow-emerald-600/30 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <Unlock className="w-3.5 h-3.5 text-emerald-200" />
+                      <span>{lang === 'vi' ? 'Mở khóa ngay (Đã xong trên PC)' : 'Unlock Now (Done on PC)'}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>

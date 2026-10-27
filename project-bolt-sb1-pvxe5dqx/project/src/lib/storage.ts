@@ -468,7 +468,10 @@ export function getWeeklyGoal(): WeeklyGoal {
 
         // New week rollover detected!
         // Check if previous week was missed to trigger automatic penalty lockout
-        const wasMissed = (parsed.quizReviewed || 0) < quizTarget || (parsed.clozeReviewed || 0) < clozeTarget;
+        const wasCompleted = Boolean(parsed.completedAt) || (
+          (parsed.quizReviewed || 0) >= quizTarget && (parsed.clozeReviewed || 0) >= clozeTarget
+        );
+        const wasMissed = !wasCompleted;
         if (wasMissed) {
           activatePenalty(difficulty, parsed.weekKey);
         }

@@ -4,6 +4,7 @@ import {
   saveWeeklyGoal,
   getActivePenalty,
   saveActivePenalty,
+  clearActivePenalty,
   getStreakData,
   saveStreakData,
   getCurrentWeekKey,
@@ -142,10 +143,18 @@ export async function syncUserDataWithCloud(currentUser?: User | null): Promise<
 
     // --- 2. MERGE ACTIVE PENALTY ---
     const localPenalty = getActivePenalty();
-    if (remotePenalty && remotePenalty.reasonWeekKey === currentWeek) {
-      if (remotePenalty.isActive && !localPenalty.isActive) {
+
+    // Determine if remote indicates last week was successfully completed or remote is already on the new week without penalty
+    const remoteWasSuccessfulLastWeek = remoteGoal && (
+      remoteGoal.weekKey === currentWeek ||
+      Boolean(remoteGoal.completedAt) ||
+      ((remoteGoal.quizReviewed || 0) >= remoteGoal.quizTarget && (remoteGoal.clozeReviewed || 0) >= remoteGoal.clozeTarget)
+    );
+
+    if (remotePenalty && remotePenalty.isActive) {
+      if (!localPenalty.isActive) {
         saveActivePenalty(remotePenalty, true);
-      } else if (remotePenalty.isActive && localPenalty.isActive) {
+      } else {
         const mergedPenalty: ActivePenalty = {
           ...remotePenalty,
           quizDone: Math.max(localPenalty.quizDone || 0, remotePenalty.quizDone || 0),
@@ -159,12 +168,18 @@ export async function syncUserDataWithCloud(currentUser?: User | null): Promise<
         if (mergedPenalty.quizDone > remotePenalty.quizDone || mergedPenalty.clozeDone > remotePenalty.clozeDone) {
           pushNeeded = true;
         }
-      } else if (!remotePenalty.isActive && localPenalty.isActive && remotePenalty.resolvedAt) {
-        // Resolved on remote, resolve locally
-        saveActivePenalty(remotePenalty, true);
       }
-    } else if (localPenalty.isActive) {
-      pushNeeded = true;
+    } else {
+      // Remote does NOT have an active penalty (remotePenalty is null or !remotePenalty.isActive)
+      if (localPenalty.isActive) {
+        // If remote was successful last week (or already on current week) or remote penalty was resolved,
+        // this local penalty was an erroneous trigger caused by stale local storage on startup.
+        if (remoteWasSuccessfulLastWeek || (remotePenalty && !remotePenalty.isActive)) {
+          clearActivePenalty();
+        } else {
+          pushNeeded = true;
+        }
+      }
     }
 
     // --- 3. MERGE STREAK DATA ---
