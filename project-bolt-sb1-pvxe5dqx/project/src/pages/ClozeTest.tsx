@@ -140,6 +140,7 @@ export function ClozeTest({ onNavigate }: ClozeTestProps = {}) {
   >([]);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const answeredAtRef = useRef<number>(0);
 
   // Available unique chests
   const availableChests = useMemo(() => {
@@ -199,6 +200,7 @@ export function ClozeTest({ onNavigate }: ClozeTestProps = {}) {
       userWon = picked === currentQ.correctIndex;
     }
 
+    answeredAtRef.current = Date.now();
     setAnswered(true);
     setIsCorrect(userWon);
 
@@ -386,8 +388,18 @@ export function ClozeTest({ onNavigate }: ClozeTestProps = {}) {
         return;
       }
 
-      // If answered: Enter or Space proceeds to the next question
+      // If answered: Enter or Space proceeds to next question (except on last question or immediately upon submit)
       if (answered && (e.key === 'Enter' || e.key === ' ')) {
+        // Prevent keypress bounce/bleed from submitting typing input
+        if (Date.now() - answeredAtRef.current < 500) {
+          return;
+        }
+
+        // On the final question, require explicit button click so user can carefully review
+        if (current + 1 >= questions.length) {
+          return;
+        }
+
         e.preventDefault();
         handleNext();
         return;
@@ -1705,20 +1717,54 @@ export function ClozeTest({ onNavigate }: ClozeTestProps = {}) {
           </div>
         )}
 
-        {/* Next Question / Finish Button (Consistent with Quiz.tsx) */}
+        {/* Next Question / Finish Button */}
         {answered && (
-          <button
-            onClick={handleNext}
-            autoFocus
-            className={`mt-6 w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-semibold transition-all shadow-md animate-fade-in cursor-pointer ${
-              theme === 'cinema'
-                ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-950 font-black hover:from-amber-500 hover:to-amber-400'
-                : 'bg-gradient-to-r from-sky-500 to-teal-500 text-white hover:from-sky-600 hover:to-teal-600'
-            }`}
-          >
-            <span>{current + 1 >= questions.length ? t('finishQuiz') : t('clozeNext')}</span>
-            <ChevronRight className="w-5 h-5" />
-          </button>
+          <div className="mt-6 animate-fade-in">
+            {current + 1 >= questions.length ? (
+              <div
+                className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-center justify-between gap-4 ${
+                  theme === 'cinema'
+                    ? 'bg-amber-950/40 border-amber-500/30'
+                    : 'bg-emerald-50/80 border-emerald-200'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 text-sm">
+                  <Trophy className="w-5 h-5 text-amber-500 flex-shrink-0 animate-bounce" />
+                  <span className={theme === 'cinema' ? 'text-amber-200 font-medium' : 'text-slate-700 font-medium'}>
+                    {lang === 'vi'
+                      ? 'Bạn vừa hoàn thành câu cuối cùng! Hãy kiểm tra lại bản dịch và từ vựng ở trên.'
+                      : 'You finished the last question! Review the sentence and vocabulary above.'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className={`w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-bold shadow-md transition-all cursor-pointer flex-shrink-0 ${
+                    theme === 'cinema'
+                      ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-stone-950 font-black hover:from-amber-400 hover:to-yellow-400'
+                      : 'bg-gradient-to-r from-sky-500 to-teal-500 text-white hover:from-sky-600 hover:to-teal-600'
+                  }`}
+                >
+                  <Trophy className="w-4 h-4" />
+                  <span>{lang === 'vi' ? 'Xem kết quả bài tập' : t('finishQuiz')}</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleNext}
+                className={`w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-semibold transition-all shadow-md cursor-pointer ${
+                  theme === 'cinema'
+                    ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-950 font-black hover:from-amber-500 hover:to-amber-400'
+                    : 'bg-gradient-to-r from-sky-500 to-teal-500 text-white hover:from-sky-600 hover:to-teal-600'
+                }`}
+              >
+                <span>{t('clozeNext')}</span>
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>
