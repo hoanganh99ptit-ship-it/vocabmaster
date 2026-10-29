@@ -1527,27 +1527,43 @@ export function ClozeTest({ onNavigate }: ClozeTestProps = {}) {
                         : '⚡ Dual Vocab Review: Chest words reinforced in this context:'}
                     </span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {currentQ.companionChestWords.map((cw, idx) => (
                       <div
                         key={idx}
-                        className={`flex items-center justify-between p-2.5 rounded-lg border text-xs ${
+                        className={`flex items-start justify-between gap-2.5 p-3 rounded-xl border text-xs transition-colors ${
                           theme === 'cinema'
                             ? 'bg-stone-900/80 border-amber-500/20 text-stone-200'
                             : 'bg-white border-slate-200 text-slate-800'
                         }`}
                       >
-                        <div className="truncate mr-2">
-                          <span className="font-bold text-amber-400 mr-1.5">{cw.word}</span>
-                          {cw.type && (
-                            <span className="text-[10px] opacity-70 mr-1.5">({cw.type})</span>
-                          )}
-                          <span className="opacity-90">{cw.meaning}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                            <span className="font-bold text-amber-400 text-sm">{cw.word}</span>
+                            {cw.type && (
+                              <span
+                                className={`text-[10px] font-semibold px-1.5 py-0.2 rounded border ${
+                                  theme === 'cinema'
+                                    ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                                    : 'bg-slate-100 text-slate-600 border-slate-200'
+                                }`}
+                              >
+                                {cw.type}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs leading-relaxed opacity-95 break-words">
+                            {cw.meaning}
+                          </div>
                         </div>
                         <button
                           type="button"
                           onClick={() => speak(cw.word, rate)}
-                          className="p-1 rounded hover:bg-amber-500/20 text-amber-400 cursor-pointer flex-shrink-0"
+                          className={`p-1.5 rounded-lg border transition-all cursor-pointer flex-shrink-0 ${
+                            theme === 'cinema'
+                              ? 'bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 border-amber-500/30'
+                              : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
+                          }`}
                           title={lang === 'vi' ? 'Nghe phát âm' : 'Pronounce'}
                         >
                           <Volume2 className="w-3.5 h-3.5" />
