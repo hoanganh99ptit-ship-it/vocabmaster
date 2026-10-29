@@ -44,6 +44,13 @@ export interface ParsedVocab {
   collocations?: CollocationItem[];
 }
 
+export interface CompanionChestWord {
+  word: string;
+  meaning: string;
+  category?: string;
+  type?: string;
+}
+
 export interface ClozeQuestion {
   vocab: Vocabulary;
   sentenceWithBlank: string;
@@ -52,6 +59,7 @@ export interface ClozeQuestion {
   hint: string;
   options: string[];
   correctIndex: number;
+  companionChestWords?: CompanionChestWord[];
 }
 
 export interface QuizQuestion {

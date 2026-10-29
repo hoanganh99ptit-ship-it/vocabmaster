@@ -33,7 +33,7 @@ import {
 } from '@/lib/soundEffects';
 import { isDueForReview } from '@/lib/srs';
 import { generateClozeQuestions } from '@/services/geminiService';
-import type { Vocabulary, ClozeQuestion, TabKey } from '@/lib/types';
+import type { Vocabulary, ClozeQuestion, TabKey, CompanionChestWord } from '@/lib/types';
 import type { TranslationKey } from '@/lib/i18n';
 
 const QUESTION_COUNTS = [5, 10, 15, 20];
@@ -134,6 +134,7 @@ export function ClozeTest({ onNavigate }: ClozeTestProps = {}) {
       sentenceWithBlank: string;
       userAnswer: string;
       translation: string;
+      companionChestWords?: CompanionChestWord[];
     }>
   >([]);
 
@@ -235,6 +236,7 @@ export function ClozeTest({ onNavigate }: ClozeTestProps = {}) {
         sentenceWithBlank: currentQ.sentenceWithBlank,
         userAnswer: finalAnswer,
         translation: currentQ.translation,
+        companionChestWords: currentQ.companionChestWords,
       },
     ]);
   };
@@ -286,8 +288,17 @@ export function ClozeTest({ onNavigate }: ClozeTestProps = {}) {
 
     const chosenVocabs = candidatePool.slice(0, targetCount);
 
+    // Prioritize words from the selected chest, followed by all remaining chest words
+    const orderedAllVocabs =
+      selectedChest === 'ALL'
+        ? vocabs
+        : [
+            ...vocabs.filter((v) => v.category === selectedChest),
+            ...vocabs.filter((v) => v.category !== selectedChest),
+          ];
+
     try {
-      const generated = await generateClozeQuestions(chosenVocabs, vocabs);
+      const generated = await generateClozeQuestions(chosenVocabs, orderedAllVocabs);
       if (generated.length === 0) {
         show(t('clozeEmpty'), 'error');
         setPhase('setup');
@@ -598,9 +609,47 @@ export function ClozeTest({ onNavigate }: ClozeTestProps = {}) {
                 </div>
               </div>
 
+              {/* Chest Vocabulary Integration Feature Indicator */}
+              <div
+                className={`mt-4 text-left rounded-xl p-3.5 border flex items-center gap-3 transition-all ${
+                  theme === 'cinema'
+                    ? 'bg-amber-950/20 border-amber-500/30 text-amber-200'
+                    : 'bg-emerald-50/70 border-emerald-200 text-slate-700'
+                }`}
+              >
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                    theme === 'cinema'
+                      ? 'bg-amber-500/20 text-amber-300'
+                      : 'bg-emerald-100 text-emerald-600'
+                  }`}
+                >
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div className="flex-1 text-xs">
+                  <div className="font-bold flex items-center gap-2 mb-0.5">
+                    <span>{lang === 'vi' ? '⚡ Tận dụng từ vựng trong rương' : '⚡ Chest Vocabulary Integration'}</span>
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                        theme === 'cinema'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                          : 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                      }`}
+                    >
+                      {lang === 'vi' ? 'Tự động kích hoạt' : 'Active'}
+                    </span>
+                  </div>
+                  <p className="opacity-80 leading-relaxed">
+                    {lang === 'vi'
+                      ? `Các câu đục lỗ sẽ tự động đan xen các từ vựng khác trong rương (${filteredVocabs.length} từ) để bạn tối ưu việc liên tưởng và củng cố từ vựng.`
+                      : `Contextual sentences will weave other words from your chest (${filteredVocabs.length} words) to maximize associative retention.`}
+                  </p>
+                </div>
+              </div>
+
               {/* Mode Selector */}
           <div
-            className={`mt-8 text-left rounded-xl p-4 border ${
+            className={`mt-6 text-left rounded-xl p-4 border ${
               theme === 'cinema'
                 ? 'bg-[#15100c] border-amber-600/30'
                 : 'bg-slate-50 border-slate-200'
@@ -1001,6 +1050,34 @@ export function ClozeTest({ onNavigate }: ClozeTestProps = {}) {
                 {r.translation && (
                   <div className="text-xs text-slate-400 mt-0.5">{r.translation}</div>
                 )}
+                {r.companionChestWords && r.companionChestWords.length > 0 && (
+                  <div className="mt-2.5 pt-2 border-t border-slate-200/40 flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[11px] font-bold text-amber-500 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      <span>{lang === 'vi' ? 'Từ ôn kèm trong rương:' : 'Companion chest words:'}</span>
+                    </span>
+                    {r.companionChestWords.map((cw, idx) => (
+                      <span
+                        key={idx}
+                        className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border font-medium ${
+                          theme === 'cinema'
+                            ? 'bg-stone-900 border-amber-500/25 text-amber-200'
+                            : 'bg-slate-100 border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        <strong className="text-amber-400">{cw.word}</strong>: {cw.meaning}
+                        <button
+                          type="button"
+                          onClick={() => speak(cw.word, rate)}
+                          className="opacity-70 hover:opacity-100 cursor-pointer ml-0.5"
+                          title={lang === 'vi' ? 'Nghe phát âm' : 'Pronounce'}
+                        >
+                          <Volume2 className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {!r.correct && r.userAnswer && (
                   <div className="text-xs text-rose-600 font-semibold mt-1">
                     {lang === 'vi' ? 'Bạn đã chọn/điền:' : 'You answered:'} &quot;{r.userAnswer}&quot;
@@ -1221,6 +1298,40 @@ export function ClozeTest({ onNavigate }: ClozeTestProps = {}) {
         >
           {renderSentenceWithBlank()}
 
+          {/* Companion Chest Words in Sentence (Active associative review) */}
+          {currentQ.companionChestWords && currentQ.companionChestWords.length > 0 && (
+            <div className="mt-4 pt-3.5 border-t border-slate-200/40 flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-bold text-amber-500 flex items-center gap-1.5 mr-1">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <span>{lang === 'vi' ? 'Từ trong rương xuất hiện:' : 'Chest words in sentence:'}</span>
+              </span>
+              {currentQ.companionChestWords.map((cw, idx) => (
+                <div
+                  key={idx}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold ${
+                    theme === 'cinema'
+                      ? 'bg-amber-950/40 border-amber-500/35 text-amber-200'
+                      : 'bg-white border-slate-200 text-slate-800 shadow-xs'
+                  }`}
+                >
+                  <span className="text-amber-400 font-bold">{cw.word}</span>
+                  <span className="text-[11px] opacity-75">({cw.meaning})</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      speak(cw.word, rate);
+                    }}
+                    className="opacity-70 hover:opacity-100 hover:text-amber-400 cursor-pointer p-0.5 ml-0.5"
+                    title={lang === 'vi' ? 'Nghe phát âm' : 'Pronounce'}
+                  >
+                    <Volume2 className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Full Sentence Audio & Translation & Word Meaning (when answered) */}
           {answered && (
             <div className="mt-5 pt-4 border-t border-slate-200/40 space-y-3 animate-fade-in">
@@ -1304,6 +1415,54 @@ export function ClozeTest({ onNavigate }: ClozeTestProps = {}) {
                     {lang === 'vi' ? 'Dịch nghĩa câu:' : 'Sentence Translation:'}
                   </span>
                   {currentQ.translation}
+                </div>
+              )}
+
+              {/* Companion Chest Words Review Box */}
+              {currentQ.companionChestWords && currentQ.companionChestWords.length > 0 && (
+                <div
+                  className={`p-3.5 rounded-xl border ${
+                    theme === 'cinema'
+                      ? 'bg-amber-950/30 border-amber-500/30'
+                      : 'bg-emerald-50/70 border-emerald-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-500 mb-2">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>
+                      {lang === 'vi'
+                        ? '⚡ Ôn tập kép: Từ vựng trong rương được củng cố trong câu này:'
+                        : '⚡ Dual Vocab Review: Chest words reinforced in this context:'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {currentQ.companionChestWords.map((cw, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex items-center justify-between p-2.5 rounded-lg border text-xs ${
+                          theme === 'cinema'
+                            ? 'bg-stone-900/80 border-amber-500/20 text-stone-200'
+                            : 'bg-white border-slate-200 text-slate-800'
+                        }`}
+                      >
+                        <div className="truncate mr-2">
+                          <span className="font-bold text-amber-400 mr-1.5">{cw.word}</span>
+                          {cw.type && (
+                            <span className="text-[10px] opacity-70 mr-1.5">({cw.type})</span>
+                          )}
+                          <span className="opacity-90">{cw.meaning}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => speak(cw.word, rate)}
+                          className="p-1 rounded hover:bg-amber-500/20 text-amber-400 cursor-pointer flex-shrink-0"
+                          title={lang === 'vi' ? 'Nghe phát âm' : 'Pronounce'}
+                        >
+                          <Volume2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

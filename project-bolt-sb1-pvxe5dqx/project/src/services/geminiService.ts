@@ -1,4 +1,4 @@
-import type { Language, Vocabulary, ClozeQuestion, CollocationItem } from '@/lib/types';
+import type { Language, Vocabulary, ClozeQuestion, CollocationItem, CompanionChestWord } from '@/lib/types';
 import type { GrammarEvaluation, DetectedError, NativeAlternative, ErrorType } from '@/lib/grammarCheck';
 import {
   getCollocationsForWordFromCache,
@@ -1058,38 +1058,132 @@ export async function generateClozeQuestions(
 ): Promise<ClozeQuestion[]> {
   if (targetVocabs.length === 0) return [];
 
-  // Helper to get 3 random distractors from allVocabs or standard vocabulary pool
-  const getRandomDistractors = (targetWord: string): string[] => {
-    const candidates = allVocabs
-      .map((v) => v.word.trim().toLowerCase())
-      .filter((w) => w && w !== targetWord.toLowerCase());
+  // Candidate companion words from the user's chest (excluding current targets)
+  const candidateChestVocabs = allVocabs.filter(
+    (v) => !targetVocabs.some((tv) => tv.id === v.id || tv.word.toLowerCase() === v.word.toLowerCase())
+  );
 
-    const shuffled = [...candidates].sort(() => Math.random() - 0.5);
-    const result = shuffled.slice(0, 3);
+  // Helper to detect and extract companion chest words appearing in a sentence
+  const detectCompanionWords = (
+    sentence: string,
+    targetWord: string,
+    candidates: Vocabulary[],
+    suggestedWords?: string[]
+  ): CompanionChestWord[] => {
+    const result: CompanionChestWord[] = [];
+    const seen = new Set<string>();
+    const targetLower = targetWord.toLowerCase().trim();
+
+    // 1. Check explicitly suggested words from AI
+    if (Array.isArray(suggestedWords)) {
+      for (const sw of suggestedWords) {
+        const swClean = (sw || '').trim().toLowerCase();
+        if (!swClean || swClean === targetLower || seen.has(swClean)) continue;
+        const matched = candidates.find((c) => c.word.toLowerCase().trim() === swClean);
+        if (matched) {
+          seen.add(swClean);
+          result.push({
+            word: matched.word,
+            meaning: matched.meaning,
+            category: matched.category,
+            type: matched.type,
+          });
+        }
+      }
+    }
+
+    // 2. Scan sentence for whole-word matches against chest candidates
+    for (const cand of candidates) {
+      const candWord = cand.word.trim();
+      const candLower = candWord.toLowerCase();
+      // Skip very short words (<= 2 chars) to prevent false positives
+      if (candLower.length <= 2 || candLower === targetLower || seen.has(candLower)) continue;
+
+      const escaped = candWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+      if (regex.test(sentence)) {
+        seen.add(candLower);
+        result.push({
+          word: cand.word,
+          meaning: cand.meaning,
+          category: cand.category,
+          type: cand.type,
+        });
+      }
+      if (result.length >= 3) break; // Keep up to 3 companion words per sentence for focused review
+    }
+
+    return result;
+  };
+
+  // Helper to get 3 distractors, prioritizing words from the user's chest
+  const getRandomDistractors = (targetWord: string, targetVocab?: Vocabulary): string[] => {
+    const targetLower = targetWord.toLowerCase().trim();
+    const targetType = (targetVocab?.type || '').toLowerCase();
+    const targetCat = (targetVocab?.category || '').toLowerCase();
+
+    // 1. Prioritize words in the same category or of similar part of speech from user's chest
+    const chestSameTypeOrCat = allVocabs.filter((v) => {
+      const w = v.word.trim().toLowerCase();
+      if (!w || w === targetLower) return false;
+      const vt = (v.type || '').toLowerCase();
+      const vc = (v.category || '').toLowerCase();
+      return (
+        (targetType && vt && (vt.includes(targetType) || targetType.includes(vt))) ||
+        (targetCat && vc && vc === targetCat)
+      );
+    });
+
+    // 2. Other words in the user's chest
+    const otherChest = allVocabs.filter((v) => {
+      const w = v.word.trim().toLowerCase();
+      return w && w !== targetLower && !chestSameTypeOrCat.some((c) => c.id === v.id);
+    });
+
+    const shuffledSame = [...chestSameTypeOrCat].sort(() => Math.random() - 0.5);
+    const shuffledOther = [...otherChest].sort(() => Math.random() - 0.5);
+
+    const result: string[] = [];
+    for (const item of [...shuffledSame, ...shuffledOther]) {
+      const w = item.word.trim();
+      if (!result.map((r) => r.toLowerCase()).includes(w.toLowerCase())) {
+        result.push(w);
+      }
+      if (result.length >= 3) break;
+    }
 
     const backupPool = [
       'protect', 'reduce', 'maintain', 'explore', 'create', 'improve',
       'decision', 'challenge', 'environment', 'solution', 'resource',
       'essential', 'natural', 'complex', 'significant', 'practical',
       'acquire', 'sustain', 'distribute', 'conclude', 'establish'
-    ].filter((w) => w !== targetWord.toLowerCase());
+    ].filter((w) => w !== targetLower);
 
     while (result.length < 3) {
       const backupWord = backupPool[Math.floor(Math.random() * backupPool.length)];
-      if (!result.includes(backupWord) && backupWord !== targetWord.toLowerCase()) {
+      if (!result.includes(backupWord) && backupWord !== targetLower) {
         result.push(backupWord);
       }
     }
-    return result;
+    return result.slice(0, 3);
   };
 
-  // High-fidelity contextual fallback that embeds target word into authentic sentences by part of speech
+  // High-fidelity contextual fallback that embeds target word and chest companion words
   const fallbackQuestions = (vocabList: Vocabulary[]): ClozeQuestion[] => {
     return vocabList.map((v, i) => {
-      const distractors = getRandomDistractors(v.word);
+      const distractors = getRandomDistractors(v.word, v);
       const options = [v.word, ...distractors].sort(() => Math.random() - 0.5);
       const correctIndex = options.indexOf(v.word);
       const firstLetter = v.word.charAt(0).toUpperCase();
+
+      // Pick a companion word from chest if available
+      const companion = candidateChestVocabs.length > 0
+        ? candidateChestVocabs[i % candidateChestVocabs.length]
+        : null;
+
+      const companionList: CompanionChestWord[] = companion
+        ? [{ word: companion.word, meaning: companion.meaning, category: companion.category, type: companion.type }]
+        : [];
 
       // Check if word has a cached authentic example sentence
       const cached = getExampleForWordFromCache(v.word);
@@ -1098,6 +1192,7 @@ export async function generateClozeQuestions(
 
       if (cached?.sentence && wordRegex.test(cached.sentence)) {
         const sentenceWithBlank = cached.sentence.replace(wordRegex, '______');
+        const detected = detectCompanionWords(cached.sentence, v.word, candidateChestVocabs);
         return {
           vocab: v,
           sentenceWithBlank,
@@ -1106,85 +1201,58 @@ export async function generateClozeQuestions(
           hint: `Bắt đầu bằng: ${firstLetter}... | Nghĩa: ${v.meaning}`,
           options,
           correctIndex,
+          companionChestWords: detected.length > 0 ? detected : companionList,
         };
       }
 
-      // Contextual sentences by part of speech
+      // Contextual sentences by part of speech incorporating companion chest word when available
       const t = (v.type || '').toLowerCase();
       let sentenceWithBlank = '';
       let fullSentence = '';
       let translation = '';
 
+      const compText = companion ? ` (${companion.word}: ${companion.meaning})` : '';
+
       if (t.includes('verb') || t.includes('động')) {
-        const verbTemplates = [
-          {
-            s: `The entire project team worked together to ______ all remaining challenges before launch.`,
-            f: `The entire project team worked together to ${v.word} all remaining challenges before launch.`,
-            tr: `Cả đội dự án đã cùng nhau làm việc để ${v.meaning} mọi khó khăn còn lại trước khi ra mắt.`
-          },
-          {
-            s: `In order to grow sustainably, the organization must ______ modern technologies and strategies.`,
-            f: `In order to grow sustainably, the organization must ${v.word} modern technologies and strategies.`,
-            tr: `Để phát triển bền vững, tổ chức phải ${v.meaning} các công nghệ và chiến lược hiện đại.`
-          },
-          {
-            s: `She made a bold decision to ______ new opportunities in her professional career.`,
-            f: `She made a bold decision to ${v.word} new opportunities in her professional career.`,
-            tr: `Cô ấy đã đưa ra quyết định táo bạo để ${v.meaning} những cơ hội mới trong sự nghiệp của mình.`
-          }
-        ];
-        const picked = verbTemplates[i % verbTemplates.length];
-        sentenceWithBlank = picked.s;
-        fullSentence = picked.f;
-        translation = picked.tr;
+        if (companion) {
+          sentenceWithBlank = `To foster better ${companion.word}, the team collaborated to ______ key challenges before launch.`;
+          fullSentence = `To foster better ${companion.word}, the team collaborated to ${v.word} key challenges before launch.`;
+          translation = `Để thúc đẩy ${companion.meaning} tốt hơn, nhóm đã phối hợp để ${v.meaning} các thách thức quan trọng trước khi ra mắt.`;
+        } else {
+          sentenceWithBlank = `The entire project team worked together to ______ all remaining challenges before launch.`;
+          fullSentence = `The entire project team worked together to ${v.word} all remaining challenges before launch.`;
+          translation = `Cả đội dự án đã cùng nhau làm việc để ${v.meaning} mọi khó khăn còn lại trước khi ra mắt.`;
+        }
       } else if (t.includes('adj') || t.includes('tính')) {
-        const adjTemplates = [
-          {
-            s: `Her ______ attitude and dedication inspired everyone during the demanding crisis.`,
-            f: `Her ${v.word} attitude and dedication inspired everyone during the demanding crisis.`,
-            tr: `Thái độ ${v.meaning} và sự tận tâm của cô ấy đã truyền cảm hứng cho mọi người trong suốt cuộc khủng hoảng.`
-          },
-          {
-            s: `Maintaining a ______ perspective is crucial when navigating uncertain and complex situations.`,
-            f: `Maintaining a ${v.word} perspective is crucial when navigating uncertain and complex situations.`,
-            tr: `Duy trì một góc nhìn ${v.meaning} là điều cốt yếu khi xử lý các tình huống phức tạp và bất định.`
-          },
-          {
-            s: `The director commended the candidate for presenting a remarkably ______ and convincing proposal.`,
-            f: `The director commended the candidate for presenting a remarkably ${v.word} and convincing proposal.`,
-            tr: `Giám đốc đã khen ngợi ứng viên vì đã trình bày một bản đề xuất vô cùng ${v.meaning} và đầy sức thuyết phục.`
-          }
-        ];
-        const picked = adjTemplates[i % adjTemplates.length];
-        sentenceWithBlank = picked.s;
-        fullSentence = picked.f;
-        translation = picked.tr;
+        if (companion) {
+          sentenceWithBlank = `Maintaining a ______ mindset helped them preserve ${companion.word} during the demanding crisis.`;
+          fullSentence = `Maintaining a ${v.word} mindset helped them preserve ${companion.word} during the demanding crisis.`;
+          translation = `Duy trì tư duy ${v.meaning} đã giúp họ bảo vệ ${companion.meaning} trong suốt cuộc khủng hoảng.`;
+        } else {
+          sentenceWithBlank = `Her ______ attitude and dedication inspired everyone during the demanding crisis.`;
+          fullSentence = `Her ${v.word} attitude and dedication inspired everyone during the demanding crisis.`;
+          translation = `Thái độ ${v.meaning} và sự tận tâm của cô ấy đã truyền cảm hứng cho mọi người trong suốt cuộc khủng hoảng.`;
+        }
       } else if (t.includes('adv') || t.includes('trạng')) {
-        sentenceWithBlank = `The specialist analyzed the data ______ to ensure complete accuracy before reporting.`;
-        fullSentence = `The specialist analyzed the data ${v.word} to ensure complete accuracy before reporting.`;
-        translation = `Chuyên gia đã phân tích dữ liệu một cách ${v.meaning} để đảm bảo độ chính xác tuyệt đối trước khi báo cáo.`;
+        if (companion) {
+          sentenceWithBlank = `The specialist analyzed the ${companion.word} ______ to ensure complete accuracy before reporting.`;
+          fullSentence = `The specialist analyzed the ${companion.word} ${v.word} to ensure complete accuracy before reporting.`;
+          translation = `Chuyên gia đã phân tích ${companion.meaning} một cách ${v.meaning} để đảm bảo độ chính xác tuyệt đối trước khi báo cáo.`;
+        } else {
+          sentenceWithBlank = `The specialist analyzed the data ______ to ensure complete accuracy before reporting.`;
+          fullSentence = `The specialist analyzed the data ${v.word} to ensure complete accuracy before reporting.`;
+          translation = `Chuyên gia đã phân tích dữ liệu một cách ${v.meaning} để đảm bảo độ chính xác tuyệt đối trước khi báo cáo.`;
+        }
       } else {
-        const nounTemplates = [
-          {
-            s: `Establishing a strong foundation is an essential ______ for achieving meaningful success in life.`,
-            f: `Establishing a strong foundation is an essential ${v.word} for achieving meaningful success in life.`,
-            tr: `Xây dựng một nền tảng vững chắc là một ${v.meaning} thiết yếu để đạt được thành công có ý nghĩa trong cuộc sống.`
-          },
-          {
-            s: `The team gathered in the conference room to discuss the key ______ affecting their weekly progress.`,
-            f: `The team gathered in the conference room to discuss the key ${v.word} affecting their weekly progress.`,
-            tr: `Nhóm đã họp tại phòng hội nghị để thảo luận về ${v.meaning} quan trọng ảnh hưởng đến tiến độ tuần.`
-          },
-          {
-            s: `Continuous self-improvement is a vital ______ that helps individuals reach their full potential.`,
-            f: `Continuous self-improvement is a vital ${v.word} that helps individuals reach their full potential.`,
-            tr: `Không ngừng hoàn thiện bản thân là một ${v.meaning} quan trọng giúp mỗi cá nhân phát huy tối đa tiềm năng.`
-          }
-        ];
-        const picked = nounTemplates[i % nounTemplates.length];
-        sentenceWithBlank = picked.s;
-        fullSentence = picked.f;
-        translation = picked.tr;
+        if (companion) {
+          sentenceWithBlank = `Building a clear ______ allowed the organization to achieve meaningful ${companion.word}.`;
+          fullSentence = `Building a clear ${v.word} allowed the organization to achieve meaningful ${companion.word}.`;
+          translation = `Xây dựng một ${v.meaning} rõ ràng đã cho phép tổ chức đạt được ${companion.meaning} có ý nghĩa.`;
+        } else {
+          sentenceWithBlank = `Establishing a strong foundation is an essential ______ for achieving meaningful success in life.`;
+          fullSentence = `Establishing a strong foundation is an essential ${v.word} for achieving meaningful success in life.`;
+          translation = `Xây dựng một nền tảng vững chắc là một ${v.meaning} thiết yếu để đạt được thành công có ý nghĩa trong cuộc sống.`;
+        }
       }
 
       return {
@@ -1192,9 +1260,10 @@ export async function generateClozeQuestions(
         sentenceWithBlank,
         fullSentence,
         translation,
-        hint: `Bắt đầu bằng: ${firstLetter}... | Nghĩa: ${v.meaning}`,
+        hint: `Bắt đầu bằng: ${firstLetter}... | Nghĩa: ${v.meaning}${compText ? ` | Ôn kèm: ${companion?.word}` : ''}`,
         options,
         correctIndex,
+        companionChestWords: companionList,
       };
     });
   };
@@ -1218,26 +1287,48 @@ export async function generateClozeQuestions(
           const itemsText = batch
             .map(
               (v, idx) =>
-                `${idx + 1}. id="${v.id}" Word: "${v.word}", Type: "${v.type || 'word'}", Meaning: "${v.meaning}"`
+                `${idx + 1}. id="${v.id}" Word: "${v.word}", Type: "${v.type || 'word'}", Meaning: "${v.meaning}", Category: "${v.category || 'General'}"`
             )
             .join('\n');
+
+          // Select up to 15 diverse companion words from the user's chest to offer Gemini
+          const batchExcluded = new Set(batch.map((b) => b.word.toLowerCase().trim()));
+          const chestPool = allVocabs.filter(
+            (v) => !batchExcluded.has(v.word.toLowerCase().trim())
+          );
+          const shuffledChest = [...chestPool].sort(() => Math.random() - 0.5);
+          const companionSample = shuffledChest.slice(0, 15);
+          const companionSampleText =
+            companionSample.length > 0
+              ? companionSample.map((c) => `"${c.word}" (${c.meaning})`).join(', ')
+              : 'None available';
 
           const prompt = `You are an expert English language examiner creating Contextual Cloze Deletion Test (đục lỗ ngữ cảnh) questions for English learners.
 
 For each vocabulary entry below, create a natural, realistic English sentence that uses the word in a clear, meaningful, real-life context (workplace, academics, daily life, social interactions).
 Replace the target word in the sentence with "______" (6 underscores).
 
+SPECIAL PEDAGOGICAL FEATURE - REINFORCE USER'S PERSONAL VOCABULARY CHEST:
+The user has a personal vocabulary chest with the following words they are actively learning:
+[ ${companionSampleText} ]
+
+INSTRUCTION FOR VOCABULARY REINFORCEMENT:
+Whenever natural, fluent, and grammatically appropriate, WEAVE 1 OR 2 of these chest vocabulary words into each sentence context (outside the blank).
+This allows the learner to encounter and review multiple words from their chest simultaneously in an authentic situation!
+If a companion chest word is used, list it in the "companionChestWords" field. (Do not force words if they sound unnatural).
+
 CRITICAL PEDAGOGICAL RULES:
 - The sentence MUST be a real, meaningful English scenario (dialogue, action, narration) where the target word fits naturally.
 - NEVER write meta-sentences defining the word (e.g. NEVER write "The word ______ means..." or "Learning ______ is helpful"). The word must be an organic part of the sentence itself.
 - In "fullSentence", include the target word in the exact form provided.
-- In "sentenceWithBlank", replace the target word with "______" (6 underscores). Keep punctuation intact.
+- In "sentenceWithBlank", replace ONLY the target word with "______" (6 underscores). Keep punctuation intact.
+- In "companionChestWords", output an array of string words from the user's chest that appear in the sentence (excluding the target word).
 - Provide a clear, natural Vietnamese translation of the full sentence.
 - Provide a helpful contextual hint in Vietnamese (describing the context clue or situational meaning).
 - Provide exactly 3 different English words (distractors) of the same part of speech that are plausible in general English, but incorrect in this specific context.
 - Return exactly ${batch.length} items in the same order as input.
 
-Vocabulary list:
+Target Vocabulary list:
 ${itemsText}
 
 Return strictly a JSON array matching this schema:
@@ -1248,12 +1339,13 @@ Return strictly a JSON array matching this schema:
     "fullSentence": "Despite facing numerous setbacks, the community proved to be remarkably resilient and rebuilt their homes quickly.",
     "translation": "Dù phải đối mặt với nhiều thất bại, cộng đồng đã tỏ ra vô cùng kiên cường và nhanh chóng xây dựng lại nhà cửa.",
     "hint": "Khả năng phục hồi nhanh chóng sau khó khăn hoặc tổn thất",
+    "companionChestWords": ["setbacks"],
     "distractors": ["fragile", "vulnerable", "hesitant"]
   }
 ]`;
 
           const text = await geminiGenerate(prompt, {
-            temperature: 0.2,
+            temperature: 0.25,
             responseMimeType: 'application/json',
           });
 
@@ -1263,6 +1355,7 @@ Return strictly a JSON array matching this schema:
             fullSentence: string;
             translation: string;
             hint: string;
+            companionChestWords?: string[];
             distractors?: string[];
           }>>(text);
 
@@ -1301,11 +1394,11 @@ Return strictly a JSON array matching this schema:
             // Ensure distractor words exist and don't contain the target word
             let distractors = Array.isArray(generated.distractors) && generated.distractors.length >= 3
               ? generated.distractors.slice(0, 3)
-              : getRandomDistractors(vocab.word);
+              : getRandomDistractors(vocab.word, vocab);
 
             distractors = distractors.filter((d) => d.toLowerCase() !== vocab.word.toLowerCase());
             while (distractors.length < 3) {
-              const extra = getRandomDistractors(vocab.word);
+              const extra = getRandomDistractors(vocab.word, vocab);
               for (const item of extra) {
                 if (!distractors.includes(item) && item.toLowerCase() !== vocab.word.toLowerCase()) {
                   distractors.push(item);
@@ -1317,6 +1410,14 @@ Return strictly a JSON array matching this schema:
             const options = [vocab.word, ...distractors].sort(() => Math.random() - 0.5);
             const correctIndex = options.indexOf(vocab.word);
 
+            // Detect and collect all companion chest words present in the full sentence
+            const companionChestWords = detectCompanionWords(
+              fullSentence,
+              vocab.word,
+              candidateChestVocabs,
+              generated.companionChestWords
+            );
+
             return {
               vocab,
               sentenceWithBlank,
@@ -1325,6 +1426,7 @@ Return strictly a JSON array matching this schema:
               hint: generated.hint || vocab.meaning,
               options,
               correctIndex,
+              companionChestWords,
             };
           });
         } catch (batchErr) {
