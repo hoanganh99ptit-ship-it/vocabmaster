@@ -1322,6 +1322,7 @@ CRITICAL PEDAGOGICAL RULES:
 - NEVER write meta-sentences defining the word (e.g. NEVER write "The word ______ means..." or "Learning ______ is helpful"). The word must be an organic part of the sentence itself.
 - In "fullSentence", include the target word in the exact form provided.
 - In "sentenceWithBlank", replace ONLY the target word with "______" (6 underscores). Keep punctuation intact.
+- CRITICAL: There must be EXACTLY ONE blank in the entire sentence (for the target word ONLY). DO NOT blank out companion chest words or any other words! Companion chest words MUST be written out fully in both "fullSentence" and "sentenceWithBlank" so the learner reads them in context!
 - In "companionChestWords", output an array of string words from the user's chest that appear in the sentence (excluding the target word).
 - MANDATORY REQUIREMENT: Provide a full, natural Vietnamese translation of the entire fullSentence in "translation". NEVER leave "translation" empty or omitted.
 - Provide a helpful contextual hint in Vietnamese (describing the context clue or situational meaning).
@@ -1380,26 +1381,34 @@ Return strictly a JSON array matching this schema:
               return fallbackQuestions([vocab])[0];
             }
 
-            let sentenceWithBlank = (generated.sentenceWithBlank || '').trim();
             let fullSentence = (generated.fullSentence || '').trim();
+            let sentenceWithBlank = (generated.sentenceWithBlank || '').trim();
 
-            // Normalize blank placeholder
-            const blankRegex = /(?:_{3,}|\[blank\]|<blank>|\(\.{3,}\)|\.{3,})/i;
-            if (blankRegex.test(sentenceWithBlank)) {
-              sentenceWithBlank = sentenceWithBlank.replace(blankRegex, '______');
-            } else {
-              const escapedWord = vocab.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-              const wordRegex = new RegExp(`\\b${escapedWord}\\b`, 'i');
-              if (wordRegex.test(sentenceWithBlank)) {
-                sentenceWithBlank = sentenceWithBlank.replace(wordRegex, '______');
-              } else if (wordRegex.test(fullSentence)) {
-                sentenceWithBlank = fullSentence.replace(wordRegex, '______');
-              }
+            const escapedWord = vocab.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const wordRegex = new RegExp(`\\b${escapedWord}\\b`, 'i');
+
+            // 1. Ensure fullSentence has no blanks and contains the target word
+            if (fullSentence.includes('______') || /_{2,}/.test(fullSentence)) {
+              fullSentence = fullSentence.replace(/(?:_{2,}|\[blank\]|<blank>)/g, vocab.word);
             }
 
-            // Ensure fullSentence actually contains the target word
-            if (fullSentence.includes('______')) {
-              fullSentence = fullSentence.replace(/______/g, vocab.word);
+            // 2. Derive sentenceWithBlank directly from fullSentence by replacing ONLY the target word
+            // This guarantees companion chest words and other context words are NEVER blanked out!
+            if (wordRegex.test(fullSentence)) {
+              sentenceWithBlank = fullSentence.replace(wordRegex, '______');
+            } else {
+              // Fallback normalization
+              const blankRegex = /(?:_{3,}|\[blank\]|<blank>|\(\.{3,}\)|\.{3,})/i;
+              if (blankRegex.test(sentenceWithBlank)) {
+                const match = sentenceWithBlank.match(blankRegex);
+                if (match && match.index !== undefined) {
+                  const b = sentenceWithBlank.slice(0, match.index).replace(/_{2,}/g, '');
+                  const a = sentenceWithBlank.slice(match.index + match[0].length).replace(/_{2,}/g, '');
+                  sentenceWithBlank = `${b}______${a}`;
+                }
+              } else if (wordRegex.test(sentenceWithBlank)) {
+                sentenceWithBlank = sentenceWithBlank.replace(wordRegex, '______');
+              }
             }
 
             // Ensure distractor words exist and don't contain the target word

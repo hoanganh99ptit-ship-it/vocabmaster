@@ -49,19 +49,34 @@ function shuffle<T>(arr: T[]): T[] {
 
 // Resilient parsing of blank in sentence (Module scope)
 function parseSentenceParts(sentenceWithBlank: string, fullSentence: string, targetWord: string) {
-  // 1. Match standard blank or underscore sequence (3 or more underscores, or [blank], <blank>)
+  const escapedWord = targetWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const wordRegex = new RegExp(`\\b${escapedWord}\\b`, 'i');
+
+  // 1. Prioritize fullSentence: It contains the complete text, guaranteeing ONLY the target word is blanked out
+  // and all companion chest words remain fully readable!
+  if (fullSentence) {
+    const fullWordMatch = fullSentence.match(wordRegex);
+    if (fullWordMatch && fullWordMatch.index !== undefined) {
+      return {
+        before: fullSentence.slice(0, fullWordMatch.index),
+        after: fullSentence.slice(fullWordMatch.index + fullWordMatch[0].length),
+      };
+    }
+  }
+
+  // 2. Match standard blank or underscore sequence (3 or more underscores, or [blank], <blank>) in sentenceWithBlank
   const blankRegex = /(?:_{3,}|\[blank\]|<blank>|\(\.{3,}\)|\.{3,})/i;
   const match = sentenceWithBlank.match(blankRegex);
   if (match && match.index !== undefined) {
-    return {
-      before: sentenceWithBlank.slice(0, match.index),
-      after: sentenceWithBlank.slice(match.index + match[0].length),
-    };
+    let before = sentenceWithBlank.slice(0, match.index);
+    let after = sentenceWithBlank.slice(match.index + match[0].length);
+    // Sanitize any extra rogue blanks in before/after
+    before = before.replace(/_{2,}/g, '');
+    after = after.replace(/_{2,}/g, '');
+    return { before, after };
   }
 
-  // 2. If no blank placeholder was found in sentenceWithBlank, try matching targetWord (case-insensitive, whole word)
-  const escapedWord = targetWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const wordRegex = new RegExp(`\\b${escapedWord}\\b`, 'i');
+  // 3. Fallback: try matching targetWord (case-insensitive, whole word) in sentenceWithBlank
   const wordMatch = sentenceWithBlank.match(wordRegex);
   if (wordMatch && wordMatch.index !== undefined) {
     return {
@@ -70,20 +85,11 @@ function parseSentenceParts(sentenceWithBlank: string, fullSentence: string, tar
     };
   }
 
-  // 3. Fallback: try checking fullSentence for the targetWord
-  const fullWordMatch = fullSentence.match(wordRegex);
-  if (fullWordMatch && fullWordMatch.index !== undefined) {
-    return {
-      before: fullSentence.slice(0, fullWordMatch.index),
-      after: fullSentence.slice(fullWordMatch.index + fullWordMatch[0].length),
-    };
-  }
-
   // 4. Default: split by '______'
   const parts = sentenceWithBlank.split('______');
   return {
     before: parts[0] || '',
-    after: parts.slice(1).join('______'),
+    after: parts.slice(1).join(' ').replace(/_{2,}/g, ''),
   };
 }
 
