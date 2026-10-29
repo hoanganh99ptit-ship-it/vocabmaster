@@ -32,7 +32,7 @@ import {
   toggleSound,
 } from '@/lib/soundEffects';
 import { isDueForReview } from '@/lib/srs';
-import { generateClozeQuestions } from '@/services/geminiService';
+import { generateClozeQuestions, translateSentenceToVietnamese } from '@/services/geminiService';
 import type { Vocabulary, ClozeQuestion, TabKey, CompanionChestWord } from '@/lib/types';
 import type { TranslationKey } from '@/lib/i18n';
 
@@ -116,6 +116,7 @@ export function ClozeTest({ onNavigate }: ClozeTestProps = {}) {
   const [showHint, setShowHint] = useState(false);
   const [rate, setRate] = useState(getGlobalRate());
   const [sfxOn, setSfxOn] = useState(() => isSoundEnabled());
+  const [translatingSentence, setTranslatingSentence] = useState(false);
 
   useEffect(() => {
     const handleSfxChange = (e: Event) => {
@@ -331,6 +332,49 @@ export function ClozeTest({ onNavigate }: ClozeTestProps = {}) {
       }, 100);
     }
   }, [phase, mode, current, answered]);
+
+  // Auto-translate sentence if translation is missing when question is answered
+  useEffect(() => {
+    if (
+      phase === 'playing' &&
+      answered &&
+      currentQ &&
+      (!currentQ.translation || !currentQ.translation.trim())
+    ) {
+      let isMounted = true;
+      setTranslatingSentence(true);
+      translateSentenceToVietnamese(currentQ.fullSentence)
+        .then((translated) => {
+          if (isMounted && translated && translated.trim()) {
+            const cleanTr = translated.trim();
+            setQuestions((prev) => {
+              const next = [...prev];
+              if (next[current]) {
+                next[current] = { ...next[current], translation: cleanTr };
+              }
+              return next;
+            });
+            setHistoryResults((prev) => {
+              const next = [...prev];
+              if (next.length > 0 && next[next.length - 1].vocab.id === currentQ.vocab.id) {
+                next[next.length - 1] = {
+                  ...next[next.length - 1],
+                  translation: cleanTr,
+                };
+              }
+              return next;
+            });
+          }
+        })
+        .finally(() => {
+          if (isMounted) setTranslatingSentence(false);
+        });
+
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [phase, answered, current, currentQ]);
 
   // Keyboard navigation for fast interactive practice
   useEffect(() => {
@@ -1047,9 +1091,9 @@ export function ClozeTest({ onNavigate }: ClozeTestProps = {}) {
                 >
                   {r.fullSentence}
                 </div>
-                {r.translation && (
-                  <div className="text-xs text-slate-400 mt-0.5">{r.translation}</div>
-                )}
+                <div className="text-xs text-slate-400 mt-1 italic">
+                  {r.translation?.trim() || `(Dịch: Câu ngữ cảnh cho từ "${r.vocab.word}" - ${r.vocab.meaning})`}
+                </div>
                 {r.companionChestWords && r.companionChestWords.length > 0 && (
                   <div className="mt-2.5 pt-2 border-t border-slate-200/40 flex items-center gap-1.5 flex-wrap">
                     <span className="text-[11px] font-bold text-amber-500 flex items-center gap-1">
@@ -1402,21 +1446,69 @@ export function ClozeTest({ onNavigate }: ClozeTestProps = {}) {
                 </div>
               </div>
 
-              {/* Sentence Translation */}
-              {currentQ.translation && (
-                <div
-                  className={`text-sm p-3.5 rounded-xl border leading-relaxed ${
-                    theme === 'cinema'
-                      ? 'bg-stone-900/80 border-amber-500/25 text-stone-200'
-                      : 'bg-white border-slate-200 text-slate-700'
-                  }`}
-                >
-                  <span className="font-semibold text-amber-500 mr-2">
-                    {lang === 'vi' ? 'Dịch nghĩa câu:' : 'Sentence Translation:'}
-                  </span>
-                  {currentQ.translation}
+              {/* Sentence Translation (Guaranteed permanent visibility) */}
+              <div
+                className={`text-sm p-3.5 rounded-xl border leading-relaxed ${
+                  theme === 'cinema'
+                    ? 'bg-stone-900/80 border-amber-500/25 text-stone-200'
+                    : 'bg-white border-slate-200 text-slate-700'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <span className="font-semibold text-amber-500 mr-2">
+                      {lang === 'vi' ? 'Dịch nghĩa câu:' : 'Sentence Translation:'}
+                    </span>
+                    <span>
+                      {currentQ.translation?.trim() ||
+                        (translatingSentence
+                          ? (lang === 'vi' ? 'Đang tự động dịch nghĩa câu...' : 'Translating sentence...')
+                          : (lang === 'vi'
+                              ? `Câu ngữ cảnh minh họa cho từ "${currentQ.vocab.word}" (${currentQ.vocab.meaning}).`
+                              : `Contextual sentence for "${currentQ.vocab.word}" (${currentQ.vocab.meaning}).`))}
+                    </span>
+                  </div>
+                  {(!currentQ.translation || !currentQ.translation.trim()) && (
+                    <button
+                      type="button"
+                      disabled={translatingSentence}
+                      onClick={async () => {
+                        if (translatingSentence || !currentQ) return;
+                        setTranslatingSentence(true);
+                        try {
+                          const tr = await translateSentenceToVietnamese(currentQ.fullSentence);
+                          if (tr && tr.trim()) {
+                            const cleanTr = tr.trim();
+                            setQuestions((prev) => {
+                              const next = [...prev];
+                              if (next[current]) {
+                                next[current] = { ...next[current], translation: cleanTr };
+                              }
+                              return next;
+                            });
+                            setHistoryResults((prev) => {
+                              const next = [...prev];
+                              if (next.length > 0 && next[next.length - 1].vocab.id === currentQ.vocab.id) {
+                                next[next.length - 1] = {
+                                  ...next[next.length - 1],
+                                  translation: cleanTr,
+                                };
+                              }
+                              return next;
+                            });
+                          }
+                        } finally {
+                          setTranslatingSentence(false);
+                        }
+                      }}
+                      className="px-2.5 py-1 text-xs rounded-lg border font-semibold flex items-center gap-1 text-amber-400 border-amber-500/30 hover:bg-amber-500/20 cursor-pointer flex-shrink-0"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>{translatingSentence ? (lang === 'vi' ? 'Đang dịch...' : 'Translating...') : (lang === 'vi' ? 'Dịch lại' : 'Translate')}</span>
+                    </button>
+                  )}
                 </div>
-              )}
+              </div>
 
               {/* Companion Chest Words Review Box */}
               {currentQ.companionChestWords && currentQ.companionChestWords.length > 0 && (

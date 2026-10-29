@@ -1323,7 +1323,7 @@ CRITICAL PEDAGOGICAL RULES:
 - In "fullSentence", include the target word in the exact form provided.
 - In "sentenceWithBlank", replace ONLY the target word with "______" (6 underscores). Keep punctuation intact.
 - In "companionChestWords", output an array of string words from the user's chest that appear in the sentence (excluding the target word).
-- Provide a clear, natural Vietnamese translation of the full sentence.
+- MANDATORY REQUIREMENT: Provide a full, natural Vietnamese translation of the entire fullSentence in "translation". NEVER leave "translation" empty or omitted.
 - Provide a helpful contextual hint in Vietnamese (describing the context clue or situational meaning).
 - Provide exactly 3 different English words (distractors) of the same part of speech that are plausible in general English, but incorrect in this specific context.
 - Return exactly ${batch.length} items in the same order as input.
@@ -1335,6 +1335,7 @@ Return strictly a JSON array matching this schema:
 [
   {
     "id": "the entry id from input",
+    "word": "resilient",
     "sentenceWithBlank": "Despite facing numerous setbacks, the community proved to be remarkably ______ and rebuilt their homes quickly.",
     "fullSentence": "Despite facing numerous setbacks, the community proved to be remarkably resilient and rebuilt their homes quickly.",
     "translation": "Dù phải đối mặt với nhiều thất bại, cộng đồng đã tỏ ra vô cùng kiên cường và nhanh chóng xây dựng lại nhà cửa.",
@@ -1351,6 +1352,7 @@ Return strictly a JSON array matching this schema:
 
           const parsed = cleanAndParseJSON<Array<{
             id: string;
+            word?: string;
             sentenceWithBlank: string;
             fullSentence: string;
             translation: string;
@@ -1364,7 +1366,16 @@ Return strictly a JSON array matching this schema:
           }
 
           return batch.map((vocab, idx) => {
-            const generated = parsed.find((p) => p.id === vocab.id) || parsed[idx];
+            const generated =
+              parsed.find((p) => p.id === vocab.id) ||
+              parsed.find((p) => String(p.id).trim() === String(idx + 1)) ||
+              parsed.find(
+                (p) =>
+                  String((p as any).word || '').toLowerCase().trim() ===
+                  vocab.word.toLowerCase().trim()
+              ) ||
+              parsed[idx];
+
             if (!generated || !generated.sentenceWithBlank || !generated.fullSentence) {
               return fallbackQuestions([vocab])[0];
             }
@@ -1418,11 +1429,35 @@ Return strictly a JSON array matching this schema:
               generated.companionChestWords
             );
 
+            // Resilient translation extraction across all potential key names
+            let translation = (
+              generated.translation ||
+              (generated as any).translationVi ||
+              (generated as any).vietnameseTranslation ||
+              (generated as any).vietnamese ||
+              (generated as any).sentence_translation ||
+              (generated as any).sentenceTranslation ||
+              (generated as any).dichNghia ||
+              (generated as any).meaning_vi ||
+              (generated as any).vietnamese_meaning ||
+              ''
+            ).trim();
+
+            // Fallback translation guarantee: never leave translation blank
+            if (!translation) {
+              const cached = getExampleForWordFromCache(vocab.word);
+              if (cached?.translation && cached.sentence && fullSentence.toLowerCase().includes(vocab.word.toLowerCase())) {
+                translation = cached.translation;
+              } else {
+                translation = `Câu ngữ cảnh minh họa cho từ "${vocab.word}" (${vocab.meaning}).`;
+              }
+            }
+
             return {
               vocab,
               sentenceWithBlank,
               fullSentence,
-              translation: generated.translation || '',
+              translation,
               hint: generated.hint || vocab.meaning,
               options,
               correctIndex,
@@ -1441,6 +1476,25 @@ Return strictly a JSON array matching this schema:
   } catch (err) {
     console.warn('[GeminiService] generateClozeQuestions failed, falling back to local questions:', err);
     return fallbackQuestions(targetVocabs);
+  }
+}
+
+/**
+ * Translates an English sentence into natural Vietnamese using Gemini AI.
+ */
+export async function translateSentenceToVietnamese(sentence: string): Promise<string> {
+  const clean = (sentence || '').trim();
+  if (!clean) return '';
+  if (!isGeminiConfigured()) return '';
+
+  try {
+    const prompt = `Translate the following English sentence accurately and naturally into Vietnamese. Return ONLY the translated Vietnamese text, with no commentary, quotes, or markdown:
+"${clean}"`;
+    const res = await geminiGenerate(prompt, { temperature: 0.1 });
+    return res.trim().replace(/^["'«“]|["'»”]$/g, '').trim();
+  } catch (err) {
+    console.warn('[GeminiService] translateSentenceToVietnamese failed:', err);
+    return '';
   }
 }
 
